@@ -1,0 +1,53 @@
+namePrefix: {{.FullName}}-
+namespace: {{.Namespace}}
+commonLabels:
+  app.kubernetes.io/name: {{.App}}
+  app.kubernetes.io/instance: {{.FullName}}
+  app.kubernetes.io/managed-by: pod-broker
+commonAnnotations:
+  app.broker/user: {{.User}}
+resources:
+{{- range .Resources }}
+- {{ . }}
+{{- end }}
+patches:
+{{- range .Patches }}
+- {{ . }}
+{{- end }}
+
+patchesJson6902:
+{{- range .JSONPatchesService }}
+- target:
+    version: v1
+    kind: Service
+    name: {{$.ServiceName}}
+  path: {{ . }}
+{{- end }}
+{{- range .JSONPatchesVirtualService }}
+- target:
+    group: networking.istio.io
+    version: v1alpha3
+    kind: VirtualService
+    name: {{$.ServiceName}}
+  path: {{ . }}
+{{- end }}
+{{- range .JSONPatchesDeploy }}
+- target:
+    group: apps
+    version: v1
+    kind: StatefulSet
+    name: {{$.ServiceName}}
+  path: {{ . }}
+{{- end }}
+
+{{- if .AppSpec.Images }}
+images:
+  {{- range .AppSpec.Images }}
+  - name: {{ .OldRepo }}
+    newName: {{ .NewRepo }}
+    newTag: {{ .NewTag }}
+    {{- if .Digest }}
+    digest: {{ .Digest }}
+    {{- end }}
+  {{- end }}
+{{- end}}

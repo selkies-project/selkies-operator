@@ -1,0 +1,45 @@
+# Copyright 2017 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+timeout: 3600s
+substitutions:
+  _NAME: broker
+  _OAUTH_CLIENT_ID: na
+  _OAUTH_CLIENT_SECRET: na
+  _BROKER_COOKIE_SECRET: na
+steps:
+  - name: "gcr.io/cloud-builders/gsutil"
+    id: "create-tf-state-bucket"
+    entrypoint: "bash"
+    args:
+      - "-xe"
+      - "-c"
+      - |
+        gsutil mb gs://${PROJECT_ID}-${_NAME}-tf-state || true
+  - name: "gcr.io/kaniko-project/executor:latest"
+    id: "build-installer-image"
+    args:
+      - --destination=gcr.io/${PROJECT_ID}/${_NAME}-installer
+      - --cache=true
+      - --cache-ttl=12h
+  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
+    id: "terraform-destroy"
+    entrypoint: "/workspace/infra/deploy.sh"
+    args:
+      - ${PROJECT_ID}
+      - ${_NAME}
+      - ${_OAUTH_CLIENT_ID}
+      - ${_OAUTH_CLIENT_SECRET}
+      - ${_BROKER_COOKIE_SECRET}
+      - "--destroy"

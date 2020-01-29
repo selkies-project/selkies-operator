@@ -1,0 +1,7 @@
+terraform.tfvars*
+.terraform
+*.tfstate*
+backend.tf
+**/generated
+.env
+.git

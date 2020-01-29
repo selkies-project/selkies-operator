@@ -1,0 +1,93 @@
+# Copyright 2019 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: jupyter
+  annotations:
+    app.broker/user: "{{.User}}"
+spec:
+  {{- if .UserParams.enablePersistence}}
+  {{- if eq .UserParams.enablePersistence "true"}}
+  volumeClaimTemplates:
+  - metadata:
+      name: persist
+      annotations:
+        app.broker/user: "{{.User}}"
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 50Gi
+  {{- end}}
+  {{- end}}
+  template:
+    metadata:
+      annotations:
+        app.broker/user: "{{.User}}"
+    spec:
+      nodeSelector:
+        app.broker/initialized: "true"
+        app.broker/tier: {{ .NodeTier.NodeLabel }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: app.broker/initialized
+                    operator: Exists
+                  - key: app.broker/tier
+                    operator: In
+                    values: ["{{ .NodeTier.NodeLabel }}"]
+      tolerations:
+        - key: "app.broker/tier"
+          effect: "NoSchedule"
+          operator: "Exists"
+        - key: "app.broker/node-init"
+          effect: "NoSchedule"
+          operator: "Exists"
+      containers:
+      - name: jupyter
+        # Replace image with user provided image from broker.
+        image: {{.ImageRepo}}:{{.ImageTag}}
+        {{- if .UserParams.enablePersistence}}
+        {{- if eq .UserParams.enablePersistence "true"}}
+        volumeMounts:
+        - name: persist
+          mountPath: /home
+        {{- end}}
+        {{- end}}
+        env:
+        - name: BROKER_USER
+          value: "{{.User}}"
+        resources:
+          {{- if .NodeTier.Resources.Requests }}
+          requests:
+            {{- if .NodeTier.Resources.Requests.CPU }}
+            cpu: {{.NodeTier.Resources.Requests.CPU}}
+            {{- end}}
+            {{- if .NodeTier.Resources.Requests.Memory }}
+            memory: {{.NodeTier.Resources.Requests.Memory}}
+            {{- end}}
+          {{- end}}
+          {{- if .NodeTier.Resources.Limits }}
+          limits:
+            {{- if .NodeTier.Resources.Limits.CPU }}
+            cpu: {{.NodeTier.Resources.Limits.CPU}}
+            {{- end}}
+            {{- if .NodeTier.Resources.Limits.Memory }}
+            memory: {{.NodeTier.Resources.Limits.Memory}}
+            {{- end}}
+          {{- end}}

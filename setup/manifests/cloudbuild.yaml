@@ -1,0 +1,53 @@
+# Copyright 2019 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+timeout: 3600s
+substitutions:
+  _INFRA_NAME: broker
+  _INGRESS_FLAVOR: iap-ingress
+  _IMAGE_TAG: latest
+images:
+  - gcr.io/${PROJECT_ID}/broker-manifests-installer
+steps:
+  ###
+  # Builds the image used to run the deployment
+  ###
+  - name: "gcr.io/kaniko-project/executor:latest"
+    id: "build-installer-image"
+    args:
+      - --destination=gcr.io/${PROJECT_ID}/broker-manifests-installer
+      - --cache=true
+      - --cache-ttl=24h
+      - --build-arg=ISTIO_OPERATOR_RELEASE=${_ISTIO_OPERATOR_RELEASE}
+  ###
+  # Waits for the cluster to become ready.
+  ###
+  - name: "gcr.io/${PROJECT_ID}/broker-manifests-installer"
+    id: "wait-for-infra"
+    entrypoint: "/workspace/wait_for_clusters.sh"
+    args:
+      - ${_INFRA_NAME}
+      - us-west1
+
+  ###
+  # Deploys manifests to cluster.
+  ###
+  - name: "gcr.io/${PROJECT_ID}/broker-manifests-installer"
+    id: "deploy-manifests"
+    entrypoint: "/workspace/deploy.sh"
+    args:
+      - ${PROJECT_ID}
+      - ${_INFRA_NAME}
+      - ${_INGRESS_FLAVOR}
+      - ${_IMAGE_TAG}

@@ -1,0 +1,151 @@
+# Copyright 2019 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-broker-node-init
+  namespace: kube-system
+  labels:
+    app: pod-broker-node-init
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: pod-broker-node-init
+  labels:
+    app: pod-broker-node-init
+subjects:
+  - kind: ServiceAccount
+    name: pod-broker-node-init
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: pod-broker-node-init
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: pod-broker-node-init
+  namespace: kube-system
+  labels:
+    app: pod-broker-node-init
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["nodes"]
+    verbs: ["*"]
+  - apiGroups: ["gcp.solutions"]
+    resources: ["brokerappconfigs", "brokerappuserconfigs"]
+    verbs: ["*"]
+---
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: pod-broker-node-init
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: pod-broker-node-init
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 100%
+  template:
+    metadata:
+      labels:
+        app: pod-broker-node-init
+    spec:
+      serviceAccountName: pod-broker-node-init
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: app.broker/initialized
+                    operator: Exists
+                  - key: app.broker/tier
+                    operator: Exists
+      tolerations:
+        - effect: "NoSchedule"
+          operator: "Exists"
+      volumes:
+        ###
+        # Local docker socket for pulling images
+        ###
+        - name: docker
+          hostPath:
+            path: /var/run/docker.sock
+            type: File
+        ###
+        # Root filesystem from host
+        ###
+        - name: hostfs
+          hostPath:
+            path: /
+      initContainers:
+        ###
+        # Pull images
+        # This helps to speed up container startup with large images.
+        ###
+        - name: pull-images
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
+          command: ["/usr/local/bin/image-puller"]
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: docker
+              mountPath: /var/run/docker.sock
+        ###
+        # node init, set ifle limits, update node taint and label.
+        ###
+        - name: node-init
+          image: gcr.io/cloud-builders/kubectl:latest
+          securityContext:
+            privileged: true
+          command: ["/bin/bash"]
+          args:
+            - -exc
+            - |
+              while true; do
+                # Increase max file watches
+                echo 'fs.inotify.max_user_watches=524288' >> /hostfs/etc/sysctl.conf
+                echo "524288" > /proc/sys/fs/inotify/max_user_watches
+
+                # remove taint
+                kubectl taint node "${MY_NODE_NAME}" app.broker/node-init:NoSchedule- || true
+
+                # update node label to unschedule self
+                kubectl label node "${MY_NODE_NAME}" --overwrite app.broker/initialized=true
+
+                sleep 10
+              done
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: hostfs
+              mountPath: /hostfs
+      containers:
+        ###
+        # pause container
+        ###
+        - image: "gcr.io/google-containers/pause:2.0"
+          name: pause

@@ -1,0 +1,104 @@
+# Copyright 2019 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: turn
+spec:
+  selector:
+    matchLabels:
+      app: turn
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 50%
+  template:
+    metadata:
+      labels:
+        app: turn
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 10
+      hostNetwork: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: app.broker/gke-turn
+                    operator: In
+                    values: ["true"]
+      tolerations:
+        - key: "app.broker/gke-turn"
+          effect: "NoSchedule"
+          operator: "Exists"
+      containers:
+        ###
+        # coturn container
+        ###
+        - name: coturn
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-coturn:latest
+          imagePullPolicy: Always
+          env:
+            # Use broker cookie secret for shared secret
+            - name: TURN_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pod-broker
+                  key: COOKIE_SECRET
+            # TURN realm from pod broker domain config map value
+            - name: TURN_REALM
+              valueFrom:
+                configMapKeyRef:
+                  name: pod-broker-config
+                  key: POD_BROKER_PARAM_Domain
+            # Firewall rules on the node pool instances must be created manually on these port ranges.
+            - name: TURN_PORT
+              value: "3478"
+            - name: TURN_MIN_PORT
+              value: "25000"
+            - name: TURN_MAX_PORT
+              value: "25100"
+        ###
+        # web container to return TURN servers in RTC config format
+        ###
+        - name: web
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest
+          imagePullPolicy: Always
+          env:
+            # Use broker cookie secret for shared secret
+            - name: TURN_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pod-broker
+                  key: COOKIE_SECRET
+            # TURN realm from pod broker domain config map value
+            - name: TURN_REALM
+              valueFrom:
+                configMapKeyRef:
+                  name: pod-broker-config
+                  key: POD_BROKER_PARAM_Domain
+            # Running in host networking mode, so try to choose a non-common port.
+            - name: "PORT"
+              value: "8088"
+            # This is the port that will be written in the JSON response and must match what the coturn service is listening on.
+            - name: TURN_PORT
+              value: "3478"
+            # Name of the auth header to get user name from
+            - name: AUTH_HEADER_NAME
+              value: "x-goog-authenticated-user-email"
+          readinessProbe:
+            tcpSocket:
+              port: 8088

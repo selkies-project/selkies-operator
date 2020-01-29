@@ -1,0 +1,52 @@
+# Copyright 2019 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: gcp.solutions/v1
+kind: BrokerAppConfig
+metadata:
+  name: jupyter-notebook
+spec:
+  version: 1.0.0
+  name: jupyter-notebook
+  displayName: Jupyter Notebook
+  description: Jupyter Notebook
+  icon: https://upload.wikimedia.org/wikipedia/commons/3/38/Jupyter_logo.svg
+  bundle:
+    configMapRef:
+      name: jupyter-notebook-manifests-1.0.0
+  serviceName: jupyter
+  defaultRepo: gcr.io/kubeflow/jupyterhub
+  defaultTag: "1.0"
+  userParams:
+    - name: enablePersistence
+      displayName: "Persistent Home"
+      type: bool
+      default: "false"
+  defaultTier: chill
+  nodeTiers:
+    - name: chill
+      nodeLabel: tier1
+      resources:
+        requests:
+          cpu: 1
+          memory: 1Gi
+        limits:
+          cpu: 4
+          memory: 4Gi
+    - name: ludicrous
+      nodeLabel: tier2
+      resources:
+        requests:
+          cpu: 1
+          memory: 1Gi

@@ -1,0 +1,257 @@
+# Copyright 2019 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: pod-broker-gateway
+spec:
+  selector:
+    # updated with patch to match target ingressgateway
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      # Hosts should be added using kustomize patch.
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: pod-broker
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - pod-broker-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /broker/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: pod-broker
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: pod-broker
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pod-broker-config
+data:
+  POD_BROKER_PARAM_Theme: "dark"
+  POD_BROKER_PARAM_Title: "App Launcher"
+  POD_BROKER_PARAM_Domain: "broker.endpoints.my-project-id.cloud.goog"
+  POD_BROKER_PARAM_AuthHeader: "x-goog-authenticated-user-email"
+  POD_BROKER_PARAM_AuthonrizedUserRepoPattern: "gcr.io/.*"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-broker
+  labels:
+    app: pod-broker
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: pod-broker
+  labels:
+    app: pod-broker
+subjects:
+  - kind: ServiceAccount
+    name: pod-broker
+    namespace: default
+roleRef:
+  kind: Role
+  name: pod-broker
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: pod-broker
+  namespace: default
+  labels:
+    app: pod-broker
+rules:
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["*"]
+  - apiGroups: ["networking.istio.io"]
+    resources: ["gateways", "virtualservices", "serviceentries"]
+    verbs: ["*"]
+  - apiGroups: ["gcp.solutions"]
+    resources: ["brokerappconfigs", "brokerappuserconfigs"]
+    verbs: ["*"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pod-broker
+spec:
+  selector:
+    app: pod-broker
+  ports:
+    - port: 8080
+      name: pod-broker
+      targetPort: 8080
+    - port: 80
+      name: web
+      targetPort: 80
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pod-broker
+spec:
+  selector:
+    matchLabels:
+      app: pod-broker
+  serviceName: pod-broker
+  replicas: 1
+  volumeClaimTemplates: []
+  template:
+    metadata:
+      labels:
+        app: pod-broker
+    spec:
+      serviceAccountName: pod-broker
+      terminationGracePeriodSeconds: 5
+      volumes:
+        ###
+        # temp volume for building manifests
+        ###
+        - name: build
+          emptyDir: {}
+        ###
+        # temp volume for storing app configs and manifest bundles.
+        ###
+        - name: buildsrc
+          emptyDir: {}
+        ###
+        # temp volume for storing cached user configs
+        ###
+        - name: userconfig
+          emptyDir: {}
+        ###
+        # Local docker socket for pulling images
+        ###
+        - name: docker
+          hostPath:
+            path: /var/run/docker.sock
+            type: File
+
+      containers:
+        ###
+        # pod-broker
+        ###
+        - name: pod-broker
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
+          command: ["/usr/local/bin/pod-broker"]
+          workingDir: "/var/run/build"
+          # Pull default pod broker config from ConfigMap
+          # Contains keys in the form of POD_BROKER_PARAM_ValueName=Value
+          envFrom:
+            - configMapRef:
+                name: pod-broker-config
+                optional: false
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pod-broker
+                  key: COOKIE_SECRET
+          volumeMounts:
+            - name: build
+              mountPath: /var/run/build
+            - name: buildsrc
+              mountPath: /var/run/buildsrc
+            - name: userconfig
+              mountPath: /var/run/userconfig
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+        ###
+        # App config finder sidecar
+        ###
+        - name: app-finder
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
+          command: ["/usr/local/bin/app-finder"]
+          workingDir: "/var/run/buildsrc"
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: build
+              mountPath: /var/run/build
+            - name: buildsrc
+              mountPath: /var/run/buildsrc
+            - name: userconfig
+              mountPath: /var/run/userconfig
+
+        ###
+        # Image finding sidecar
+        ###
+        - name: image-list
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
+          workingDir: /var/run/build
+          command: ["/usr/local/bin/image-finder"]
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: build
+              mountPath: /var/run/build
+            - name: userconfig
+              mountPath: /var/run/userconfig
+
+        ###
+        # pod-broker web
+        ###
+        - name: web
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-web:latest
+          command: ["nginx", "-g", "daemon off;"]
+          workingDir: "/usr/share/nginx/html"
+          readinessProbe:
+            httpGet:
+              port: 80

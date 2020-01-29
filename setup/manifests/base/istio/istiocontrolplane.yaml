@@ -1,0 +1,123 @@
+# Copyright 2019 Google Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: install.istio.io/v1alpha2
+kind: IstioControlPlane
+metadata:
+  namespace: istio-operator
+  name: broker-istiocontrolplane
+spec:
+  # Profiles: https://istio.io/docs/setup/additional-setup/config-profiles/
+  # default profile: https://github.com/istio/operator/blob/1.4.2/data/profiles/default.yaml
+  profile: default
+
+  # spec: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/
+  trafficManagement:
+    components:
+      pilot:
+        k8s:
+          hpaSpec:
+            # Increasing the min replica count helps with node upgrades.
+            maxReplicas: 5
+            minReplicas: 2
+
+  policy:
+    components:
+      policy:
+        k8s:
+          hpaSpec:
+            # Increasing the min replica count helps with node upgrades.
+            maxReplicas: 5
+            minReplicas: 2
+
+  telemetry:
+    components:
+      telemetry:
+        k8s:
+          hpaSpec:
+            # Increasing the min replica count helps with node upgrades.
+            maxReplicas: 5
+            minReplicas: 2
+
+  security:
+    components:
+      citadel:
+        k8s:
+          # Citadel does not have an HPA in the default profile, but it does have a PDB.
+          # Increasing the replica count helps with node upgrades.
+          replicaCount: 2
+
+  # Config management feature
+  configManagement:
+    components:
+      galley:
+        k8s:
+          # Galley does not have an HPA in the default profile, but it does have a PDB.
+          # Increasing the replica count helps with node upgrades.
+          replicaCount: 2
+
+  autoInjection:
+    components:
+      injector:
+        k8s:
+          # Injector does not have an HPA in the default profile, but it does have a PDB.
+          # Increasing the replica count helps with node upgrades.
+          replicaCount: 2
+
+  #cni:
+
+  #coreDNS:
+
+  gateways:
+    components:
+      ingressGateway:
+        k8s:
+          hpaSpec:
+            # Increasing the min replica count helps with node upgrades.
+            maxReplicas: 5
+            minReplicas: 2
+          overlays:
+            - kind: Deployment
+              name: istio-ingressgateway
+              patches:
+                # Enable NEG support to work with GCLB and IAP
+                - path: spec.template.spec.readinessGates
+                  value:
+                    - conditionType: "cloud.google.com/load-balancer-neg-ready"
+
+            - kind: Service
+              name: istio-ingressgateway
+              patches:
+                # Add annotation to service to use NEG and IAP
+                # Full metadata replacement is a workaround for: https://github.com/istio/istio/issues/19463
+                - path: metadata
+                  value:
+                    name: istio-ingressgateway
+                    namespace: istio-system
+                    labels:
+                      app: istio-ingressgateway
+                      istio: ingressgateway
+                      release: istio
+                    annotations:
+                      cloud.google.com/neg: '{"ingress": true}'
+                      beta.cloud.google.com/backend-config: '{"ports": {"http2": "broker-iap"}}'
+
+                # Change type from LoadBalancer to NodePort
+                # This is to support GCLB and IAP
+                - path: spec.type
+                  value: NodePort
+
+                # Clear the externalTrafficPolicy for GCLB + NEG support.
+                - path: spec.externalTrafficPolicy
+                  value: ""
