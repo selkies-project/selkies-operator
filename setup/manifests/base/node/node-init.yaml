@@ -111,8 +111,9 @@ spec:
           volumeMounts:
             - name: docker
               mountPath: /var/run/docker.sock
+      containers:
         ###
-        # node init, set ifle limits, update node taint and label.
+        # node init, set inotify limits, update node taint and label.
         ###
         - name: node-init
           image: gcr.io/cloud-builders/kubectl:latest
@@ -124,7 +125,7 @@ spec:
             - |
               while true; do
                 # Increase max file watches
-                echo 'fs.inotify.max_user_watches=524288' >> /hostfs/etc/sysctl.conf
+                sed -i 's/fs.inotify.max_user_watches=.*/fs.inotify.max_user_watches=524288/g' /hostfs/etc/sysctl.d/99-gke-defaults.conf
                 echo "524288" > /proc/sys/fs/inotify/max_user_watches
 
                 # remove taint
@@ -143,9 +144,3 @@ spec:
           volumeMounts:
             - name: hostfs
               mountPath: /hostfs
-      containers:
-        ###
-        # pause container
-        ###
-        - image: "gcr.io/google-containers/pause:2.0"
-          name: pause
