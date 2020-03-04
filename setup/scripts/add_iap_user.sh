@@ -28,6 +28,8 @@ SCRIPT_DIR=$(dirname $(readlink -f $0 2>/dev/null) 2>/dev/null || echo "${PWD}/$
 # Get project from terraform outputs
 PROJECT=${GOOGLE_CLOUD_PROJECT:-${3:-$(cd ${SCRIPT_DIR}/../infra && terraform output project)}};
 
-gcloud projects add-iam-policy-binding ${PROJECT} \
-    --member="${MEMBER_TYPE}:${MEMBER}" \
-    --role='roles/iap.httpsResourceAccessor' >/dev/null
+TMP=$(mktemp --suffix _policy.json)
+gcloud projects get-iam-policy ${PROJECT} --format=json | \
+    jq '(.bindings[] | select(.role=="roles/iap.httpsResourceAccessor").members) += ["'${MEMBER_TYPE}':'${MEMBER}'"]' > ${TMP}
+gcloud projects set-iam-policy --format=json ${PROJECT} ${TMP}
+rm -f ${TMP}
