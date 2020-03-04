@@ -24,11 +24,3 @@ provider "google-beta" {
 
 data "google_client_config" "default" {
 }
-
-provider "kubernetes" {
-  alias                  = "us-west1"
-  load_config_file       = false
-  host                   = "https://${module.broker-west.endpoint}"
-  token                  = data.google_client_config.default.access_token
-  cluster_ca_certificate = base64decode(module.broker-west.ca_certificate)
-}

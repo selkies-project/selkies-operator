@@ -110,8 +110,8 @@ spec:
                       istio: ingressgateway
                       release: istio
                     annotations:
-                      cloud.google.com/neg: '{"ingress": true}'
-                      beta.cloud.google.com/backend-config: '{"ports": {"http2": "broker-iap"}}'
+                      cloud.google.com/neg: '{"exposed_ports": {"80":{}}}'
+                      anthos.cft.dev/autoneg: '{"name":"istio-ingressgateway", "max_rate_per_endpoint":100}'
 
                 # Change type from LoadBalancer to NodePort
                 # This is to support GCLB and IAP

@@ -16,17 +16,18 @@
 
 set -e
 
-[[ -z "$1" || -z "$2" ]] && echo "USAGE: $0 <user|group|domain> <member> [project id]" && exit 1
+[[ -z "$1" || -z "$2" || -z "$3" ]] && echo "USAGE: $0 <user|group|domain> <member> <project id>" && exit 1
 
 [[ ! "$1" =~ user|group|domain ]] && echo "ERROR: invalid member type '$1', must be one of user|group|domain" && exit 1
 
 MEMBER_TYPE=${1,,}
 MEMBER=$2
+PROJECT=$3
 
 SCRIPT_DIR=$(dirname $(readlink -f $0 2>/dev/null) 2>/dev/null || echo "${PWD}/$(dirname $0)")
 
 # Get project from terraform outputs
-PROJECT=${GOOGLE_CLOUD_PROJECT:-${3:-$(cd ${SCRIPT_DIR}/../infra && terraform output project)}};
+PROJECT=${GOOGLE_CLOUD_PROJECT:-$PROJECT};
 
 TMP=$(mktemp --suffix _policy.json)
 gcloud projects get-iam-policy ${PROJECT} --format=json | \

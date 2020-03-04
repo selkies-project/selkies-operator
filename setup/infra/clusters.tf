@@ -14,6 +14,40 @@
  * limitations under the License.
  */
 
+resource "google_compute_subnetwork" "broker-west" {
+  name          = "${var.name}-west"
+  ip_cidr_range = "10.2.0.0/16"
+  region        = "us-west1"
+  network       = google_compute_network.broker.self_link
+
+  secondary_ip_range = [
+    {
+      range_name    = "${var.name}-pods"
+      ip_cidr_range = "172.16.0.0/16"
+    },
+    {
+      range_name    = "${var.name}-pods-staging"
+      ip_cidr_range = "172.17.0.0/16"
+    },
+    {
+      range_name    = "${var.name}-pods-dev"
+      ip_cidr_range = "172.18.0.0/16"
+    },
+    {
+      range_name    = "${var.name}-services"
+      ip_cidr_range = "192.168.0.0/24"
+    },
+    {
+      range_name    = "${var.name}-services-staging"
+      ip_cidr_range = "192.168.1.0/24"
+    },
+    {
+      range_name    = "${var.name}-services-dev"
+      ip_cidr_range = "192.168.2.0/24"
+    }
+  ]
+}
+
 data "google_container_engine_versions" "us-west1" {
   location       = "us-west1"
   version_prefix = var.kubernetes_version_prefix

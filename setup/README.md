@@ -86,16 +86,16 @@ export COOKIE_SECRET=$(openssl rand -base64 15)
 2. Follow logs of cloud build:
 
 ```bash
-./setup/scripts/stream_logs.sh PROJECT_ID
+export PROJECT_ID=$(gcloud config get-value project)
+```
+
+```bash
+./setup/scripts/stream_logs.sh ${PROJECT_ID}
 ```
 
 ## Connect to the web interface
 
 1. Add your current user to the IAP authorized web users role:
-
-```bash
-export PROJECT_ID=$(gcloud config get-value project)
-```
 
 ```bash
 ./setup/scripts/add_iap_user.sh user $(gcloud config get-value account) ${PROJECT_ID}

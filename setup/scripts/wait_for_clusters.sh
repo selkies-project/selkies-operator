@@ -16,7 +16,7 @@
 
 set -e
 
-[[ $# -lt 2 ]] && echo "USAGE: $0 <REGION> <REGION> ..." && exit 1
+[[ $# -lt 2 ]] && echo "USAGE: $0 <INFRA NAME> <REGION> <REGION> ..." && exit 1
 
 INFRA_NAME=$1
 shift

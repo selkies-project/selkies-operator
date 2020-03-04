@@ -22,10 +22,11 @@ cd "${SCRIPT_DIR}"
 
 PROJECT_ID=$1
 INFRA_NAME=$2
-INGRESS_FLAVOR=$3
-IMAGE_TAG=$4
+IMAGE_TAG=$3
+CLUSTER_LOCATION=$4
+CLUSTER_NAME=${INFRA_NAME}-${CLUSTER_LOCATION}
 
-[[ $# -ne 4 ]] && echo "USAGE: $0 <PROJECT_ID> <INFRA_NAME> <INGRESS_FLAVOR> <IMAGE_TAG>" && exit 1
+[[ $# -ne 4 ]] && echo "USAGE: $0 <PROJECT_ID> <INFRA_NAME> <IMAGE_TAG> <CLUSTER LOCATION>" && exit 1
 
 export CYAN='\033[1;36m'
 export GREEN='\033[1;32m'
@@ -39,18 +40,14 @@ TFSTATE="gs://${PROJECT_ID}-${INFRA_NAME}-tf-state/${INFRA_NAME}/default.tfstate
 gsutil cp ${TFSTATE} ./terraform.tfstate
 terraform output
 
-# Cluster variables
-broker_west_cluster_name=$(terraform output broker-west-cluster-name)
-broker_west_cluster_location=$(terraform output broker-west-cluster-location)
-
 # Get cluster credentials for us-west1
 log_cyan "Obtaining cluster credentials..."
-gcloud container clusters get-credentials ${broker_west_cluster_name} --region=${broker_west_cluster_location}
+gcloud container clusters get-credentials ${CLUSTER_NAME} --region=${CLUSTER_LOCATION}
 
 # Install CRDs
 log_cyan "Installing CRDs"
-gke-deploy apply --project ${PROJECT_ID} --cluster ${broker_west_cluster_name} --location ${broker_west_cluster_location} --filename /opt/istio-operator/deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml
-gke-deploy apply --project ${PROJECT_ID} --cluster ${broker_west_cluster_name} --location ${broker_west_cluster_location} --filename base/pod-broker/crd.yaml
+gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename /opt/istio-operator/deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml
+gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename base/pod-broker/crd.yaml
 
 # apply CNRM CRDs with kubectl because gke-deploy is very slow.
 kubectl apply -f /opt/cnrm/install-bundle-workload-identity/crds.yaml
@@ -62,6 +59,11 @@ sed -i 's/${PROJECT_ID?}/'${PROJECT_ID}'/g' \
     base/cnrm-system/install-bundle/0-cnrm-system.yaml \
     base/cnrm-system/patch-cnrm-system-namespace.yaml
 kubectl apply -k base/cnrm-system/
+
+# Install AutoNEG controller
+log_cyan "Installing AutoNEG controller..."
+kubectl kustomize base/autoneg-system | sed 's/${PROJECT_ID}/'${PROJECT_ID}'/g' | \
+    kubectl apply -f -
 
 # Install istio operator
 log_cyan "Installing Istio operator..."
@@ -87,12 +89,8 @@ log_cyan "Istio control plane crds are ready"
 log_cyan "Generating manifest kustomizations..."
 export CLIENT_ID=${OAUTH_CLIENT_ID}
 export CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
-./make_generated_manifests.sh ${INGRESS_FLAVOR} ${IMAGE_TAG}
+./make_generated_manifests.sh ${IMAGE_TAG}
 cat generated/kustomization.yaml
-
-# Create the ingress resources
-log_cyan "Applying ingress manifests..."
-kubectl apply -k base/ingress/iap-ingress/
 
 # Apply the manifests
 log_cyan "Applying manifests..."

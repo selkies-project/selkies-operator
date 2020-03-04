@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: cloud.google.com/v1beta1
-kind: BackendConfig
-metadata:
-  name: broker-iap
-spec:
-  iap:
-    enabled: true
-    oauthclientCredentials:
-      secretName: iap-oauth
-  # Set timeout to 1 day to support websockets
-  timeoutSec: 86400
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: autoneg-system
+
+resources:
+  - autoneg-system-namespace.yaml
+  - autoneg-serviceaccount.yaml
+  - autoneg.yaml

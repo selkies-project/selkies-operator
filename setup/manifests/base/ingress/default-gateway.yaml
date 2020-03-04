@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: extensions/v1beta1
-kind: Ingress
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
 metadata:
-  name: iap-ingressgateway
-  annotations:
-    kubernetes.io/ingress.class: gce
-    kubernetes.io/ingress.global-static-ip-name: broker
-    networking.gke.io/managed-certificates: broker
+  name: default
 spec:
-  backend:
-    serviceName: istio-ingressgateway
-    servicePort: 80
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      # Default gateway handles all hosts
+      hosts:
+        - "*"

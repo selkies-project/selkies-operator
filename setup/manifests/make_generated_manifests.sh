@@ -18,17 +18,13 @@
 
 set -e
 
-INGRESS_FLAVOR=${1,,}
-IMAGE_TAG=$2
-[[ -z "${INGRESS_FLAVOR}" || -z "${IMAGE_TAG}" ]] && echo "USAGE: $0 <iap-ingress|traefik-ingress> <image tag>" && exit 1
+IMAGE_TAG=$1
+[[ -z "${IMAGE_TAG}" ]] && echo "USAGE: $0 <image tag>" && exit 1
 
 SCRIPT_DIR=$(dirname $(readlink -f $0 2>/dev/null) 2>/dev/null || echo "${PWD}/$(dirname $0)")
 
 DEST_DIR="${SCRIPT_DIR}/generated"
 mkdir -p "${DEST_DIR}"
-
-INGRESS_DEST_DIR="${SCRIPT_DIR}/base/ingress/${INGRESS_FLAVOR}/generated"
-mkdir -p "${INGRESS_DEST_DIR}"
 
 [[ ! -f terraform.tfstate ]] && echo "ERROR: terraform.tfstate file not found" && exit 1
 
@@ -128,6 +124,7 @@ echo "INFO: Created pod broker virtualservice patch: ${DEST}"
   rm -f kustomization.yaml
   kustomize create
   kustomize edit add label "app.kubernetes.io/name":"${INFRA_NAME}"
+  kustomize edit add base "../base/ingress/"
   kustomize edit add base "../base/node/"
   kustomize edit add base "../base/pod-broker/"
   kustomize edit add base "../base/turn/"
@@ -141,50 +138,3 @@ echo "INFO: Created pod broker virtualservice patch: ${DEST}"
     gcr.io/cloud-solutions-images/kube-pod-broker-coturn:latest=gcr.io/${PROJECT_ID}/kube-pod-broker-coturn:${IMAGE_TAG} \
     gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest=gcr.io/${PROJECT_ID}/kube-pod-broker-coturn-web:${IMAGE_TAG}
 )
-
-###
-# IAP ingress specific manifests
-###
-if [[ "${INGRESS_FLAVOR}" == "iap-ingress" ]]; then
-
-    ###
-    # patch to ingress
-    ###
-    DEST=${INGRESS_DEST_DIR}/patch-ingress.yaml
-    cat > "${DEST}" << EOF
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: iap-ingressgateway
-  annotations:
-    kubernetes.io/ingress.global-static-ip-name: ${STATIC_IP_NAME}
-    networking.gke.io/managed-certificates: ${STATIC_IP_NAME}
-EOF
-
-    echo "INFO: Created ingress patch: ${DEST}"
-
-###
-# ManagedCertificates for domain
-###
-DEST="${INGRESS_DEST_DIR}/managedcertificates.yaml"
-cat > "${DEST}" << EOF
-apiVersion: networking.gke.io/v1beta1
-kind: ManagedCertificate
-metadata:
-  name: ${INFRA_NAME}
-spec:
-  domains:
-    - ${ENDPOINT}
----
-EOF
-
-    echo "INFO: Created managed certificate resource: ${DEST}"
-fi
-
-###
-# Traefik ingress specific manifests
-###
-if [[ "${INGRESS_FLAVOR}" == "traefik-ingress" ]]; then
-    echo "NYI"
-    exit 1
-fi

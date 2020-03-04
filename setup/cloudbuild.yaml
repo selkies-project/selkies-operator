@@ -18,7 +18,6 @@ substitutions:
   _OAUTH_CLIENT_ID:
   _OAUTH_CLIENT_SECRET:
   _BROKER_COOKIE_SECRET:
-  _INGRESS_FLAVOR: iap-ingress
   _IMAGE_TAG: latest
 images:
   - gcr.io/${PROJECT_ID}/${_NAME}-installer:latest
@@ -56,22 +55,22 @@ steps:
       - ${_OAUTH_CLIENT_SECRET}
       - ${_BROKER_COOKIE_SECRET}
   ###
-  # Wait for the cluster to become ready.
+  # Wait for the clusters to become ready.
   ###
   - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
-    id: "wait-for-infra"
+    id: "wait-for-clusters"
     entrypoint: "/workspace/scripts/wait_for_clusters.sh"
     args:
       - ${_NAME}
       - us-west1
   ###
-  # Deploy manifests to cluster.
+  # Deploy to the us-west1 cluster
   ###
   - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
-    id: "deploy-manifests"
+    id: "deploy-manifests-us-west1"
     entrypoint: "/workspace/manifests/deploy.sh"
     args:
       - ${PROJECT_ID}
       - ${_NAME}
-      - ${_INGRESS_FLAVOR}
       - ${_IMAGE_TAG}
+      - us-west1
