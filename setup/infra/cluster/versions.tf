@@ -14,22 +14,16 @@
  * limitations under the License.
  */
 
-variable "project_id" {
-  description = "The project ID to host the cluster in"
-}
-
-variable "kubernetes_version_prefix" {
-  # Issues blocking 1.15:
-  #  workload identity timeouts: https://b.corp.google.com/issues/146622472
-  default = "1.14"
-}
-
-variable "name" {
-  default = "broker"
-}
-
-variable "additional_ssl_certificate_domains" {
-  description = "list of additional domains to add to the managed certificate."
-  type        = list
-  default     = []
+terraform {
+  backend "gcs" {}
+  required_version = ">= 0.12"
+  required_providers {
+    external    = "~> 1.2.0"
+    google      = "<3"
+    google-beta = "<3"
+    kubernetes  = "~> 1.11.0"
+    template    = "~> 2.1"
+    null        = "~> 2.1"
+    random      = "~> 2.2"
+  }
 }

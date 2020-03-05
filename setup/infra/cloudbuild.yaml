@@ -1,4 +1,4 @@
-# Copyright 2019 Google Inc. All rights reserved.
+# Copyright 2017 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-  - install-bundle/0-cnrm-system.yaml
+timeout: 10800s
+substitutions:
+  _ACTION: apply
+  _NAME: broker
 
-patches:
-  - patch-cnrm-system-namespace.yaml
+steps:
+  ###
+  # Apply terraform to create base infrastructure
+  ###
+  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
+    id: "terraform-apply"
+    entrypoint: "/workspace/deploy.sh"
+    env:
+      - TF_VAR_project_id=${PROJECT_ID}
+      - TF_VAR_name=${_NAME}
+      - TERRAFORM_WORKSPACE_NAME=default
+      - ACTION=${_ACTION}

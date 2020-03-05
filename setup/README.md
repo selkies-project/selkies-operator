@@ -22,7 +22,8 @@ gcloud services enable \
     container.googleapis.com \
     cloudbuild.googleapis.com \
     servicemanagement.googleapis.com \
-    serviceusage.googleapis.com
+    serviceusage.googleapis.com \
+    secretmanager.googleapis.com
 ```
 
 ## Build images
@@ -57,6 +58,16 @@ export CLIENT_ID=YOUR_CLIENT_ID
 export CLIENT_SECRET=YOUR_CLIENT_SECRET
 ```
 
+6. Store the OAuth credentials in Secret Manager:
+
+```bash
+gcloud secrets create broker-oauth2-client-id --replication-policy=automatic --data-file <(echo -n ${CLIENT_ID})
+```
+
+```bash
+gcloud secrets create broker-oauth2-client-secret --replication-policy=automatic --data-file <(echo -n ${CLIENT_SECRET})
+```
+
 6. In the Cloud Console, go back to the credential you just created and edit the __Authorized redirect URIs__, add the URL from the output below and then press __enter__ to add the entry to the list.
 
 ```bash
@@ -73,24 +84,30 @@ echo "https://iap.googleapis.com/v1/oauth/clientIds/${CLIENT_ID}:handleRedirect"
 export COOKIE_SECRET=$(openssl rand -base64 15)
 ```
 
-## Deploy infrastructure with Git Ops
-
-1. Run the gitops init script to configure your project and create the source repositories:
+2. Store the cookie secret in Secret Manager:
 
 ```bash
-./setup/scripts/pod-broker-gitops-init.sh
+gcloud secrets create broker-cookie-secret --replication-policy=automatic --data-file <(echo -n ${COOKIE_SECRET})
 ```
 
-> Follow the prompts. When complete, the cloud build will start to deploy the infrastructure.
+## Deploy the base infrastructure
 
-2. Follow logs of cloud build:
+1. Deploy the infrastructure with Cloud Build:
 
 ```bash
-export PROJECT_ID=$(gcloud config get-value project)
+(cd setup && gcloud builds submit)
+```
+
+## Deploy regional clusters
+
+1. Deploy the cluster infrastrucure to your desired region:
+
+```bash
+REGION=us-west1
 ```
 
 ```bash
-./setup/scripts/stream_logs.sh ${PROJECT_ID}
+(cd setup/infra/cluster && gcloud builds submit --substitutions=_REGION=${REGION}
 ```
 
 ## Connect to the web interface
@@ -113,10 +130,10 @@ echo "Open: https://broker.endpoints.$(gcloud config get-value project 2>/dev/nu
 
 ## Deploy the sample remote application
 
-1. Create the sample app:
+1. Deploy the sample app using Cloud Build:
 
 ```bash
-kubectl apply -k examples/jupyter-notebook/
+(cd examples/jupyter-notebook/ && gcloud builds submit --substitutions=_REGION=${REGION}
 ```
 
 2. Refresh the app launcher interface to launch the app.

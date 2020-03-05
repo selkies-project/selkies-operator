@@ -12,23 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-timeout: 300s
-
+timeout: 10800s
 substitutions:
+  _ACTION: apply
+  _NAME: broker
+  _K8S_VERSION_PREFIX: "1.14"
   _REGION: us-west1
 
 steps:
   ###
-  # Deploy manifests to cluster.
+  # Apply terraform to create cluster
   ###
-  - name: "gcr.io/cloud-builders/kubectl"
-    id: deploy-manifests
-    args:
-      - apply
-      - -k
-      - .
+  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
+    id: "terraform-apply"
+    entrypoint: "/workspace/deploy.sh"
     env:
-      - "PROJECT_ID=${PROJECT_ID}"
-      - "CLOUDSDK_CORE_PROJECT=${PROJECT_ID}"
-      - "CLOUDSDK_COMPUTE_REGION=${_REGION}"
-      - "CLOUDSDK_CONTAINER_CLUSTER=broker-${_REGION}"
+      - TF_VAR_project_id=${PROJECT_ID}
+      - TF_VAR_name=${_NAME}
+      - TF_VAR_region=${_REGION}
+      - TF_VAR_kubernetes_version_prefix=${_K8S_VERSION_PREFIX}
+      - TERRAFORM_WORKSPACE_NAME=${_REGION}
+      - ACTION=${_ACTION}

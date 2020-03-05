@@ -20,6 +20,18 @@ resource "google_compute_global_address" "ingress" {
   name    = var.name
 }
 
+# Access the oauth2 client id
+data "google_secret_manager_secret_version" "oauth2_client_id" {
+  provider = google-beta
+  secret = "broker-oauth2-client-id"
+}
+
+# Access the oauth2 client secret
+data "google_secret_manager_secret_version" "oauth2_client_secret" {
+  provider = google-beta
+  secret = "broker-oauth2-client-secret"
+}
+
 # Cloud endpoints for DNS
 module "cloud-ep-dns" {
   # Return to module registry after this is merged: https://github.com/terraform-google-modules/terraform-google-endpoints-dns/pull/2
@@ -77,8 +89,8 @@ resource "google_compute_backend_service" "ingress" {
   protocol      = "HTTP"
   timeout_sec   = 86400
   iap {
-    oauth2_client_id     = var.oauth_client_id
-    oauth2_client_secret = var.oauth_client_secret
+    oauth2_client_id     = data.google_secret_manager_secret_version.oauth2_client_id.secret_data
+    oauth2_client_secret = data.google_secret_manager_secret_version.oauth2_client_secret.secret_data
   }
   lifecycle {
     ignore_changes = [
@@ -106,7 +118,7 @@ resource "google_compute_target_https_proxy" "ingress" {
   project          = var.project_id
   name             = "istio-ingressgateway"
   url_map          = google_compute_url_map.ingress.self_link
-  ssl_certificates = [google_compute_managed_ssl_certificate.ingress.self_link]
+  ssl_certificates = concat(list(google_compute_managed_ssl_certificate.ingress.self_link), values(google_compute_managed_ssl_certificate.extras).*.self_link)
 }
 
 # Forwarding rule - HTTP
@@ -128,4 +140,17 @@ resource "google_compute_global_forwarding_rule" "ingress" {
   ip_address = google_compute_global_address.ingress.address
   target     = google_compute_target_https_proxy.ingress.self_link
   port_range = "443"
+}
+
+# Certificates for additional domains
+resource "google_compute_managed_ssl_certificate" "extras" {
+  for_each = toset(var.additional_ssl_certificate_domains)
+  provider = google-beta
+  project  = var.project_id
+
+  name = element(split(".", each.value), 0)
+
+  managed {
+    domains = [each.value]
+  }
 }

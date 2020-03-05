@@ -24,10 +24,6 @@ output "name" {
   value       = var.name
 }
 
-output "us-west1-gke-version" {
-  value = data.google_container_engine_versions.us-west1.latest_master_version
-}
-
 output "cloud-ep-endpoint" {
   description = "Cloud Endpoint DNS"
   value       = module.cloud-ep-dns.endpoint
@@ -52,14 +48,4 @@ output "static-ip-address" {
 output "node-service-account" {
   description = "Service account used by the node"
   value       = google_service_account.cluster_service_account.email
-}
-
-output "broker-west-cluster-name" {
-  description = "Name of cluster"
-  value       = module.broker-west.name
-}
-
-output "broker-west-cluster-location" {
-  description = "Region of cluster"
-  value       = module.broker-west.region
 }

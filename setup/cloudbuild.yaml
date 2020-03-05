@@ -14,13 +14,9 @@
 
 timeout: 10800s
 substitutions:
+  _ACTION: apply
   _NAME: broker
-  _OAUTH_CLIENT_ID:
-  _OAUTH_CLIENT_SECRET:
-  _BROKER_COOKIE_SECRET:
-  _IMAGE_TAG: latest
-images:
-  - gcr.io/${PROJECT_ID}/${_NAME}-installer:latest
+
 steps:
   ###
   # Create GCS bucket to store terraform state
@@ -33,44 +29,27 @@ steps:
       - "-c"
       - |
         gsutil mb gs://${PROJECT_ID}-${_NAME}-tf-state || true
+    waitFor: ["-"]
   ###
   # Builds the image used to run the deployment
   ###
   - name: "gcr.io/kaniko-project/executor:latest"
     id: "build-installer-image"
     args:
-      - --destination=gcr.io/${PROJECT_ID}/${_NAME}-installer
+      - --destination=gcr.io/${PROJECT_ID}/${_NAME}-installer:latest
       - --cache=true
       - --cache-ttl=24h
+    waitFor: ["-"]
   ###
-  # Apply terraform to create cluster
+  # base infrasturcture
   ###
-  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
-    id: "terraform-apply"
-    entrypoint: "/workspace/infra/deploy.sh"
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: "infra-base-terraform"
     args:
-      - ${PROJECT_ID}
-      - ${_NAME}
-      - ${_OAUTH_CLIENT_ID}
-      - ${_OAUTH_CLIENT_SECRET}
-      - ${_BROKER_COOKIE_SECRET}
-  ###
-  # Wait for the clusters to become ready.
-  ###
-  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
-    id: "wait-for-clusters"
-    entrypoint: "/workspace/scripts/wait_for_clusters.sh"
-    args:
-      - ${_NAME}
-      - us-west1
-  ###
-  # Deploy to the us-west1 cluster
-  ###
-  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
-    id: "deploy-manifests-us-west1"
-    entrypoint: "/workspace/manifests/deploy.sh"
-    args:
-      - ${PROJECT_ID}
-      - ${_NAME}
-      - ${_IMAGE_TAG}
-      - us-west1
+      - "builds"
+      - "submit"
+      - "infra"
+      - "--config"
+      - "infra/cloudbuild.yaml"
+      - "--substitutions"
+      - "_NAME=${_NAME},_ACTION=${_ACTION}"

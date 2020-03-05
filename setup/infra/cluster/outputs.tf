@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-provider "google" {
-  project = var.project_id
-}
-
-provider "google-beta" {
-  project = var.project_id
-}
-
-data "google_client_config" "default" {
+output "project_id" {
+  description = "Project ID"
+  value       = var.project_id
 }

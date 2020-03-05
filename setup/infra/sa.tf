@@ -16,6 +16,7 @@
 
 # Service account used by the nodes.
 resource "google_service_account" "cluster_service_account" {
+  project = var.project_id
   account_id   = var.name
   display_name = "${var.name} GKE cluster"
   depends_on   = [google_project_service.iam]
@@ -68,9 +69,6 @@ resource "google_service_account_iam_member" "cnrm-sa-workload-identity" {
   service_account_id = google_service_account.cnrm-system.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[cnrm-system/cnrm-controller-manager]"
-  depends_on = [
-    module.broker-west
-  ]
 }
 
 # Workload Identity IAM binding for broker in default namespace.
@@ -112,7 +110,4 @@ resource "google_service_account_iam_member" "autoneg-sa-workload-identity" {
   service_account_id = google_service_account.autoneg-system.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${google_service_account.autoneg-system.project}.svc.id.goog[autoneg-system/autoneg-system]"
-  depends_on = [
-    module.broker-west
-  ]
 }

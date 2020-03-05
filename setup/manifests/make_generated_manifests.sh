@@ -18,26 +18,23 @@
 
 set -e
 
-IMAGE_TAG=$1
-[[ -z "${IMAGE_TAG}" ]] && echo "USAGE: $0 <image tag>" && exit 1
+PROJECT_ID=${PROJECT_ID?}
+INFRA_NAME=${INFRA_NAME?}
+IMAGE_TAG=${IMAGE_TAG?}
+NODE_SERVICE_ACCOUNT=${NODE_SERVICE_ACCOUNT?}
+ENDPOINT=${ENDPOINT?}
 
 SCRIPT_DIR=$(dirname $(readlink -f $0 2>/dev/null) 2>/dev/null || echo "${PWD}/$(dirname $0)")
 
 DEST_DIR="${SCRIPT_DIR}/generated"
 mkdir -p "${DEST_DIR}"
 
-[[ ! -f terraform.tfstate ]] && echo "ERROR: terraform.tfstate file not found" && exit 1
-
-export NAMESPACE="default"
-export PROJECT_ID=${PROJECT_ID:-$(terraform output project_id)}
-export INFRA_NAME=$(terraform output name)
-export STATIC_IP_NAME=$(terraform output static-ip-name)
-export NODE_SERVICE_ACCOUNT=$(terraform output node-service-account)
-export ENDPOINT=$(terraform output cloud-ep-endpoint)
-export CLOUD_DNS=$(terraform output cloud-dns)
-if [[ -n "${CLOUD_DNS}" ]]; then
-  ENDPOINT=${CLOUD_DNS%?}
-fi
+###
+# Fetch broker cookie secret from Secret Manager
+###
+COOKIE_SECRET_VERSION=${COOKIE_SECRET_VERSION:-$(gcloud secrets versions list broker-cookie-secret --sort-by=created --limit=1 --format='value(name)')}
+COOKIE_SECRET=$(gcloud secrets versions access ${COOKIE_SECRET_VERSION} --secret broker-cookie-secret)
+[[ -z "${COOKIE_SECRET}" ]] && echo "Failed to get broker-cookie-secret from Secret Manager" && exit 1
 
 ###
 # Broker configmap items
@@ -128,6 +125,7 @@ echo "INFO: Created pod broker virtualservice patch: ${DEST}"
   kustomize edit add base "../base/node/"
   kustomize edit add base "../base/pod-broker/"
   kustomize edit add base "../base/turn/"
+  kustomize edit add secret pod-broker --from-literal=COOKIE_SECRET=${COOKIE_SECRET}
   kustomize edit add patch "patch-pod-broker-config.yaml"
   kustomize edit add patch "patch-pod-broker-service-account.yaml"
   kustomize edit add patch "patch-pod-broker-gateway.yaml"

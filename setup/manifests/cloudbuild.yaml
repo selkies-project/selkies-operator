@@ -15,39 +15,29 @@
 timeout: 3600s
 substitutions:
   _INFRA_NAME: broker
-  _INGRESS_FLAVOR: iap-ingress
+  _REGION: us-west1
   _IMAGE_TAG: latest
-images:
-  - gcr.io/${PROJECT_ID}/broker-manifests-installer
+
 steps:
-  ###
-  # Builds the image used to run the deployment
-  ###
-  - name: "gcr.io/kaniko-project/executor:latest"
-    id: "build-installer-image"
-    args:
-      - --destination=gcr.io/${PROJECT_ID}/broker-manifests-installer
-      - --cache=true
-      - --cache-ttl=24h
-      - --build-arg=ISTIO_OPERATOR_RELEASE=${_ISTIO_OPERATOR_RELEASE}
   ###
   # Waits for the cluster to become ready.
   ###
-  - name: "gcr.io/${PROJECT_ID}/broker-manifests-installer"
+  - name: "gcr.io/${PROJECT_ID}/${_INFRA_NAME}-installer"
     id: "wait-for-infra"
     entrypoint: "/workspace/wait_for_clusters.sh"
     args:
       - ${_INFRA_NAME}
-      - us-west1
-
+      - ${_REGION}
   ###
   # Deploys manifests to cluster.
   ###
-  - name: "gcr.io/${PROJECT_ID}/broker-manifests-installer"
+  - name: "gcr.io/${PROJECT_ID}/${_INFRA_NAME}-installer"
     id: "deploy-manifests"
     entrypoint: "/workspace/deploy.sh"
-    args:
-      - ${PROJECT_ID}
-      - ${_INFRA_NAME}
-      - ${_INGRESS_FLAVOR}
-      - ${_IMAGE_TAG}
+    env:
+      - PROJECT_ID=${PROJECT_ID}
+      - INFRA_NAME=${_INFRA_NAME}
+      - REGION=${_REGION}
+      - IMAGE_TAG=${_IMAGE_TAG}
+      - NODE_SERVICE_ACCOUNT=broker@${PROJECT_ID}.iam.gserviceaccount.com
+      - ENDPOINT=broker.endpoints.${PROJECT_ID}.cloud.goog

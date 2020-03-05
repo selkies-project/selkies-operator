@@ -14,146 +14,115 @@
  * limitations under the License.
  */
 
-resource "google_compute_subnetwork" "broker-west" {
-  name          = "${var.name}-west"
-  ip_cidr_range = "10.2.0.0/16"
-  region        = "us-west1"
-  network       = google_compute_network.broker.self_link
-
-  secondary_ip_range = [
-    {
-      range_name    = "${var.name}-pods"
-      ip_cidr_range = "172.16.0.0/16"
-    },
-    {
-      range_name    = "${var.name}-pods-staging"
-      ip_cidr_range = "172.17.0.0/16"
-    },
-    {
-      range_name    = "${var.name}-pods-dev"
-      ip_cidr_range = "172.18.0.0/16"
-    },
-    {
-      range_name    = "${var.name}-services"
-      ip_cidr_range = "192.168.0.0/24"
-    },
-    {
-      range_name    = "${var.name}-services-staging"
-      ip_cidr_range = "192.168.1.0/24"
-    },
-    {
-      range_name    = "${var.name}-services-dev"
-      ip_cidr_range = "192.168.2.0/24"
-    }
-  ]
-}
-
-data "google_container_engine_versions" "us-west1" {
-  location       = "us-west1"
+data "google_container_engine_versions" "default" {
+  location       = var.region
   version_prefix = var.kubernetes_version_prefix
 }
 
-module "broker-west" {
+module "broker" {
   source                 = "github.com/terraform-google-modules/terraform-google-kubernetes-engine//modules/beta-public-cluster?ref=v5.1.1"
   project_id             = var.project_id
-  kubernetes_version     = data.google_container_engine_versions.us-west1.latest_master_version
-  name                   = "${var.name}-us-west1"
+  kubernetes_version     = data.google_container_engine_versions.default.latest_master_version
+  name                   = "${var.name}-${var.region}"
   regional               = true
-  region                 = "us-west1"
-  network                = google_compute_network.broker.name
-  subnetwork             = google_compute_subnetwork.broker-west.name
+  region                 = var.region
+  network                = var.network
+  subnetwork             = length(var.subnetwork) == 0 ? "broker-${var.region}" : var.subnetwork
   ip_range_pods          = "broker-pods"
   ip_range_services      = "broker-services"
   node_metadata          = "GKE_METADATA_SERVER"
   identity_namespace     = "${var.project_id}.svc.id.goog"
   create_service_account = false
-  service_account        = google_service_account.cluster_service_account.email
+  service_account        = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
   monitoring_service     = "monitoring.googleapis.com/kubernetes"
   logging_service        = "logging.googleapis.com/kubernetes"
   http_load_balancing    = true
   network_policy         = true
 
   # Zones must be compatible with the chosen accelerator_type in the gpu-* node pools. 
-  zones = ["us-west1-a", "us-west1-b"]
+  zones = length(var.zones) == 0 ? lookup(local.cluster_node_zones, var.region) : var.zones
 
   node_pools = [
     {
       # Default node pool
-      name            = "default-node-pool"
-      machine_type    = "n1-standard-4"
-      min_count       = 1
-      max_count       = 100
-      local_ssd_count = 0
-      disk_size_gb    = 100
-      disk_type       = "pd-standard"
-      image_type      = "COS"
-      auto_repair     = true
-      auto_upgrade    = true
-      service_account = google_service_account.cluster_service_account.email
-      preemptible     = false
+      name               = "default-node-pool"
+      machine_type       = var.default_pool_machine_type
+      initial_node_count = var.default_pool_initial_node_count
+      min_count          = var.default_pool_min_node_count
+      max_count          = var.default_pool_max_node_count
+      local_ssd_count    = 0
+      disk_size_gb       = 100
+      disk_type          = "pd-standard"
+      image_type         = "COS"
+      auto_repair        = true
+      auto_upgrade       = true
+      service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
+      preemptible        = false
     },
     {
       # Tier 1 node pool
-      name            = "tier1"
-      machine_type    = "n1-standard-8"
-      min_count       = 1
-      max_count       = 100
-      local_ssd_count = 0
-      disk_size_gb    = 512
-      disk_type       = "pd-ssd"
-      image_type      = "COS"
-      auto_repair     = true
-      auto_upgrade    = true
-      service_account = google_service_account.cluster_service_account.email
-      preemptible     = false
-    },
-    {
-      # Tier 2 node pool
-      name            = "tier2"
-      machine_type    = "n1-highcpu-32"
-      min_count       = 0
-      max_count       = 25
-      local_ssd_count = 0
-      disk_size_gb    = 512
-      disk_type       = "pd-ssd"
-      image_type      = "COS"
-      auto_repair     = true
-      auto_upgrade    = true
-      service_account = google_service_account.cluster_service_account.email
-      preemptible     = false
-    },
-    {
-      # GPU node pool - COS image type
-      name               = "gpu-cos"
-      machine_type       = "n1-standard-16"
-      initial_node_count = 1
-      min_count          = 1
-      max_count          = 10
+      name               = "tier1"
+      machine_type       = var.tier1_pool_machine_type
+      initial_node_count = var.tier1_pool_initial_node_count
+      min_count          = var.tier1_pool_min_node_count
+      max_count          = var.tier1_pool_max_node_count
       local_ssd_count    = 0
       disk_size_gb       = 512
       disk_type          = "pd-ssd"
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true
-      service_account    = google_service_account.cluster_service_account.email
+      service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
+      preemptible        = false
+    },
+    {
+      # Tier 2 node pool
+      name               = "tier2"
+      machine_type       = var.tier2_pool_machine_type
+      initial_node_count = var.tier2_pool_initial_node_count
+      min_count          = var.tier2_pool_min_node_count
+      max_count          = var.tier2_pool_max_node_count
+      local_ssd_count    = 0
+      disk_size_gb       = 512
+      disk_type          = "pd-ssd"
+      image_type         = "COS"
+      auto_repair        = true
+      auto_upgrade       = true
+      service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
+      preemptible        = false
+    },
+    {
+      # GPU node pool - COS image type
+      name               = "gpu-cos"
+      machine_type       = var.gpu_pool_machine_type
+      initial_node_count = var.gpu_pool_initial_node_count
+      min_count          = var.gpu_pool_min_node_count
+      max_count          = var.gpu_pool_max_node_count
+      local_ssd_count    = 0
+      disk_size_gb       = 512
+      disk_type          = "pd-ssd"
+      image_type         = "COS"
+      auto_repair        = true
+      auto_upgrade       = true
+      service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
       preemptible        = false
       accelerator_count  = 1
-      accelerator_type   = "nvidia-tesla-t4"
+      accelerator_type   = length(var.accelerator_type) == 0 ? lookup(local.accelerator_type_regions, var.region) : var.accelerator_type
     },
     {
       # TURN node pool for apps with NAT traversal
       name               = "turn"
-      machine_type       = "n1-standard-2"
-      initial_node_count = 1
-      min_count          = 1
-      max_count          = 10
+      machine_type       = var.turn_pool_machine_type
+      initial_node_count = var.turn_pool_initial_node_count
+      min_count          = var.turn_pool_min_node_count
+      max_count          = var.turn_pool_max_node_count
       local_ssd_count    = 0
       disk_size_gb       = 512
       disk_type          = "pd-standard"
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true
-      service_account    = google_service_account.cluster_service_account.email
+      service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
       preemptible        = false
     },
   ]
