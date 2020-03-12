@@ -90,25 +90,33 @@ export COOKIE_SECRET=$(openssl rand -base64 15)
 gcloud secrets create broker-cookie-secret --replication-policy=automatic --data-file <(echo -n ${COOKIE_SECRET})
 ```
 
-## Deploy the base infrastructure
+## Deploy the infrastructure
 
-1. Deploy the infrastructure with Cloud Build:
+1. Deploy the base infrastructure with Cloud Build:
 
 ```bash
 (cd setup && gcloud builds submit)
 ```
 
-## Deploy regional clusters
-
-1. Deploy the cluster infrastrucure to your desired region:
+2. Deploy the cluster for your desired region:
 
 ```bash
 REGION=us-west1
 ```
 
 ```bash
-(cd setup/infra/cluster && gcloud builds submit --substitutions=_REGION=${REGION}
+(cd setup/infra/cluster && gcloud builds submit --substitutions=_REGION=${REGION})
 ```
+
+> NOTE: this can be run multiple times with different regions.
+
+3. Deploy the manifests to the regional cluster:
+
+```bash
+(cd setup/infra/manifests && gcloud builds submit --substitutions=_REGION=${REGION})
+```
+
+> NOTE: this can be run multiple times with different regions.
 
 ## Connect to the web interface
 
