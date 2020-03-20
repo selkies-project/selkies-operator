@@ -101,6 +101,19 @@ variable gpu_pool_max_node_count {
   default = 10
 }
 
+variable gpu_ubuntu_pool_machine_type {
+  default = "n1-standard-16"
+}
+variable gpu_ubuntu_pool_initial_node_count {
+  default = 0
+}
+variable gpu_ubuntu_pool_min_node_count {
+  default = 0
+}
+variable gpu_ubuntu_pool_max_node_count {
+  default = 10
+}
+
 # TURN node pool counts per zone
 variable turn_pool_machine_type {
   default = "n1-standard-2"

@@ -125,6 +125,24 @@ module "broker" {
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
       preemptible        = false
     },
+    {
+      # GPU node pool - Ubuntu image type
+      name               = "gpu-ubuntu"
+      machine_type       = var.gpu_ubuntu_pool_machine_type
+      initial_node_count = var.gpu_ubuntu_pool_initial_node_count
+      min_count          = var.gpu_ubuntu_pool_min_node_count
+      max_count          = var.gpu_ubuntu_pool_max_node_count
+      local_ssd_count    = 0
+      disk_size_gb       = 512
+      disk_type          = "pd-ssd"
+      image_type         = "UBUNTU"
+      auto_repair        = true
+      auto_upgrade       = true
+      service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
+      preemptible        = false
+      accelerator_count  = 1
+      accelerator_type   = length(var.accelerator_type) == 0 ? lookup(local.accelerator_type_regions, var.region) : var.accelerator_type
+    },
   ]
 
   node_pools_oauth_scopes = {
@@ -142,6 +160,9 @@ module "broker" {
       "https://www.googleapis.com/auth/cloud-platform",
     ]
     turn = [
+      "https://www.googleapis.com/auth/cloud-platform",
+    ]
+    gpu-ubuntu = [
       "https://www.googleapis.com/auth/cloud-platform",
     ]
   }
@@ -176,6 +197,16 @@ module "broker" {
     turn = {
       "app.broker/gke-turn" = "true"
     }
+    gpu-ubuntu = {
+      # updated by node init daemonset when finished.
+      "app.broker/initialized" = "false"
+
+      # updated by gpu driver installer to true when finished.
+      "cloud.google.com/gke-accelerator-initialized" = "false"
+
+      # Used to set pod affinity
+      "app.broker/tier" = "gpu-ubuntu"
+    }
   }
 
   node_pools_metadata = {
@@ -185,6 +216,7 @@ module "broker" {
     tier2             = {}
     gpu-cos           = {}
     turn              = {}
+    gpu-ubuntu        = {}
   }
 
   node_pools_taints = {
@@ -245,6 +277,26 @@ module "broker" {
         effect = "NO_SCHEDULE"
       },
     ]
+    gpu-ubuntu = [
+      {
+        # Taint to be removed when node init daemonset completes.
+        key    = "app.broker/node-init"
+        value  = true
+        effect = "NO_SCHEDULE"
+      },
+      {
+        # Repel pods without the tier toleration.
+        key    = "app.broker/tier"
+        value  = "gpu-ubuntu"
+        effect = "NO_SCHEDULE"
+      },
+      {
+        # Removed when GPU driver installer daemonset completes.
+        key    = "cloud.google.com/gke-accelerator-init"
+        value  = "true"
+        effect = "NO_SCHEDULE"
+      },
+    ]
   }
 
   node_pools_tags = {
@@ -254,5 +306,6 @@ module "broker" {
     tier2             = []
     gpu-cos           = []
     turn              = ["gke-turn"]
+    gpu-ubuntu        = []
   }
 }
