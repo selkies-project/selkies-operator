@@ -22,7 +22,7 @@ import (
 	"path"
 	"time"
 
-	broker "gcp.solutions/anthos-app-broker/pkg"
+	broker "gcp.solutions/kube-app-launcher/pkg"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module gcp.solutions/anthos-app-broker
+module gcp.solutions/kube-app-launcher
 
 go 1.12
 

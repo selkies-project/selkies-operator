@@ -32,7 +32,7 @@ import (
 	"strings"
 	"time"
 
-	broker "gcp.solutions/anthos-app-broker/pkg"
+	broker "gcp.solutions/kube-app-launcher/pkg"
 )
 
 // Cookie max-age in seconds, 5 days.

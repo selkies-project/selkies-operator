@@ -15,7 +15,7 @@
 FROM golang:1.13-alpine as build
 RUN apk add -u git
 ENV GO111MODULE=on
-WORKDIR /go/src/gcp.solutions/anthos-app-broker
+WORKDIR /go/src/gcp.solutions/kube-app-launcher
 COPY . ./
 RUN go build cmd/app_finder/app_finder.go
 RUN go build cmd/image_finder/image_finder.go
@@ -29,10 +29,10 @@ RUN wget -qO /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/
     chmod +x /usr/bin/kubectl
 
 # Copy build from previous layer
-COPY --from=build /go/src/gcp.solutions/anthos-app-broker/app_finder /usr/local/bin/app-finder
-COPY --from=build /go/src/gcp.solutions/anthos-app-broker/image_finder /usr/local/bin/image-finder
-COPY --from=build /go/src/gcp.solutions/anthos-app-broker/image_puller /usr/local/bin/image-puller
-COPY --from=build /go/src/gcp.solutions/anthos-app-broker/pod_broker /usr/local/bin/pod-broker
+COPY --from=build /go/src/gcp.solutions/kube-app-launcher/app_finder /usr/local/bin/app-finder
+COPY --from=build /go/src/gcp.solutions/kube-app-launcher/image_finder /usr/local/bin/image-finder
+COPY --from=build /go/src/gcp.solutions/kube-app-launcher/image_puller /usr/local/bin/image-puller
+COPY --from=build /go/src/gcp.solutions/kube-app-launcher/pod_broker /usr/local/bin/pod-broker
 
 # Copy build assets
 WORKDIR /opt/broker/buildsrc/

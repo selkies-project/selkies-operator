@@ -23,7 +23,7 @@ import (
 	"os/exec"
 	"time"
 
-	broker "gcp.solutions/anthos-app-broker/pkg"
+	broker "gcp.solutions/kube-app-launcher/pkg"
 )
 
 const loopInterval = 10
