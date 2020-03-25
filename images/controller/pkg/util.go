@@ -26,6 +26,8 @@ import (
 	"path"
 	"regexp"
 	"strings"
+
+	metadata "cloud.google.com/go/compute/metadata"
 )
 
 func GetEnvPrefixedVars(prefix string) map[string]string {
@@ -166,4 +168,16 @@ func FileExists(filename string) bool {
 		return false
 	}
 	return !info.IsDir()
+}
+
+func GetInstanceRegion() (string, error) {
+	region := ""
+	zone, err := metadata.Zone()
+	if err != nil {
+		return region, err
+	}
+	toks := strings.Split(zone, "-")
+	region = strings.Join(toks[0:2], "-")
+
+	return region, nil
 }

@@ -158,9 +158,10 @@ type RegisteredAppsManifest struct {
 }
 
 type AppListResponse struct {
-	BrokerName  string            `json:"brokerName"`
-	BrokerTheme string            `json:"brokerTheme"`
-	Apps        []AppDataResponse `json:"apps"`
+	BrokerName   string            `json:"brokerName"`
+	BrokerTheme  string            `json:"brokerTheme"`
+	BrokerRegion string            `json:"brokerRegion"`
+	Apps         []AppDataResponse `json:"apps"`
 }
 
 type AppDataResponse struct {

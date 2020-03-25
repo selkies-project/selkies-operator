@@ -58,6 +58,12 @@ func main() {
 	// Map of Name=Value
 	sysParams := broker.GetEnvPrefixedVars("POD_BROKER_PARAM_")
 
+	// Region from instance metadata
+	brokerRegion, err := broker.GetInstanceRegion()
+	if err != nil {
+		log.Fatalf("failed to determine broker region")
+	}
+
 	// Title from params
 	brokerName, ok := sysParams["Title"]
 	if !ok {
@@ -116,9 +122,10 @@ func main() {
 		if r.URL.Path == "/" {
 			// Return list of apps
 			appList := broker.AppListResponse{
-				BrokerName:  brokerName,
-				BrokerTheme: brokerTheme,
-				Apps:        make([]broker.AppDataResponse, 0),
+				BrokerName:   brokerName,
+				BrokerTheme:  brokerTheme,
+				BrokerRegion: brokerRegion,
+				Apps:         make([]broker.AppDataResponse, 0),
 			}
 
 			for _, app := range registeredApps.Apps {
