@@ -199,6 +199,7 @@ var vue_app = new Vue({
     data() {
         return {
             brokerName: "App Launcher",
+            brokerRegion: "",
             darkTheme: false,
 
             // array of BrokerApp objects.
@@ -235,6 +236,7 @@ var fetchApps = () => {
     // Fetch list of apps.
     podBroker.get_apps((data) => {
         vue_app.brokerName = data.brokerName;
+        vue_app.brokerRegion = data.brokerRegion;
         vue_app.$vuetify.theme.dark = data.brokerTheme === "dark";
 
         // Fetch app status.
