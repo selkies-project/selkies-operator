@@ -19,8 +19,6 @@ variable "project_id" {
 }
 
 variable "kubernetes_version_prefix" {
-  # Issues blocking 1.15:
-  #  workload identity timeouts: https://b.corp.google.com/issues/146622472
   default = "1.14"
 }
 
