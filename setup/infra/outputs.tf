@@ -47,5 +47,15 @@ output "static-ip-address" {
 
 output "node-service-account" {
   description = "Service account used by the node"
-  value       = google_service_account.cluster_service_account.email
+  value       = google_service_account.cluster_service_account.name
+}
+
+output "cnrm-system-service-account" {
+  description = "Service account for CNRM"
+  value       = google_service_account.cnrm-system.name
+}
+
+output "autoneg-system-service-account" {
+  description = "Service account for AutoNEG controller"
+  value       = google_service_account.autoneg-system.name
 }

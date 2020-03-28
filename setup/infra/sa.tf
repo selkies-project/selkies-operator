@@ -16,7 +16,7 @@
 
 # Service account used by the nodes.
 resource "google_service_account" "cluster_service_account" {
-  project = var.project_id
+  project      = var.project_id
   account_id   = var.name
   display_name = "${var.name} GKE cluster"
   depends_on   = [google_project_service.iam]
@@ -64,20 +64,6 @@ resource "google_project_iam_member" "cnrm-owner" {
   member  = "serviceAccount:${google_service_account.cnrm-system.email}"
 }
 
-# Workload Identity IAM binding for CNRM.
-resource "google_service_account_iam_member" "cnrm-sa-workload-identity" {
-  service_account_id = google_service_account.cnrm-system.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[cnrm-system/cnrm-controller-manager]"
-}
-
-# Workload Identity IAM binding for broker in default namespace.
-resource "google_service_account_iam_member" "broker-default-sa-workload-identity" {
-  service_account_id = google_service_account.cluster_service_account.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[default/pod-broker]"
-}
-
 # Service account used by autoneg controller.
 resource "google_service_account" "autoneg-system" {
   project      = var.project_id
@@ -103,11 +89,4 @@ resource "google_project_iam_member" "autoneg-system" {
   project = var.project_id
   role    = "projects/${google_project_iam_custom_role.autoneg.project}/roles/${google_project_iam_custom_role.autoneg.role_id}"
   member  = "serviceAccount:${google_service_account.autoneg-system.email}"
-}
-
-# Workload Identity IAM binding for AutoNEG controller.
-resource "google_service_account_iam_member" "autoneg-sa-workload-identity" {
-  service_account_id = google_service_account.autoneg-system.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${google_service_account.autoneg-system.project}.svc.id.goog[autoneg-system/autoneg-system]"
 }

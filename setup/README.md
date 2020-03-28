@@ -16,6 +16,8 @@ gcloud config set project ${PROJECT}
 
 ## Enable APIs
 
+1. Enable the services used by this tutorial:
+
 ```bash
 gcloud services enable \
     compute.googleapis.com \
@@ -24,6 +26,13 @@ gcloud services enable \
     servicemanagement.googleapis.com \
     serviceusage.googleapis.com \
     secretmanager.googleapis.com
+```
+
+2. Grant the cloud build service account permissions on your project:
+
+```bash
+CLOUDBUILD_SA=$(gcloud projects describe $PROJECT --format='value(projectNumber)')@cloudbuild.gserviceaccount.com && \
+  gcloud projects add-iam-policy-binding $PROJECT --member serviceAccount:$CLOUDBUILD_SA --role roles/owner
 ```
 
 ## Build images
@@ -110,10 +119,18 @@ REGION=us-west1
 
 > NOTE: this can be run multiple times with different regions.
 
-3. Deploy the manifests to the regional cluster:
+3. Create the workload identity bindinds:
 
 ```bash
-(cd setup/infra/manifests && gcloud builds submit --substitutions=_REGION=${REGION})
+(cd setup/infra/wi-sa && gcloud builds submit)
+```
+
+> NOTE: this is a workaround because the identity namespace does not exist until the first cluster in a project has been created with worload identity enabled.
+
+4. Deploy the manifests to the regional cluster:
+
+```bash
+(cd setup/manifests && gcloud builds submit --substitutions=_REGION=${REGION})
 ```
 
 > NOTE: this can be run multiple times with different regions.
@@ -123,7 +140,7 @@ REGION=us-west1
 1. Add your current user to the IAP authorized web users role:
 
 ```bash
-./setup/scripts/add_iap_user.sh user $(gcloud config get-value account) ${PROJECT_ID}
+./setup/scripts/add_iap_user.sh user $(gcloud config get-value account) ${PROJECT}
 ```
 
 2. Wait for the global load balancer and managed certificates to be provisioned.
@@ -134,6 +151,8 @@ REGION=us-west1
 echo "Open: https://broker.endpoints.$(gcloud config get-value project 2>/dev/null).cloud.goog/"
 ```
 
+> NOTE: it may take several seconds for the IAM permissions to propagate, during this time you may see an Access Denied page.
+
 > NOTE: at this point there will be no apps listed.
 
 ## Deploy the sample remote application
@@ -141,7 +160,7 @@ echo "Open: https://broker.endpoints.$(gcloud config get-value project 2>/dev/nu
 1. Deploy the sample app using Cloud Build:
 
 ```bash
-(cd examples/jupyter-notebook/ && gcloud builds submit --substitutions=_REGION=${REGION}
+(cd examples/jupyter-notebook/ && gcloud builds submit --substitutions=_REGION=${REGION})
 ```
 
 2. Refresh the app launcher interface to launch the app.
