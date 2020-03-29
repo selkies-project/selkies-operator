@@ -41,6 +41,15 @@ log_cyan "Installing CRDs"
 gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename /opt/istio-operator/deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml
 gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename base/pod-broker/crd.yaml
 
+# Install CNRM controller
+kubectl apply -f /opt/cnrm/install-bundle-workload-identity/crds.yaml
+mkdir -p base/cnrm-system/install-bundle
+cp /opt/cnrm/install-bundle-workload-identity/0-cnrm-system.yaml base/cnrm-system/install-bundle/
+sed -i 's/${PROJECT_ID?}/'${PROJECT_ID}'/g' \
+    base/cnrm-system/install-bundle/0-cnrm-system.yaml \
+    base/cnrm-system/patch-cnrm-system-namespace.yaml
+kubectl apply -k base/cnrm-system/
+
 # Install AutoNEG controller
 log_cyan "Installing AutoNEG controller..."
 kubectl kustomize base/autoneg-system | sed 's/${PROJECT_ID}/'${PROJECT_ID}'/g' | \
