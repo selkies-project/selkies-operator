@@ -30,7 +30,19 @@ SCRIPT_DIR=$(dirname $(readlink -f $0 2>/dev/null) 2>/dev/null || echo "${PWD}/$
 PROJECT=${GOOGLE_CLOUD_PROJECT:-$PROJECT};
 
 TMP=$(mktemp --suffix _policy.json)
-gcloud projects get-iam-policy ${PROJECT} --format=json | \
-    jq '(.bindings[] | select(.role=="roles/iap.httpsResourceAccessor").members) += ["'${MEMBER_TYPE}':'${MEMBER}'"]' > ${TMP}
-gcloud projects set-iam-policy --format=json ${PROJECT} ${TMP}
+gcloud projects get-iam-policy ${PROJECT} --format=json > ${TMP}
+echo $TMP
+if [[ -z "$(jq '.bindings[] | select(.role=="roles/iap.httpsResourceAccessor")' ${TMP})" ]]; then
+    # Create new binding.
+    echo "INFO: Adding IAM policy binding"
+    gcloud projects add-iam-policy-binding ${PROJECT} \
+        --member="${MEMBER_TYPE}:${MEMBER}" \
+        --role='roles/iap.httpsResourceAccessor' >/dev/null
+else
+    # Append to existing binding.
+    echo "INFO: Updating IAM policy binding"
+    gcloud projects get-iam-policy ${PROJECT} --format=json | \
+        jq '(.bindings[] | select(.role=="roles/iap.httpsResourceAccessor").members) += ["'${MEMBER_TYPE}':'${MEMBER}'"]' > ${TMP}
+    gcloud projects set-iam-policy --format=json ${PROJECT} ${TMP} > /dev/null
+fi
 rm -f ${TMP}

@@ -119,7 +119,7 @@ REGION=us-west1
 
 > NOTE: this can be run multiple times with different regions.
 
-3. Create the workload identity bindinds:
+3. Create the workload identity bindings:
 
 ```bash
 (cd setup/infra/wi-sa && gcloud builds submit)
