@@ -22,7 +22,7 @@ generatorOptions:
   disableNameSuffixHash: true
 
 configMapGenerator:
-  - name: jupyter-notebook-manifests-1.0.0
+  - name: jupyter-notebook-manifests-1.2.0
     files:
       - bundle-manifests/patch-user-pod.yaml.tmpl
       - bundle-manifests/resource-jupyter-service.yaml
