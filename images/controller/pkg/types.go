@@ -20,9 +20,11 @@ const apiVersion = "gcp.solutions/v1"
 const brokerAppConfigKind = "BrokerAppUserConfig"
 const brokerAppUserConfigKind = "BrokerAppUserConfig"
 
-const BrokerCommonBuildSouceBaseDir = "/opt/broker/buildsrc"
+const BrokerCommonBuildSouceBaseDirUser = "/opt/broker/buildsrc/user"
+const BrokerCommonBuildSouceBaseDirApp = "/opt/broker/buildsrc/app"
 const BundleSourceBaseDir = "/var/run/buildsrc/apps"
 const BuildSourceBaseDir = "/var/run/build"
+const BuildSourceBaseDirNS = "/var/run/buildns"
 const BuildSourceExtrasDir = "/opt/broker/buildsrc/extra"
 const RegisteredAppsManifestJSONFile = "/var/run/buildsrc/apps.json"
 const AppUserConfigBaseDir = "/var/run/userconfig"
@@ -51,6 +53,7 @@ type ConfigMapObject struct {
 // Data passed to template generator
 type UserPodData struct {
 	Namespace                 string
+	ProjectID                 string
 	AppSpec                   AppConfigSpec
 	App                       string
 	AppUserConfig             AppUserConfigSpec

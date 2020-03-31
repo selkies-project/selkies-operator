@@ -36,6 +36,9 @@ COOKIE_SECRET_VERSION=${COOKIE_SECRET_VERSION:-$(gcloud secrets versions list br
 COOKIE_SECRET=$(gcloud secrets versions access ${COOKIE_SECRET_VERSION} --secret broker-cookie-secret)
 [[ -z "${COOKIE_SECRET}" ]] && echo "Failed to get broker-cookie-secret from Secret Manager" && exit 1
 
+# Add secret to pod-broker kustomization
+(cd "${SCRIPT_DIR}/base/pod-broker" && kustomize edit add secret pod-broker --from-literal=COOKIE_SECRET=${COOKIE_SECRET})
+
 ###
 # Broker configmap items
 ###
@@ -125,7 +128,6 @@ echo "INFO: Created pod broker virtualservice patch: ${DEST}"
   kustomize edit add base "../base/node/"
   kustomize edit add base "../base/pod-broker/"
   kustomize edit add base "../base/turn/"
-  kustomize edit add secret pod-broker --from-literal=COOKIE_SECRET=${COOKIE_SECRET}
   kustomize edit add patch "patch-pod-broker-config.yaml"
   kustomize edit add patch "patch-pod-broker-service-account.yaml"
   kustomize edit add patch "patch-pod-broker-gateway.yaml"

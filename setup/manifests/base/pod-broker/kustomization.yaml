@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-namespace: default
+namespace: pod-broker-system
+
+generatorOptions:
+  # Generate stable ConfigMap and Secret names.
+  disableNameSuffixHash: true
 
 resources:
+  - namespace.yaml
   - crd.yaml
   - 0-broker-statefulset.yaml
   - 1-image-puller-daemonset.yaml

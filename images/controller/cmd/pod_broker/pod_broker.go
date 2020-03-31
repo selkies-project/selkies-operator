@@ -39,12 +39,6 @@ import (
 const maxCookieAgeSeconds = 432000
 
 func main() {
-	// Set from downward API.
-	namespace := os.Getenv("NAMESPACE")
-	if len(namespace) == 0 {
-		log.Fatal("Missing NAMESPACE env.")
-	}
-
 	cookieSecret := os.Getenv("COOKIE_SECRET")
 	if len(cookieSecret) == 0 {
 		// Generate random secret
@@ -58,10 +52,16 @@ func main() {
 	// Map of Name=Value
 	sysParams := broker.GetEnvPrefixedVars("POD_BROKER_PARAM_")
 
+	// Project ID from instance metadata
+	projectID, err := broker.GetProjectID()
+	if err != nil {
+		log.Fatalf("failed to determine project ID: %v", err)
+	}
+
 	// Region from instance metadata
 	brokerRegion, err := broker.GetInstanceRegion()
 	if err != nil {
-		log.Fatalf("failed to determine broker region")
+		log.Fatalf("failed to determine broker region: %v", err)
 	}
 
 	// Title from params
@@ -189,11 +189,13 @@ func main() {
 		user = userToks[len(userToks)-1]
 
 		// Compute pod ID from user and app, must conform to DNS-1035.
-		id := broker.MakePodID(user, appName)
+		id := broker.MakePodID(user)
+
+		namespace := fmt.Sprintf("user-%s", id)
 
 		fullName := fmt.Sprintf("%s-%s", appName, id)
 
-		destDir := path.Join(broker.BuildSourceBaseDir, appName, user)
+		destDir := path.Join(broker.BuildSourceBaseDir, user, appName)
 
 		cookieValue := broker.MakeCookieValue(user, cookieSecret)
 
@@ -220,9 +222,17 @@ func main() {
 			})
 		}
 
+		userNSData := &broker.UserPodData{
+			Namespace: namespace,
+			ProjectID: projectID,
+			AppSpec:   app,
+			User:      user,
+		}
+		srcDirUser := broker.BrokerCommonBuildSouceBaseDirUser
+		destDirUser := path.Join(broker.BuildSourceBaseDirNS, user)
+
 		// Handler requests for per-app user configs
-		imageRepoPathPat := regexp.MustCompile(fmt.Sprintf(".*%s/config/?$", appName))
-		if imageRepoPathPat.MatchString(r.URL.Path) {
+		if regexp.MustCompile(fmt.Sprintf(".*%s/config/?$", appName)).MatchString(r.URL.Path) {
 			if getStatus {
 				statusCode := http.StatusOK
 				w.Header().Set("Content-Type", "application/json")
@@ -311,8 +321,15 @@ func main() {
 					return
 				}
 
+				// Build user namespace template.
+				if err := broker.BuildDeploy(broker.BrokerCommonBuildSouceBaseDirUser, srcDirUser, destDirUser, userNSData); err != nil {
+					log.Printf("%v", err)
+					writeResponse(w, http.StatusInternalServerError, "internal server error")
+					return
+				}
+
 				// Apply config to cluster
-				cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl apply -f %s 1>&2", userConfigFile))
+				cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl apply -k %s && kubectl apply -f %s 1>&2", destDirUser, userConfigFile))
 				cmd.Dir = path.Dir(destDir)
 				stdoutStderr, err := cmd.CombinedOutput()
 				if err != nil {
@@ -362,6 +379,7 @@ func main() {
 
 		data := &broker.UserPodData{
 			Namespace:                 namespace,
+			ProjectID:                 projectID,
 			AppSpec:                   app,
 			AppUserConfig:             userConfig.Spec,
 			App:                       appName,
@@ -388,8 +406,9 @@ func main() {
 
 		cookieName := fmt.Sprintf("broker_%s", appName)
 
-		srcDir := path.Join(broker.BundleSourceBaseDir, app.Name)
-		if err := broker.BuildDeploy(srcDir, destDir, data); err != nil {
+		// Build user application bundle.
+		srcDirApp := path.Join(broker.BundleSourceBaseDir, app.Name)
+		if err := broker.BuildDeploy(broker.BrokerCommonBuildSouceBaseDirApp, srcDirApp, destDir, data); err != nil {
 			log.Printf("%v", err)
 			writeResponse(w, http.StatusInternalServerError, "internal server error")
 			return
@@ -450,8 +469,16 @@ func main() {
 		}
 
 		if create {
+
+			// Build user namespace template.
+			if err := broker.BuildDeploy(broker.BrokerCommonBuildSouceBaseDirUser, srcDirUser, destDirUser, userNSData); err != nil {
+				log.Printf("%v", err)
+				writeResponse(w, http.StatusInternalServerError, "internal server error")
+				return
+			}
+
 			log.Printf("creating pod for user: %s: %s", user, fullName)
-			cmd := exec.Command("sh", "-c", "kubectl apply -k . 1>&2")
+			cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl apply -k %s && kubectl apply -k %s 1>&2", destDirUser, destDir))
 			cmd.Dir = destDir
 			stdoutStderr, err := cmd.CombinedOutput()
 			if err != nil {

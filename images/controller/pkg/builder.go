@@ -27,7 +27,7 @@ import (
 	"github.com/Masterminds/sprig"
 )
 
-func BuildDeploy(srcDir, destDir string, data *UserPodData) error {
+func BuildDeploy(brokerCommonBaseDir, srcDir, destDir string, data *UserPodData) error {
 	// Clear out destdir before building it.
 	os.RemoveAll(destDir)
 
@@ -40,8 +40,8 @@ func BuildDeploy(srcDir, destDir string, data *UserPodData) error {
 	searchPaths := []string{
 		srcDir,
 		path.Join(srcDir, "*"),
-		BrokerCommonBuildSouceBaseDir,
-		path.Join(BrokerCommonBuildSouceBaseDir, "*"),
+		brokerCommonBaseDir,
+		path.Join(brokerCommonBaseDir, "*"),
 	}
 
 	// files ending with *.tmpl will be passed through the gotemplate engine.

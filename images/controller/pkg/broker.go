@@ -26,9 +26,9 @@ import (
 	"regexp"
 )
 
-func MakePodID(user, app string) string {
+func MakePodID(user string) string {
 	h := sha1.New()
-	io.WriteString(h, fmt.Sprintf("%s.%s", user, app))
+	io.WriteString(h, user)
 	return fmt.Sprintf("%x", h.Sum(nil))[:10]
 }
 

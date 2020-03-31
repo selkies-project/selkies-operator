@@ -181,3 +181,7 @@ func GetInstanceRegion() (string, error) {
 
 	return region, nil
 }
+
+func GetProjectID() (string, error) {
+	return metadata.ProjectID()
+}
