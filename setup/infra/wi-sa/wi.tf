@@ -38,7 +38,7 @@ resource "google_service_account_iam_member" "cnrm-sa-workload-identity" {
 resource "google_service_account_iam_member" "broker-default-sa-workload-identity" {
   service_account_id = data.terraform_remote_state.broker.outputs.node-service-account
   role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[default/pod-broker]"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[pod-broker-system/pod-broker]"
 }
 
 # Workload Identity IAM binding for AutoNEG controller.
