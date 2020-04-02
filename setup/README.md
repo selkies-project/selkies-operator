@@ -20,6 +20,7 @@ gcloud config set project ${PROJECT}
 
 ```bash
 gcloud services enable \
+    cloudresourcemanager.googleapis.com \
     compute.googleapis.com \
     container.googleapis.com \
     cloudbuild.googleapis.com \

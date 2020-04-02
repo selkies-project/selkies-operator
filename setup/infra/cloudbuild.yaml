@@ -27,5 +27,5 @@ steps:
     env:
       - TF_VAR_project_id=${PROJECT_ID}
       - TF_VAR_name=${_NAME}
-      - TERRAFORM_WORKSPACE_NAME=wi
+      - TERRAFORM_WORKSPACE_NAME=default
       - ACTION=${_ACTION}

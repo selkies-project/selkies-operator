@@ -114,6 +114,9 @@ rules:
   - apiGroups: ["gcp.solutions"]
     resources: ["brokerappconfigs", "brokerappuserconfigs"]
     verbs: ["*"]
+  - apiGroups: ["iam.cnrm.cloud.google.com"]
+    resources: ["*"]
+    verbs: ["*"]
 ---
 apiVersion: v1
 kind: Service
