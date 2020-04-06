@@ -49,8 +49,15 @@ func main() {
 		// Fetch all configmaps in single call
 		bundleConfigMaps, err := broker.GetConfigMaps(namespace)
 		if err != nil {
-			log.Printf("failed to fetch broker appconfig  map bundles: %v", err)
+			log.Printf("failed to fetch broker appconfig map bundles: %v", err)
 		}
+
+		// Fetch data required for Egress Network Policy
+		networkPolicyData, err := broker.GetEgressNetworkPolicyData(namespace, "app.kubernetes.io/name=broker")
+		if err != nil {
+			log.Printf("failed to fetch networkpolicy data: %v", err)
+		}
+		registeredApps.NetworkPolicyData = networkPolicyData
 
 		for _, appConfig := range appConfigs {
 			cmName := appConfig.Spec.Bundle.ConfigMapRef.Name

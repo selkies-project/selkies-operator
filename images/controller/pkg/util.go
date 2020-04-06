@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"strings"
@@ -184,4 +185,124 @@ func GetInstanceRegion() (string, error) {
 
 func GetProjectID() (string, error) {
 	return metadata.ProjectID()
+}
+
+// Return a map of endpoint name node names
+func GetEndpointNodes(namespace, selector string) (EndpointNodeMap, error) {
+	resp := make(EndpointNodeMap, 0)
+	var err error
+
+	type addressesSpec struct {
+		IP       string `json:"ip"`
+		NodeName string `json:"nodeName"`
+	}
+
+	type portsSpec struct {
+		Name     string `json:"name"`
+		Port     int64  `json:"port"`
+		Protocol string `json:"protocol"`
+	}
+
+	type subsetsSpec struct {
+		Addresses []addressesSpec `json:"addresses"`
+		Ports     []portsSpec     `json:"ports"`
+	}
+
+	type endpointSpec struct {
+		Metadata map[string]interface{} `json:"metadata"`
+		Subsets  []subsetsSpec          `json:"subsets"`
+	}
+
+	type getEndpointsSpec struct {
+		Items []endpointSpec `json:"items"`
+	}
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get endpoints -n %s -l %s -o json 1>&2", namespace, selector))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return resp, fmt.Errorf("failed to get endpoints: %s, %v", string(stdoutStderr), err)
+	}
+
+	var jsonResp getEndpointsSpec
+	if err := json.Unmarshal(stdoutStderr, &jsonResp); err != nil {
+		return resp, fmt.Errorf("failed to parse endpoints spec: %v", err)
+	}
+
+	// Map of node name to list of endpoints
+	for _, endpoint := range jsonResp.Items {
+		endpointName := endpoint.Metadata["name"].(string)
+		for _, subset := range endpoint.Subsets {
+			for _, addresses := range subset.Addresses {
+				resp[endpointName] = append(resp[endpointName], addresses.NodeName)
+			}
+		}
+	}
+
+	return resp, err
+}
+
+// Returns all of the addresses on the node.
+func GetNodeAddresses(nodeName string) ([]NodeAddress, error) {
+	resp := make([]NodeAddress, 0)
+
+	type getNodeStatusSpec struct {
+		Addresses []NodeAddress `json:"addresses"`
+	}
+
+	type getNodeSpec struct {
+		Metadata map[string]interface{} `json:"metadata"`
+		Status   getNodeStatusSpec      `json:"status"`
+	}
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get node %s -o json 1>&2", nodeName))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return resp, fmt.Errorf("failed to get node: %s, %v", string(stdoutStderr), err)
+	}
+
+	var jsonResp getNodeSpec
+	if err := json.Unmarshal(stdoutStderr, &jsonResp); err != nil {
+		return resp, fmt.Errorf("failed to parse node spec: %v", err)
+	}
+
+	return jsonResp.Status.Addresses, nil
+}
+
+func GetServiceClusterIP(namespace, selector string) (ServiceClusterIPList, error) {
+	resp := ServiceClusterIPList{
+		Services: make([]ServiceClusterIP, 0),
+	}
+
+	type serviceSpec struct {
+		ClusterIP string `json:"clusterIP"`
+	}
+
+	type getServiceSpec struct {
+		Metadata map[string]interface{} `json:"metadata"`
+		Spec     serviceSpec            `json:"spec"`
+	}
+
+	type getServiceList struct {
+		Items []getServiceSpec `json:"items"`
+	}
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get service -n %s -l %s -o json 1>&2", namespace, selector))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return resp, fmt.Errorf("failed to get node: %s, %v", string(stdoutStderr), err)
+	}
+
+	var jsonResp getServiceList
+	if err := json.Unmarshal(stdoutStderr, &jsonResp); err != nil {
+		return resp, fmt.Errorf("failed to parse service spec: %v", err)
+	}
+
+	for _, service := range jsonResp.Items {
+		resp.Services = append(resp.Services, ServiceClusterIP{
+			ServiceName: service.Metadata["name"].(string),
+			ClusterIP:   service.Spec.ClusterIP,
+		})
+	}
+
+	return resp, nil
 }

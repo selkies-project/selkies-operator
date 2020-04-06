@@ -142,3 +142,80 @@ func MakeCookieValue(user, cookieSecret string) string {
 	io.WriteString(h, fmt.Sprintf("%s.%s", user, cookieSecret))
 	return fmt.Sprintf("%s#%x", user, h.Sum(nil))
 }
+
+func GetEgressNetworkPolicyData(podBrokerNamespace, turnEndpointSelector string) (NetworkPolicyTemplateData, error) {
+	resp := NetworkPolicyTemplateData{
+		TURNIPs: make([]string, 0),
+	}
+
+	// Fetch map of enpoint names to node names that endpoint is running on.
+	endpointMap, err := GetEndpointNodes(podBrokerNamespace, turnEndpointSelector)
+	if err != nil {
+		return resp, err
+	}
+
+	endpointNodeMapList := EndpointNodeIPMapList{
+		Endpoints: make([]EndpointNodeIPMap, 0),
+	}
+
+	for endpointName, nodeMap := range endpointMap {
+		endpointNodeIPMap := EndpointNodeIPMap{
+			EndpointName: endpointName,
+			Nodes:        make([]NodeIPs, 0),
+		}
+
+		for _, nodeName := range nodeMap {
+			addresses, err := GetNodeAddresses(nodeName)
+			if err != nil {
+				return resp, err
+			}
+			internalIP := ""
+			externalIP := ""
+			for _, nodeAddress := range addresses {
+				if nodeAddress.Type == "ExternalIP" {
+					externalIP = nodeAddress.Address
+				}
+				if nodeAddress.Type == "InternalIP" {
+					internalIP = nodeAddress.Address
+				}
+			}
+			if len(externalIP) == 0 {
+				return resp, fmt.Errorf("could not find address of type ExternalIP on node: %s", nodeName)
+			}
+			if len(internalIP) == 0 {
+				return resp, fmt.Errorf("could not find address of type InternalIP on node: %s", nodeName)
+			}
+
+			endpointNodeIPMap.Nodes = append(endpointNodeIPMap.Nodes, NodeIPs{
+				NodeName:   nodeName,
+				InternalIP: internalIP,
+				ExternalIP: externalIP,
+			})
+		}
+
+		endpointNodeMapList.Endpoints = append(endpointNodeMapList.Endpoints, endpointNodeIPMap)
+	}
+
+	for _, endpoint := range endpointNodeMapList.Endpoints {
+		if endpoint.EndpointName == "turn" {
+			for _, node := range endpoint.Nodes {
+				resp.TURNIPs = append(resp.TURNIPs, node.ExternalIP)
+				resp.TURNIPs = append(resp.TURNIPs, node.InternalIP)
+			}
+		}
+	}
+
+	// Get kube-dns service ClusterIP
+	services, err := GetServiceClusterIP("kube-system", "k8s-app=kube-dns")
+	if err != nil {
+		return resp, err
+	}
+
+	for _, svc := range services.Services {
+		if svc.ServiceName == "kube-dns" {
+			resp.KubeDNSClusterIP = svc.ClusterIP
+		}
+	}
+
+	return resp, nil
+}

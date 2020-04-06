@@ -74,6 +74,7 @@ type UserPodData struct {
 	UserParams                map[string]string
 	AppParams                 map[string]string
 	SysParams                 map[string]string
+	NetworkPolicyData         NetworkPolicyTemplateData
 }
 
 type NodeResource struct {
@@ -115,6 +116,11 @@ type AppImageSpec struct {
 	Digest  string `yaml:"digest,omitempty" json:"digest,omitempty"`
 }
 
+type AppEnvSpec struct {
+	Name  string `yaml:"name" json:"name"`
+	Value string `yaml:"value" json:"value"`
+}
+
 type AppConfigSpec struct {
 	Name        string                  `yaml:"name" json:"name"`
 	DisplayName string                  `yaml:"displayName" json:"displayName"`
@@ -130,8 +136,9 @@ type AppConfigSpec struct {
 	NodeTiers   []NodeTierSpec          `yaml:"nodeTiers,omitempty" json:"nodeTiers,omitempty"`
 	DefaultTier string                  `yaml:"defaultTier,omitempty" json:"defaultTier,omitempty"`
 	ServiceName string                  `yaml:"serviceName" json:"serviceName"`
-	UserParams  []AppConfigParam        `yaml:"userParams,omitempty" json:"userParams,omitempty"`
-	AppParams   []AppConfigParam        `yaml:"appParams,omitempty" json:"appParams,omitempty"`
+	UserParams  []AppConfigParam        `yaml:"userParams" json:"userParams"`
+	AppParams   []AppConfigParam        `yaml:"appParams" json:"appParams"`
+	AppEnv      []AppEnvSpec            `yaml:"appEnv" json:"appEnv"`
 }
 
 type AppConfigObject struct {
@@ -157,7 +164,8 @@ type AppUserConfigObject struct {
 }
 
 type RegisteredAppsManifest struct {
-	Apps map[string]AppConfigSpec `yaml:"apps" json:"apps"`
+	Apps              map[string]AppConfigSpec  `yaml:"apps" json:"apps"`
+	NetworkPolicyData NetworkPolicyTemplateData `yaml:"networkPolicyData" json:"networkPolicyData"`
 }
 
 type AppListResponse struct {
@@ -229,4 +237,41 @@ type ImageListResponse struct {
 	Name     string                               `json:"name"`
 	Tags     []string                             `json:"tags"`
 	Manifest map[string]ImageListManifestResponse `json:"manifest"`
+}
+
+type NodeAddress struct {
+	Address string `json:"address"`
+	Type    string `json:"type"`
+}
+
+// Map of endpoint name to nodes that endpoint is deployed to.
+type EndpointNodeMap map[string][]string
+
+type EndpointNodeIPMap struct {
+	EndpointName string    `json:"endpointName"`
+	Nodes        []NodeIPs `json:"nodes"`
+}
+
+type NodeIPs struct {
+	NodeName   string `json:"nodeName"`
+	InternalIP string `json:"internalIP"`
+	ExternalIP string `json:"externalIP"`
+}
+
+type EndpointNodeIPMapList struct {
+	Endpoints []EndpointNodeIPMap `json:"endpoints"`
+}
+
+type ServiceClusterIP struct {
+	ServiceName string `json:"serviceName"`
+	ClusterIP   string `json:"clusterIP"`
+}
+
+type ServiceClusterIPList struct {
+	Services []ServiceClusterIP `json:"services"`
+}
+
+type NetworkPolicyTemplateData struct {
+	TURNIPs          []string `json:"turnIPs"`
+	KubeDNSClusterIP string   `json:"kubeDNSClusterIP"`
 }

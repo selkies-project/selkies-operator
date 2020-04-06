@@ -19,8 +19,6 @@ package pod_broker
 import (
 	"encoding/json"
 	"io/ioutil"
-
-	"gopkg.in/yaml.v2"
 )
 
 func (manifest *RegisteredAppsManifest) Add(app AppConfigSpec) {
@@ -43,13 +41,13 @@ func NewRegisteredAppManifest() RegisteredAppsManifest {
 }
 
 func NewRegisteredAppManifestFromJSON(srcFile string) (RegisteredAppsManifest, error) {
-	manifest := RegisteredAppsManifest{}
+	var manifest RegisteredAppsManifest
 
 	data, err := ioutil.ReadFile(srcFile)
 	if err != nil {
 		return manifest, err
 	}
 
-	err = yaml.Unmarshal([]byte(data), &manifest)
+	err = json.Unmarshal(data, &manifest)
 	return manifest, err
 }

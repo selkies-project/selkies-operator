@@ -140,6 +140,18 @@ spec:
                     type: string
                   default:
                     type: string
+            appEnv:
+              type: array
+              items:
+                type: object
+                required:
+                  - name
+                  - value
+                properties:
+                  name:
+                    type: string
+                  value:
+                    type: string
             defaultTier:
               type: string
             nodeTiers:

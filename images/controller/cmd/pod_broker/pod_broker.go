@@ -400,6 +400,7 @@ func main() {
 			UserParams:                userConfig.Spec.Params,
 			AppParams:                 appParams,
 			SysParams:                 sysParams,
+			NetworkPolicyData:         registeredApps.NetworkPolicyData,
 		}
 
 		appPath := fmt.Sprintf("/%s/", appName)
