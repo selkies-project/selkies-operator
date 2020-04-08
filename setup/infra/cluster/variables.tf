@@ -54,6 +54,12 @@ variable default_pool_min_node_count {
 variable default_pool_max_node_count {
   default = 10
 }
+variable default_pool_preemptive_nodes {
+  default = false
+}
+variable default_pool_disk_size_gb {
+  default = 100
+}
 
 # Tier 1 node pool counts per zone
 variable tier1_pool_machine_type {
@@ -68,6 +74,12 @@ variable tier1_pool_min_node_count {
 variable tier1_pool_max_node_count {
   default = 10
 }
+variable tier1_pool_preemptive_nodes {
+  default = false
+}
+variable tier1_pool_disk_size_gb {
+  default = 512
+}
 
 # Tier 2 node pool counts per zone
 variable tier2_pool_machine_type {
@@ -81,6 +93,12 @@ variable tier2_pool_min_node_count {
 }
 variable tier2_pool_max_node_count {
   default = 10
+}
+variable tier2_pool_preemptive_nodes {
+  default = false
+}
+variable tier2_pool_disk_size_gb {
+  default = 512
 }
 
 # GPU node pool counts per zone
@@ -100,6 +118,12 @@ variable gpu_pool_min_node_count {
 variable gpu_pool_max_node_count {
   default = 10
 }
+variable gpu_pool_preemptive_nodes {
+  default = false
+}
+variable gpu_pool_disk_size_gb {
+  default = 512
+}
 
 variable gpu_ubuntu_pool_machine_type {
   default = "n1-standard-16"
@@ -112,6 +136,12 @@ variable gpu_ubuntu_pool_min_node_count {
 }
 variable gpu_ubuntu_pool_max_node_count {
   default = 10
+}
+variable gpu_ubuntu_pool_preemptive_nodes {
+  default = false
+}
+variable gpu_ubuntu_pool_disk_size_gb {
+  default = 512
 }
 
 # TURN node pool counts per zone
@@ -126,4 +156,10 @@ variable turn_pool_min_node_count {
 }
 variable turn_pool_max_node_count {
   default = 10
+}
+variable turn_pool_preemptive_nodes {
+  default = false
+}
+variable turn_pool_disk_size_gb {
+  default = 512
 }

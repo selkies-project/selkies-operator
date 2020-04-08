@@ -39,7 +39,7 @@ module "broker" {
   http_load_balancing    = true
   network_policy         = true
 
-  # Zones must be compatible with the chosen accelerator_type in the gpu-* node pools. 
+  # Zones must be compatible with the chosen accelerator_type in the gpu-* node pools.
   zones = length(var.zones) == 0 ? lookup(local.cluster_node_zones, var.region) : var.zones
 
   node_pools = [
@@ -51,13 +51,13 @@ module "broker" {
       min_count          = var.default_pool_min_node_count
       max_count          = var.default_pool_max_node_count
       local_ssd_count    = 0
-      disk_size_gb       = 100
+      disk_size_gb       = var.default_pool_disk_size_gb
       disk_type          = "pd-standard"
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
-      preemptible        = false
+      preemptible        = var.default_pool_preemptive_nodes
     },
     {
       # Tier 1 node pool
@@ -67,13 +67,13 @@ module "broker" {
       min_count          = var.tier1_pool_min_node_count
       max_count          = var.tier1_pool_max_node_count
       local_ssd_count    = 0
-      disk_size_gb       = 512
+      disk_size_gb       = var.tier1_pool_disk_size_gb
       disk_type          = "pd-ssd"
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
-      preemptible        = false
+      preemptible        = var.tier1_pool_preemptive_nodes
     },
     {
       # Tier 2 node pool
@@ -83,13 +83,13 @@ module "broker" {
       min_count          = var.tier2_pool_min_node_count
       max_count          = var.tier2_pool_max_node_count
       local_ssd_count    = 0
-      disk_size_gb       = 512
+      disk_size_gb       = var.tier2_pool_disk_size_gb
       disk_type          = "pd-ssd"
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
-      preemptible        = false
+      preemptible        = var.tier2_pool_preemptive_nodes
     },
     {
       # GPU node pool - COS image type
@@ -99,13 +99,13 @@ module "broker" {
       min_count          = var.gpu_pool_min_node_count
       max_count          = var.gpu_pool_max_node_count
       local_ssd_count    = 0
-      disk_size_gb       = 512
+      disk_size_gb       = var.gpu_pool_disk_size_gb
       disk_type          = "pd-ssd"
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
-      preemptible        = false
+      preemptible        = var.gpu_pool_preemptive_nodes
       accelerator_count  = 1
       accelerator_type   = length(var.accelerator_type) == 0 ? lookup(local.accelerator_type_regions, var.region) : var.accelerator_type
     },
@@ -117,13 +117,13 @@ module "broker" {
       min_count          = var.turn_pool_min_node_count
       max_count          = var.turn_pool_max_node_count
       local_ssd_count    = 0
-      disk_size_gb       = 512
+      disk_size_gb       = var.turn_pool_disk_size_gb
       disk_type          = "pd-standard"
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
-      preemptible        = false
+      preemptible        = var.turn_pool_preemptive_nodes
     },
     {
       # GPU node pool - Ubuntu image type
@@ -133,13 +133,13 @@ module "broker" {
       min_count          = var.gpu_ubuntu_pool_min_node_count
       max_count          = var.gpu_ubuntu_pool_max_node_count
       local_ssd_count    = 0
-      disk_size_gb       = 512
+      disk_size_gb       = var.gpu_ubuntu_pool_disk_size_gb
       disk_type          = "pd-ssd"
       image_type         = "UBUNTU"
       auto_repair        = true
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
-      preemptible        = false
+      preemptible        = var.gpu_ubuntu_pool_preemptive_nodes
       accelerator_count  = 1
       accelerator_type   = length(var.accelerator_type) == 0 ? lookup(local.accelerator_type_regions, var.region) : var.accelerator_type
     },
