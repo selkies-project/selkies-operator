@@ -106,7 +106,7 @@ module "broker" {
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
       preemptible        = var.gpu_pool_preemptive_nodes
-      accelerator_count  = 1
+      accelerator_count  = var.gpu_accelerator_count
       accelerator_type   = length(var.accelerator_type) == 0 ? lookup(local.accelerator_type_regions, var.region) : var.accelerator_type
     },
     {
@@ -140,7 +140,7 @@ module "broker" {
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
       preemptible        = var.gpu_ubuntu_pool_preemptive_nodes
-      accelerator_count  = 1
+      accelerator_count  = var.gpu_ubuntu_accelerator_count
       accelerator_type   = length(var.accelerator_type) == 0 ? lookup(local.accelerator_type_regions, var.region) : var.accelerator_type
     },
   ]
