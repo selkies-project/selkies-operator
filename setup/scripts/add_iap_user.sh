@@ -29,9 +29,8 @@ SCRIPT_DIR=$(dirname $(readlink -f $0 2>/dev/null) 2>/dev/null || echo "${PWD}/$
 # Get project from terraform outputs
 PROJECT=${GOOGLE_CLOUD_PROJECT:-$PROJECT};
 
-TMP=$(mktemp --suffix _policy.json)
+TMP=$(mktemp -p /tmp -t policy.json.XXXXXXX)
 gcloud projects get-iam-policy ${PROJECT} --format=json > ${TMP}
-echo $TMP
 if [[ -z "$(jq '.bindings[] | select(.role=="roles/iap.httpsResourceAccessor")' ${TMP})" ]]; then
     # Create new binding.
     echo "INFO: Adding IAM policy binding"

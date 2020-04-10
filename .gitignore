@@ -1,2 +1,3 @@
 vars*.sh
 NOTES.md
+setup/infra/*.auto.tfvars

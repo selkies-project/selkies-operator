@@ -86,6 +86,8 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 				} else {
 					podStatus.Waiting++
 				}
+			} else if cond.Type == "PodScheduled" && cond.Status == "False" {
+				podStatus.Waiting++
 			}
 		}
 	}

@@ -25,13 +25,17 @@ function log() {
     echo "${level}: $msg" >&2
 }
 
-NAME=$1
-TARGET=$2
-PROJECT=${3:-${GOOGLE_CLOUD_PROJECT:-$(gcloud config get-value project 2>/dev/null)}}
+# Extract JSON args into shell variables
+JQ=$(command -v jq || true)
+[[ -z "${JQ}" ]] && echo "ERROR: Missing command: 'jq'" >&2 && exit 1
 
-[[ -z "${NAME}" || -z "${TARGET}" || -z "${PROJECT}" ]] && echo "USAGE: $0 <name> <target ip> [<project>]" >&2 && exit 1
+eval "$(${JQ} -r '@sh "NAME=\(.name) TARGET=\(.target) PROJECT=\(.project)"')"
 
-SVC=${NAME}.endpoints.${PROJECT}.cloud.goog
+[[ -z "$NAME" || "$NAME" == "null" ]] && echo "ERROR: Missing 'name' in JSON input" >&2 && exit 1
+[[ -z "$TARGET" || "$TARGET" == "null" ]] && echo "ERROR: Missing 'target' in JSON input" >&2 && exit 1
+[[ -z "$PROJECT" || "$TARGET" == "null" ]] && echo "ERROR: Missing 'project' in JSON input" >&2 && exit 1
+
+SVC="${NAME}.endpoints.${PROJECT}.cloud.goog"
 
 cat - > cloudep.yaml <<EOF
 swagger: "2.0"
@@ -59,3 +63,9 @@ log "INFO" "Cloud Endpoint config ID ${PROJECT}:"
 gcloud --project ${PROJECT} endpoints services describe ${SVC} --format='value(serviceConfig.id)'
 
 log "INFO" "Created Cloud Endpoint: ${SVC}"
+
+# Output results in JSON format.
+jq -n \
+  --arg endpoint "${SVC}" \
+  --arg project "${PROJECT}" \
+    '{"endpoint":$endpoint, "project":$project}'

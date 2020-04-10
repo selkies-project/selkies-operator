@@ -24,7 +24,7 @@ spec:
   icon: https://upload.wikimedia.org/wikipedia/commons/3/38/Jupyter_logo.svg
   bundle:
     configMapRef:
-      name: jupyter-notebook-manifests-1.2.1
+      name: jupyter-notebook-manifests-1.2.0
   serviceName: jupyter
   defaultRepo: gcr.io/kubeflow/jupyterhub
   defaultTag: "1.0"

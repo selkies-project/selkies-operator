@@ -14,16 +14,11 @@
  * limitations under the License.
  */
 
-terraform {
-  backend "gcs" {}
-  required_version = ">= 0.12"
-  required_providers {
-    external    = "~> 1.2.0"
-    google      = "~> 3.14"
-    google-beta = "~> 3.14"
-    kubernetes  = "~> 1.11.0"
-    template    = "~> 2.1"
-    null        = "~> 2.1"
-    random      = "~> 2.2"
-  }
+data "google_container_cluster" "broker" {
+  name     = "${var.name}-${var.region}"
+  location = var.region
+}
+
+data "google_service_account" "broker_cluster" {
+  account_id = var.name
 }

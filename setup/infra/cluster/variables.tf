@@ -15,7 +15,6 @@
  */
 
 variable project_id {}
-variable kubernetes_version_prefix {}
 variable region {}
 
 variable network {
@@ -46,10 +45,10 @@ variable default_pool_machine_type {
   default = "n1-standard-4"
 }
 variable default_pool_initial_node_count {
-  default = 1
+  default = 2
 }
 variable default_pool_min_node_count {
-  default = 1
+  default = 2
 }
 variable default_pool_max_node_count {
   default = 10
@@ -58,96 +57,7 @@ variable default_pool_preemptive_nodes {
   default = false
 }
 variable default_pool_disk_size_gb {
-  default = 100
-}
-
-# Tier 1 node pool counts per zone
-variable tier1_pool_machine_type {
-  default = "n1-standard-8"
-}
-variable tier1_pool_initial_node_count {
-  default = 1
-}
-variable tier1_pool_min_node_count {
-  default = 1
-}
-variable tier1_pool_max_node_count {
-  default = 10
-}
-variable tier1_pool_preemptive_nodes {
-  default = false
-}
-variable tier1_pool_disk_size_gb {
-  default = 256
-}
-
-# Tier 2 node pool counts per zone
-variable tier2_pool_machine_type {
-  default = "n1-highcpu-32"
-}
-variable tier2_pool_initial_node_count {
-  default = 0
-}
-variable tier2_pool_min_node_count {
-  default = 0
-}
-variable tier2_pool_max_node_count {
-  default = 10
-}
-variable tier2_pool_preemptive_nodes {
-  default = false
-}
-variable tier2_pool_disk_size_gb {
-  default = 256
-}
-
-# GPU node pool counts per zone
-variable accelerator_type {
-  # will use value from accelerator_type_regions if not given.
-  default = ""
-}
-variable gpu_pool_machine_type {
-  default = "n1-standard-16"
-}
-variable gpu_pool_initial_node_count {
-  default = 1
-}
-variable gpu_pool_min_node_count {
-  default = 1
-}
-variable gpu_pool_max_node_count {
-  default = 10
-}
-variable gpu_pool_preemptive_nodes {
-  default = false
-}
-variable gpu_pool_disk_size_gb {
-  default = 256
-}
-variable gpu_accelerator_count {
-  default = 1
-}
-
-variable gpu_ubuntu_pool_machine_type {
-  default = "n1-standard-16"
-}
-variable gpu_ubuntu_pool_initial_node_count {
-  default = 0
-}
-variable gpu_ubuntu_pool_min_node_count {
-  default = 0
-}
-variable gpu_ubuntu_pool_max_node_count {
-  default = 10
-}
-variable gpu_ubuntu_pool_preemptive_nodes {
-  default = false
-}
-variable gpu_ubuntu_pool_disk_size_gb {
-  default = 256
-}
-variable gpu_ubuntu_accelerator_count {
-  default = 1
+  default = 200
 }
 
 # TURN node pool counts per zone
@@ -167,5 +77,5 @@ variable turn_pool_preemptive_nodes {
   default = false
 }
 variable turn_pool_disk_size_gb {
-  default = 256
+  default = 200
 }

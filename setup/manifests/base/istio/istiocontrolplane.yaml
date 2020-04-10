@@ -19,10 +19,10 @@ metadata:
   name: broker-istiocontrolplane
 spec:
   # Profiles: https://istio.io/docs/setup/additional-setup/config-profiles/
-  # default profile: https://github.com/istio/operator/blob/1.4.2/data/profiles/default.yaml
+  # default profile: https://github.com/istio/operator/blob/1.4.7/data/profiles/default.yaml
   profile: default
 
-  # spec: https://istio.io/docs/reference/config/istio.operator.v1alpha12.pb/
+  # spec: https://istio.io/docs/reference/config/istio.operator.v1alpha1/
   trafficManagement:
     components:
       pilot:
@@ -33,30 +33,13 @@ spec:
             minReplicas: 2
 
   policy:
-    components:
-      policy:
-        k8s:
-          hpaSpec:
-            # Increasing the min replica count helps with node upgrades.
-            maxReplicas: 5
-            minReplicas: 2
+    enabled: false
 
   telemetry:
-    components:
-      telemetry:
-        k8s:
-          hpaSpec:
-            # Increasing the min replica count helps with node upgrades.
-            maxReplicas: 5
-            minReplicas: 2
+    enabled: false
 
   security:
-    components:
-      citadel:
-        k8s:
-          # Citadel does not have an HPA in the default profile, but it does have a PDB.
-          # Increasing the replica count helps with node upgrades.
-          replicaCount: 2
+    enabled: true
 
   # Config management feature
   configManagement:
@@ -68,12 +51,7 @@ spec:
           replicaCount: 2
 
   autoInjection:
-    components:
-      injector:
-        k8s:
-          # Injector does not have an HPA in the default profile, but it does have a PDB.
-          # Increasing the replica count helps with node upgrades.
-          replicaCount: 2
+    enabled: false
 
   #cni:
 

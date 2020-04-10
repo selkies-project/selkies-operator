@@ -17,6 +17,8 @@ substitutions:
   _ACTION: apply
   _NAME: broker
   _REGION: us-west1
+  _TIER1: "true"
+  _TIER2: "true"
 
 steps:
   ###
@@ -29,5 +31,7 @@ steps:
       - TF_VAR_project_id=${PROJECT_ID}
       - TF_VAR_name=${_NAME}
       - TF_VAR_region=${_REGION}
-      - TERRAFORM_WORKSPACE_NAME=${_REGION}
+      - TF_VAR_tier1_pool_enabled=${_TIER1}
+      - TF_VAR_tier2_pool_enabled=${_TIER2}
+      - TERRAFORM_WORKSPACE_NAME=node-pool-apps-${_REGION}
       - ACTION=${_ACTION}

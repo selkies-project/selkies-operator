@@ -7,11 +7,11 @@ This tutorial will walk you through deploying the kube-pod-broker platform with 
 1. Set the project, replace `YOUR_PROJECT` with your project ID:
 
 ```bash
-PROJECT=YOUR_PROJECT
+export PROJECT_ID=YOUR_PROJECT
 ```
 
 ```bash
-gcloud config set project ${PROJECT}
+gcloud config set project ${PROJECT_ID?}
 ```
 
 ## Enable APIs
@@ -26,14 +26,16 @@ gcloud services enable \
     cloudbuild.googleapis.com \
     servicemanagement.googleapis.com \
     serviceusage.googleapis.com \
-    secretmanager.googleapis.com
+    stackdriver.googleapis.com \
+    secretmanager.googleapis.com \
+    iap.googleapis.com
 ```
 
 2. Grant the cloud build service account permissions on your project:
 
 ```bash
-CLOUDBUILD_SA=$(gcloud projects describe $PROJECT --format='value(projectNumber)')@cloudbuild.gserviceaccount.com && \
-  gcloud projects add-iam-policy-binding $PROJECT --member serviceAccount:$CLOUDBUILD_SA --role roles/owner
+CLOUDBUILD_SA=$(gcloud projects describe ${PROJECT_ID?} --format='value(projectNumber)')@cloudbuild.gserviceaccount.com && \
+  gcloud projects add-iam-policy-binding ${PROJECT_ID?} --member serviceAccount:${CLOUDBUILD_SA?} --role roles/owner
 ```
 
 ## Build images
@@ -44,47 +46,27 @@ CLOUDBUILD_SA=$(gcloud projects describe $PROJECT --format='value(projectNumber)
 (cd images && gcloud builds submit --config cloudbuild.yaml)
 ```
 
-## OAuth Task 1/2 - Configure OAuth consent screen
+## Create OAuth Client
 
-1. Go to the [OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent). If prompted for application type, select __External__.
-2. Under __Application name__, enter `App Launcher`.
-3. Under __Support email__, select the email address you want to display as a public contact. This must be your email address, or a Google Group you own.
-4. Add any optional details you’d like.
-5. Click __Save__.
-
-## OAuth Task 2/2 - Create OAuth credentials
-
-1. Go to the [Credentials page](https://console.cloud.google.com/apis/credentials)
-2. Click __Create Credentials > OAuth client ID__,
-3. Under __Application type__, select __Web application__. In the __Name__ box, enter `App Launcher`
-4. When you are finished, click __Create__. After your credentials are created, make note of the client ID and client secret that appear in the OAuth client window.
-5. In Cloud Shell, save your OAuth credentials obtained to variables:
+1. Create the OAuth brand and client:
 
 ```bash
-export CLIENT_ID=YOUR_CLIENT_ID
+eval $(./setup/scripts/create_oauth_client.sh "App Launcher")
+```
+
+> NOTE: this command automatically creates the OAuth client ID and secret and exports them to variables CLIENT_ID and CLIENT_SECRET in your shell.
+
+> NOTE: if you want to authorize users outside of your organization, you must click the __MAKE EXTERNAL__ button from the [OAuth Consent Screen page](https://console.cloud.google.com/apis/credentials/consent?project=disla-vdi-demo) in the cloud console.
+
+2. Store the OAuth credentials in Secret Manager:
+
+```bash
+gcloud secrets create broker-oauth2-client-id --replication-policy=automatic --data-file <(echo -n ${CLIENT_ID?})
 ```
 
 ```bash
-export CLIENT_SECRET=YOUR_CLIENT_SECRET
+gcloud secrets create broker-oauth2-client-secret --replication-policy=automatic --data-file <(echo -n ${CLIENT_SECRET?})
 ```
-
-6. Store the OAuth credentials in Secret Manager:
-
-```bash
-gcloud secrets create broker-oauth2-client-id --replication-policy=automatic --data-file <(echo -n ${CLIENT_ID})
-```
-
-```bash
-gcloud secrets create broker-oauth2-client-secret --replication-policy=automatic --data-file <(echo -n ${CLIENT_SECRET})
-```
-
-6. In the Cloud Console, go back to the credential you just created and edit the __Authorized redirect URIs__, add the URL from the output below and then press __enter__ to add the entry to the list.
-
-```bash
-echo "https://iap.googleapis.com/v1/oauth/clientIds/${CLIENT_ID}:handleRedirect"
-```
-
-6. Click __save__
 
 ## Generate pod broker cookie secret
 
@@ -97,7 +79,7 @@ export COOKIE_SECRET=$(openssl rand -base64 15)
 2. Store the cookie secret in Secret Manager:
 
 ```bash
-gcloud secrets create broker-cookie-secret --replication-policy=automatic --data-file <(echo -n ${COOKIE_SECRET})
+gcloud secrets create broker-cookie-secret --replication-policy=automatic --data-file <(echo -n ${COOKIE_SECRET?})
 ```
 
 ## Deploy the infrastructure
@@ -115,7 +97,7 @@ REGION=us-west1
 ```
 
 ```bash
-(cd setup/infra/cluster && gcloud builds submit --substitutions=_REGION=${REGION})
+(cd setup/infra/cluster && gcloud builds submit --substitutions=_REGION=${REGION?})
 ```
 
 > NOTE: this can be run multiple times with different regions.
@@ -131,7 +113,7 @@ REGION=us-west1
 4. Deploy the manifests to the regional cluster:
 
 ```bash
-(cd setup/manifests && gcloud builds submit --substitutions=_REGION=${REGION})
+(cd setup/manifests && gcloud builds submit --substitutions=_REGION=${REGION?})
 ```
 
 > NOTE: this can be run multiple times with different regions.
@@ -141,7 +123,7 @@ REGION=us-west1
 1. Add your current user to the IAP authorized web users role:
 
 ```bash
-./setup/scripts/add_iap_user.sh user $(gcloud config get-value account) ${PROJECT}
+./setup/scripts/add_iap_user.sh user $(gcloud config get-value account) ${PROJECT_ID?}
 ```
 
 2. Wait for the global load balancer and managed certificates to be provisioned.
@@ -156,12 +138,18 @@ echo "Open: https://broker.endpoints.$(gcloud config get-value project 2>/dev/nu
 
 > NOTE: at this point there will be no apps listed.
 
-## Deploy the sample remote application
+## Create the node pool for apps
 
-1. Deploy the sample app using Cloud Build:
+1. Create the `tier1` node pool for apps:
 
 ```bash
-(cd examples/jupyter-notebook/ && gcloud builds submit --substitutions=_REGION=${REGION})
+(cd setup/infra/node-pool-apps && gcloud builds submit)
 ```
 
-2. Refresh the app launcher interface to launch the app.
+2. Deploy the sample app using Cloud Build:
+
+```bash
+(cd examples/jupyter-notebook/ && gcloud builds submit --substitutions=_REGION=${REGION?})
+```
+
+3. Refresh the app launcher interface to launch the app.

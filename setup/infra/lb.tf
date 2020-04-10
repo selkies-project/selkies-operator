@@ -32,14 +32,14 @@ data "google_secret_manager_secret_version" "oauth2_client_secret" {
   secret   = "broker-oauth2-client-secret"
 }
 
-# Cloud endpoints for DNS
-module "cloud-ep-dns" {
-  # Return to module registry after this is merged: https://github.com/terraform-google-modules/terraform-google-endpoints-dns/pull/2
-  #source      = "terraform-google-modules/endpoints-dns/google"
-  source      = "github.com/danisla/terraform-google-endpoints-dns?ref=0.12upgrade"
-  project     = var.project_id
-  name        = var.name
-  external_ip = google_compute_global_address.ingress.address
+data "external" "cloud-ep-dns" {
+  program = ["${path.module}/create_cloudep.sh"]
+
+  query = {
+    name    = var.name
+    project = var.project_id
+    target  = google_compute_global_address.ingress.address
+  }
 }
 
 # Managed certificate
@@ -50,7 +50,7 @@ resource "google_compute_managed_ssl_certificate" "ingress" {
   name = "istio-ingressgateway"
 
   managed {
-    domains = ["${module.cloud-ep-dns.endpoint}."]
+    domains = ["${data.external.cloud-ep-dns.result["endpoint"]}."]
   }
 }
 
