@@ -50,7 +50,7 @@ elif [[ "${ACTION?}" == "plan" ]]; then
     terraform plan -out terraform.tfplan -input=false
 elif [[ "${ACTION?}" == "apply" ]]; then
     log_cyan "Running terraform plan..."
-    terraform plan -out terraform.tfplan -input=false -var-file="qwiklabs-config.tfvars"
+    terraform plan -out terraform.tfplan -input=false
 
     log_cyan "Running terraform apply..."
     terraform apply -input=false terraform.tfplan
