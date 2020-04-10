@@ -48,7 +48,14 @@ else
 fi
 
 log_cyan "INFO: Creating OAuth client"
-$GCLOUD alpha iap oauth-clients create ${BRAND_ID?} --display_name="${APP_NAME?}" >&2
+
+# Check to see if OAuth client already exists.
+IFS=',' read -ra toks < <($GCLOUD alpha iap oauth-clients list ${BRAND_ID?} --filter="displayName~'${APP_NAME?}'"  --limit=1 --format 'csv[no-heading](name,secret)') 
+if [[ -z ${toks[0]} ]]; then
+    $GCLOUD alpha iap oauth-clients create ${BRAND_ID?} --display_name="${APP_NAME?}" >&2
+else
+    log_cyan "INFO:   Using existing client: ${toks[0]}"
+fi
 
 # Poll until oauth client is ready.
 CLIENT_ID=
