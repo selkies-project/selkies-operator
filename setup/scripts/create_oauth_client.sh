@@ -40,7 +40,7 @@ log_cyan "INFO: Creating OAuth Brand"
 BRAND_ID=$($GCLOUD alpha iap oauth-brands list --filter="applicationTitle~'${APP_NAME?}'" --format='value(name)')
 if [[ -z "${BRAND_ID}" ]]; then
     # Create the OAuth Brand
-    $GCLOUD alpha iap oauth-brands create --application_title="${APP_NAME?}" --support_email=$($GCLOUD config get-value account)
+    $GCLOUD alpha iap oauth-brands create --application_title="${APP_NAME?}" --support_email=$($GCLOUD config get-value account) >&2
     sleep 2
     BRAND_ID=$($GCLOUD alpha iap oauth-brands list --filter="applicationTitle~'${APP_NAME?}'" --format='value(name)')
 else
@@ -48,7 +48,7 @@ else
 fi
 
 log_cyan "INFO: Creating OAuth client"
-$GCLOUD alpha iap oauth-clients create ${BRAND_ID?} --display_name="${APP_NAME?}" >/dev/null 2>&1
+$GCLOUD alpha iap oauth-clients create ${BRAND_ID?} --display_name="${APP_NAME?}" >&2
 
 # Poll until oauth client is ready.
 CLIENT_ID=
