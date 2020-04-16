@@ -175,3 +175,15 @@ steps:
       - "--substitutions=_INFRA_NAME=${_NAME},_REGION=${_REGION}"
     waitFor:
       - create-workload-identity-bindings
+  ###
+  # Wait for IAP and GCLB to stabilize
+  ###
+  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
+    id: "wait-for-iap"
+    entrypoint: "bash"
+    args:
+      - -exc
+      - |
+        CLIENT_ID=$$(gcloud secrets versions access 1 --secret broker-oauth2-client-id)
+        ENDPOINT="https://${_NAME}.endpoints.${PROJECT_ID}.cloud.goog/broker/"
+        bash ./setup/scripts/wait_for_iap.sh broker@${PROJECT_ID}.iam.gserviceaccount.com $${CLIENT_ID} $${ENDPOINT}

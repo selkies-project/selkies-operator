@@ -46,6 +46,12 @@ resource "google_project_iam_member" "cluster_service_account-stackdriver-metada
   member  = "serviceAccount:${google_service_account.cluster_service_account.email}"
 }
 
+resource "google_project_iam_member" "cluster_service_account-iap-user" {
+  project = google_project_iam_member.cluster_service_account-metric_writer.project
+  role    = "roles/iap.httpsResourceAccessor"
+  member  = "serviceAccount:${google_service_account.cluster_service_account.email}"
+}
+
 # Grant access to GCR in the same project that the cluster exists in.
 # Make sure workload identity is being used or else this will grant
 # tenants on the cluster access to your GCS buckets, and possibly the terraform state.
