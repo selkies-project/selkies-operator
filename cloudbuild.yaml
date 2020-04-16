@@ -33,7 +33,7 @@
 #     --member serviceAccount:$CLOUDBUILD_SA \
 #     --role roles/owner
 
-timeout: 10800s
+timeout: 3600s
 substitutions:
   _ACTION: apply
   _NAME: broker

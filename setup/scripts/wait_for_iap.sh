@@ -29,6 +29,7 @@ count=0
 while [[ "${count}" -le 5 ]]; do
     STATUS=$(curl --connect-timeout 1 -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${ID_TOKEN?}" "${ENDPOINT?}")
     [[ "$STATUS" -eq 200 ]] && ((count=count+1))
+    [[ "$STATUS" -eq 403 ]] && echo "ERROR: failed to get valid IAP credentials." && exit 1
     sleep 2
 done
 echo "INFO: Done"
