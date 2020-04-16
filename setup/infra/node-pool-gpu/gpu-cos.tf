@@ -92,4 +92,13 @@ resource "google_container_node_pool" "gpu-cos" {
     min_node_count = var.gpu_cos_pool_min_node_count
     max_node_count = var.gpu_cos_pool_max_node_count
   }
+
+  // node labels and taints are modified dynamically by the node init containers
+  // ignore changes so that Terraform doesn't try to undo their modifications.
+  lifecycle {
+    ignore_changes = [
+      node_config[0].labels,
+      node_config[0].taint
+    ]
+  }
 }
