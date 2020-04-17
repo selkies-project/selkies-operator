@@ -32,6 +32,10 @@
 # gcloud projects add-iam-policy-binding $PROJECT_ID \
 #     --member serviceAccount:$CLOUDBUILD_SA \
 #     --role roles/owner
+#
+# gcloud projects add-iam-policy-binding $PROJECT_ID \
+#     --member serviceAccount:$CLOUDBUILD_SA \
+#     --role roles/iam.serviceAccountTokenCreator
 
 timeout: 3600s
 substitutions:
@@ -100,7 +104,6 @@ steps:
       - "submit"
       - "--substitutions=_NAME=${_NAME},_ACTION=${_ACTION}"
     waitFor:
-      - build-images
       - create-oauth-client
       - generate-broker-cookie-secret
   ###
@@ -174,6 +177,7 @@ steps:
       - "submit"
       - "--substitutions=_INFRA_NAME=${_NAME},_REGION=${_REGION}"
     waitFor:
+      - build-images
       - create-workload-identity-bindings
   ###
   # Wait for IAP and GCLB to stabilize
@@ -187,3 +191,5 @@ steps:
         CLIENT_ID=$$(gcloud secrets versions access 1 --secret broker-oauth2-client-id)
         ENDPOINT="https://${_NAME}.endpoints.${PROJECT_ID}.cloud.goog/broker/"
         bash ./setup/scripts/wait_for_iap.sh broker@${PROJECT_ID}.iam.gserviceaccount.com $${CLIENT_ID} $${ENDPOINT}
+    waitFor:
+      - deploy-cluster-manifests-region

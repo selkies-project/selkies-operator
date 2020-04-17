@@ -25,15 +25,7 @@ function log() {
     echo "${level}: $msg" >&2
 }
 
-# Extract JSON args into shell variables
-JQ=$(command -v jq || true)
-[[ -z "${JQ}" ]] && echo "ERROR: Missing command: 'jq'" >&2 && exit 1
-
-eval "$(${JQ} -r '@sh "NAME=\(.name) TARGET=\(.target) PROJECT=\(.project)"')"
-
-[[ -z "$NAME" || "$NAME" == "null" ]] && echo "ERROR: Missing 'name' in JSON input" >&2 && exit 1
-[[ -z "$TARGET" || "$TARGET" == "null" ]] && echo "ERROR: Missing 'target' in JSON input" >&2 && exit 1
-[[ -z "$PROJECT" || "$TARGET" == "null" ]] && echo "ERROR: Missing 'project' in JSON input" >&2 && exit 1
+[[ -z "$NAME" || -z "$TARGET" || -z "$PROJECT" ]] && echo "ERRO: required env vars: NAME TARGET PROJECT" && exit 1
 
 SVC="${NAME}.endpoints.${PROJECT}.cloud.goog"
 
@@ -63,9 +55,3 @@ log "INFO" "Cloud Endpoint config ID ${PROJECT}:"
 gcloud --project ${PROJECT} endpoints services describe ${SVC} --format='value(serviceConfig.id)'
 
 log "INFO" "Created Cloud Endpoint: ${SVC}"
-
-# Output results in JSON format.
-jq -n \
-  --arg endpoint "${SVC}" \
-  --arg project "${PROJECT}" \
-    '{"endpoint":$endpoint, "project":$project}'

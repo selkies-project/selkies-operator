@@ -32,13 +32,23 @@ data "google_secret_manager_secret_version" "oauth2_client_secret" {
   secret   = "broker-oauth2-client-secret"
 }
 
-data "external" "cloud-ep-dns" {
-  program = ["${path.module}/create_cloudep.sh"]
+locals {
+  cloud_endpoint = "${var.name}.endpoints.${var.project_id}.cloud.goog"
+}
 
-  query = {
-    name    = var.name
-    project = var.project_id
-    target  = google_compute_global_address.ingress.address
+resource "null_resource" "cloud-ep-dns" {
+  triggers = {
+    endpoint = local.cloud_endpoint
+    target   = google_compute_global_address.ingress.address
+  }
+
+  provisioner "local-exec" {
+    command = "${path.module}/create_cloudep.sh"
+    environment = {
+      NAME    = var.name
+      TARGET  = google_compute_global_address.ingress.address
+      PROJECT = var.project_id
+    }
   }
 }
 
@@ -50,7 +60,7 @@ resource "google_compute_managed_ssl_certificate" "ingress" {
   name = "istio-ingressgateway"
 
   managed {
-    domains = ["${data.external.cloud-ep-dns.result["endpoint"]}."]
+    domains = ["${local.cloud_endpoint}."]
   }
 }
 

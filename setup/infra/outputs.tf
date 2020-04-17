@@ -26,7 +26,7 @@ output "name" {
 
 output "cloud-ep-endpoint" {
   description = "Cloud Endpoint DNS"
-  value       = data.external.cloud-ep-dns.result["endpoint"]
+  value       = local.cloud_endpoint
 }
 
 output "cloud-dns" {
