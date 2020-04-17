@@ -25,19 +25,19 @@ ENV ISTIO_OPERATOR_VERSION=1.4.7
 ENV CNRM_VERSION=1.6.0
 
 # Install terraform
-RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+RUN wget --timeout 2 --tries 5 https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
     unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
     chmod +x terraform && \
     mv terraform /usr/local/bin && \
     rm -rf terraform_${TERRAFORM_VERSION}_linux_amd64.zip
 
 # Install kubectl
-RUN wget https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
+RUN wget --timeout 2 --tries 5 https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/
 
 # Install kustomize
-RUN wget -O- https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz | \
+RUN wget --timeout 2 --tries 5 -O- https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz | \
     tar zxvf - kustomize && \
     chmod +x kustomize && \
     mv kustomize /usr/local/bin
@@ -47,8 +47,8 @@ COPY --from=gke-deploy /gke-deploy /usr/local/bin/
 
 # Download cnrm installer
 RUN mkdir -p /opt/cnrm && cd /opt/cnrm && \
-    wget -qO- https://storage.googleapis.com/cnrm/${CNRM_VERSION}/release-bundle.tar.gz | tar -zxvf - ./install-bundle-workload-identity/
+    wget --timeout 2 --tries 5 -qO- https://storage.googleapis.com/cnrm/${CNRM_VERSION}/release-bundle.tar.gz | tar -zxvf - ./install-bundle-workload-identity/
 
 # Download the istio operator release
 RUN mkdir -p /opt/istio-operator && cd /opt/istio-operator && \
-    wget -qO- https://github.com/istio/operator/archive/${ISTIO_OPERATOR_VERSION}.tar.gz | tar --strip-components=1 -zxf - 
+    wget --timeout 2 --tries 5 -qO- https://github.com/istio/operator/archive/${ISTIO_OPERATOR_VERSION}.tar.gz | tar --strip-components=1 -zxf - 
