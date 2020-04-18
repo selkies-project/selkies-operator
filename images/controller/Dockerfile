@@ -25,7 +25,7 @@ RUN go build cmd/pod_broker/pod_broker.go
 FROM gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
 
 # Install kubectl with integrated kustomize 
-RUN wget -qO /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.18.1/bin/linux/amd64/kubectl && \
+RUN wget --timeout 2 --tries 5 -qO /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.18.1/bin/linux/amd64/kubectl && \
     chmod +x /usr/bin/kubectl
 
 # Copy build from previous layer
