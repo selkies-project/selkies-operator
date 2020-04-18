@@ -75,6 +75,7 @@ type UserPodData struct {
 	AppParams                 map[string]string
 	SysParams                 map[string]string
 	NetworkPolicyData         NetworkPolicyTemplateData
+	Timestamp                 string
 }
 
 type NodeResource struct {

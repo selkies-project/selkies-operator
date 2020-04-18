@@ -201,6 +201,8 @@ func main() {
 
 		userConfigFile := path.Join(broker.AppUserConfigBaseDir, appName, user, broker.AppUserConfigJSONFile)
 
+		ts := fmt.Sprintf("%d", time.Now().Unix())
+
 		// Fetch user config.
 		userConfig, err := broker.GetAppUserConfig(userConfigFile)
 		if err != nil {
@@ -227,6 +229,7 @@ func main() {
 			ProjectID: projectID,
 			AppSpec:   app,
 			User:      user,
+			Timestamp: ts,
 		}
 		srcDirUser := broker.BrokerCommonBuildSouceBaseDirUser
 		destDirUser := path.Join(broker.BuildSourceBaseDirNS, user)
@@ -401,6 +404,7 @@ func main() {
 			AppParams:                 appParams,
 			SysParams:                 sysParams,
 			NetworkPolicyData:         registeredApps.NetworkPolicyData,
+			Timestamp:                 ts,
 		}
 
 		appPath := fmt.Sprintf("/%s/", appName)
