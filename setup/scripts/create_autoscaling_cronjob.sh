@@ -57,11 +57,26 @@ spec:
   concurrencyPolicy: Replace
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 120
+      activeDeadlineSeconds: 1800
       template:
         spec:
           serviceAccount: pod-broker
           restartPolicy: OnFailure
+          nodeSelector:
+            cloud.google.com/gke-nodepool: "${NODE_POOL}"
+          tolerations:
+            - key: "app.broker/tier"
+              effect: "NoSchedule"
+              operator: "Exists"
+            - key: "app.broker/node-init"
+              effect: "NoSchedule"
+              operator: "Exists"
+            - key: "nvidia.com/gpu"
+              effect: "NoSchedule"
+              operator: "Exists"
+            - key: "cloud.google.com/gke-accelerator-init"
+              effect: "NoSchedule"
+              operator: "Exists"
           containers:
             ###
             # autoscaler container
