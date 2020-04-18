@@ -99,24 +99,16 @@ metadata:
   labels:
     app: pod-broker
 rules:
-  - apiGroups: [""] # "" indicates the core API group
-    resources: ["*"]
-    verbs: ["*"]
-  - apiGroups: ["apps"]
-    resources: ["statefulsets"]
-    verbs: ["*"]
-  - apiGroups: ["networking.k8s.io"]
-    resources: ["networkpolicies"]
-    verbs: ["*"]
-  - apiGroups: ["networking.istio.io"]
-    resources: ["gateways", "virtualservices", "serviceentries"]
-    verbs: ["*"]
-  - apiGroups: ["gcp.solutions"]
-    resources: ["brokerappconfigs", "brokerappuserconfigs"]
-    verbs: ["*"]
-  - apiGroups: ["iam.cnrm.cloud.google.com"]
-    resources: ["*"]
-    verbs: ["*"]
+  - apiGroups:
+      - "*"
+    resources:
+      - "*"
+    verbs:
+      - "*"
+  - nonResourceURLs:
+      - "*"
+    verbs:
+      - "*"
 ---
 apiVersion: v1
 kind: Service
