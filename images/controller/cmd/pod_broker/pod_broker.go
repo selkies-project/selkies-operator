@@ -443,7 +443,7 @@ func main() {
 
 		if getStatus {
 			// Get pod status based on conditions.
-			status, err := broker.GetPodStatus(namespace, fmt.Sprintf("app.kubernetes.io/instance=%s", fullName))
+			status, err := broker.GetPodStatus(namespace, fmt.Sprintf("app.kubernetes.io/instance=%s,app=%s", fullName, app.ServiceName))
 			if err != nil {
 				log.Printf("failed to get pod ips: %v", err)
 				writeResponse(w, http.StatusInternalServerError, "internal server error")
