@@ -15,68 +15,72 @@
 # limitations under the License.
 
 NODE_POOL=$1
-DURATION_HRS=$2
-CRON_SCHEDULE=$3
-REGION=$4
+MIN_NODES=$2
+MAX_NODES=$3
+CRON_SCHEDULE_UP=$4
+CRON_SCHEDULE_DOWN=$5
+REGION=$6
 
-[[ $# -ne 4 ]] && echo "USAGE: $0 <node pool name> <duration in hours> <chron schedule> <region>" && exit 1
+[[ $# -ne 6 ]] && echo "USAGE: $0 <node pool name> <min nodes> <max nodes> <cron schedule up> <cron schedule down> <region>" && exit 1
 
-IFS=' ' read -ra toks < <(echo "$CRON_SCHEDULE")
-[[ ${#toks[@]} -ne 5 ]] && echo "ERROR: Cron schedule must be 5 elements, ex, 8am every day: '0 15 * * *'" && exit 1
+IFS=' ' read -ra toks < <(echo "$CRON_SCHEDULE_UP")
+[[ ${#toks[@]} -ne 5 ]] && echo "ERROR: Invalid CRON_SCHEDULE_UP, cron schedule must be 5 elements, ex, 8am every day: '0 15 * * *'" && exit 1
 
-((AUTOSCALE_DURATION=DURATION_HRS * 3600))
-
-[[ $AUTOSCALE_DURATION -lt 1 ]] && echo "ERROR: Invalid autoscaler duration" && exit 1
+IFS=' ' read -ra toks < <(echo "$CRON_SCHEDULE_DOWN")
+[[ ${#toks[@]} -ne 5 ]] && echo "ERROR: Invalid CRON_SCHEDULE_DOWN, cron schedule must be 5 elements, ex, 8am every day: '0 15 * * *'" && exit 1
 
 TMPDIR=$(mktemp -d)
-CRONJOB="${TMPDIR}/cronjob.yaml"
+mkdir -p "${TMPDIR}/manifests"
+CRONJOB_UP="${TMPDIR}/manifests/cronjob-up.yaml"
+CRONJOB_DOWN="${TMPDIR}/manifests/cronjob-down.yaml"
 CLOUDBUILD="${TMPDIR}/cloudbuild.yaml"
 
-cat - > $CRONJOB <<EOF
+function makeCronJob() {
+  local dest="$1"
+  local name_postfix="$2"
+  local schedule="$3"
+  local min_nodes="$4"
+  local max_nodes="$5"
+
+  cat - > $dest <<EOF
 kind: CronJob
 apiVersion: batch/v1beta1
 metadata:
-  name: ${NODE_POOL}-node-pool-autoscaler
-  namespace: kube-system
+  name: ${NODE_POOL}-node-pool-autoscaler${name_postfix}
+  namespace: pod-broker-system
   labels:
-    k8s-app: ${NODE_POOL}-node-pool-autoscaler
+    k8s-app: ${NODE_POOL}-node-pool-autoscaler${name_postfix}
 spec:
   # UTC time,
-  schedule: "${CRON_SCHEDULE}"
+  schedule: "${schedule}"
   startingDeadlineSeconds: 3600
   concurrencyPolicy: Replace
   jobTemplate:
     spec:
-      # How long in seconds to keep autoscaler up.
-      activeDeadlineSeconds: ${AUTOSCALE_DURATION}
+      activeDeadlineSeconds: 120
       template:
         spec:
+          serviceAccount: pod-broker
           restartPolicy: OnFailure
-          nodeSelector:
-            cloud.google.com/gke-nodepool: "${NODE_POOL}"
-          tolerations:
-            - key: "app.broker/tier"
-              effect: "NoSchedule"
-              operator: "Exists"
-            - key: "app.broker/node-init"
-              effect: "NoSchedule"
-              operator: "Exists"
-            - key: "nvidia.com/gpu"
-              effect: "NoSchedule"
-              operator: "Exists"
-            - key: "cloud.google.com/gke-accelerator-init"
-              effect: "NoSchedule"
-              operator: "Exists"
           containers:
             ###
-            # pause container
+            # autoscaler container
             ###
-            - image: gcr.io/google-containers/pause:2.0
-              name: pause
+            - image: google/cloud-sdk:alpine
+              name: autoscaler
+              command: ["/bin/bash"]
+              args:
+                - "-exc"
+                - |
+                  gcloud container node-pools update ${NODE_POOL} --region=${REGION} --cluster=broker-${REGION} --enable-autoscaling --min-nodes=${min_nodes} --max-nodes=${max_nodes}
               resources:
                 requests:
                   cpu: 10m
 EOF
+}
+
+makeCronJob $CRONJOB_UP "-up" "${CRON_SCHEDULE_UP}" $MIN_NODES $MAX_NODES
+makeCronJob $CRONJOB_DOWN "-down" "${CRON_SCHEDULE_DOWN}" 0 $MAX_NODES
 
 cat - > $CLOUDBUILD <<'EOF'
 timeout: 3600s
@@ -97,7 +101,7 @@ steps:
         exit 0
   - name: "gcr.io/cloud-builders/kubectl"
     id: "deploy-manifests"
-    args: ["apply", "-f", "cronjob.yaml"]
+    args: ["apply", "-f", "manifests/"]
     env:
       - "CLOUDSDK_CORE_PROJECT=${PROJECT_ID}"
       - "CLOUDSDK_COMPUTE_REGION=${_REGION}"
