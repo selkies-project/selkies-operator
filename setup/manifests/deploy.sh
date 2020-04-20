@@ -50,6 +50,10 @@ sed -i 's/${PROJECT_ID?}/'${PROJECT_ID}'/g' \
     base/cnrm-system/patch-cnrm-system-namespace.yaml
 kubectl apply -k base/cnrm-system/
 
+# Wait for CNRM controller
+kubectl wait pod cnrm-controller-manager-0 -n cnrm-system --for=condition=Ready --timeout=60s
+kubectl wait deploy cnrm-webhook-manager -n cnrm-system --for=condition=Available --timeout=60s
+
 # Install AutoNEG controller
 log_cyan "Installing AutoNEG controller..."
 kubectl kustomize base/autoneg-system | sed 's/${PROJECT_ID}/'${PROJECT_ID}'/g' | \
@@ -82,6 +86,7 @@ cat generated/kustomization.yaml
 
 # Apply the manifests
 log_cyan "Applying manifests..."
-kustomize build generated/ | kubectl apply -f -
+kustomize build generated/ | sed -e 's/${PROJECT_ID}/'${PROJECT_ID}'/g' | \
+    kubectl apply -f -
 
 log_green "Done"

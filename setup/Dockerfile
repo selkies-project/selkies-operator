@@ -18,11 +18,11 @@ FROM gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
 RUN apk add -u \
     jq
 
-ENV TERRAFORM_VERSION=0.12.20
-ENV KUBECTL_VERSION=1.18.1
-ENV KUSTOMIZE_VERSION=3.5.3
-ENV ISTIO_OPERATOR_VERSION=1.4.7
-ENV CNRM_VERSION=1.6.0
+ARG TERRAFORM_VERSION=0.12.20
+ARG KUBECTL_VERSION=1.18.1
+ARG KUSTOMIZE_VERSION=3.5.3
+ARG ISTIO_OPERATOR_VERSION=1.4.7
+ARG CNRM_VERSION=1.7.1
 
 # Install terraform
 RUN wget --timeout 2 --tries 5 https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
