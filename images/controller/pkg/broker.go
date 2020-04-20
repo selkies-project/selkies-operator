@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os/exec"
 	"regexp"
+	"strings"
 )
 
 func MakePodID(user string) string {
@@ -220,4 +221,30 @@ func GetEgressNetworkPolicyData(podBrokerNamespace, turnEndpointSelector string)
 	}
 
 	return resp, nil
+}
+
+func ExecPodCommand(namespace, selector, container, command string) error {
+	// Fetch pod name from selector query.
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get pod -n %s -l %s -o name 1>&2", namespace, selector))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to get pods: %s, %v", string(stdoutStderr), err)
+	}
+	podName := string(stdoutStderr)
+	if len(podName) == 0 {
+		return fmt.Errorf("cloud not find pod with given selector")
+	}
+
+	podName = strings.Split(podName, "\n")[0]
+
+	splitArgs := []string{"kubectl", "-n", namespace, "exec", podName, "-c", container, "--"}
+	splitArgs = append(splitArgs, strings.Split(command, " ")...)
+
+	// Execute command in pod container.
+	cmd = exec.Command(splitArgs[0], splitArgs[1:]...)
+	stdoutStderr, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to exec pod command: %s, %v", string(stdoutStderr), err)
+	}
+	return nil
 }

@@ -152,6 +152,17 @@ spec:
                     type: string
                   value:
                     type: string
+            shutdownHooks:
+              type: array
+              items:
+                type: object
+                properties:
+                  selector:
+                    type: string
+                  container:
+                    type: string
+                  command:
+                    type: string
             defaultTier:
               type: string
             nodeTiers:

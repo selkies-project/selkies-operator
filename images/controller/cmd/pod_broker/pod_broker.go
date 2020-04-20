@@ -405,6 +405,7 @@ func main() {
 			SysParams:                 sysParams,
 			NetworkPolicyData:         registeredApps.NetworkPolicyData,
 			Timestamp:                 ts,
+			Region:                    brokerRegion,
 		}
 
 		appPath := fmt.Sprintf("/%s/", appName)
@@ -424,6 +425,15 @@ func main() {
 				writeResponse(w, http.StatusBadRequest, "shutdown")
 				return
 			}
+
+			for i, hook := range app.ShutdownHooks {
+				selector := strings.Join([]string{"app.kubernetes.io/instance=" + fullName, hook.Selector}, ",")
+				log.Printf("executing shutdown hook %d/%d for %s, selector=%s, container=%s, command=%s", i+1, len(app.ShutdownHooks), fullName, selector, hook.Container, hook.Command)
+				if err := broker.ExecPodCommand(namespace, selector, hook.Container, hook.Command); err != nil {
+					log.Printf("error calling shutdown hook: %v", err)
+				}
+			}
+
 			log.Printf("shutting down %s pod for user: %s", appName, user)
 			cmd := exec.Command("sh", "-c", "kubectl delete --wait=false -k . 1>&2")
 			cmd.Dir = destDir
