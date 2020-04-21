@@ -55,6 +55,7 @@ spec:
   schedule: "${schedule}"
   startingDeadlineSeconds: 3600
   concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 0
   jobTemplate:
     spec:
       activeDeadlineSeconds: 1800
