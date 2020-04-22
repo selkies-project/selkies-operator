@@ -20,7 +20,7 @@ set -e
 
 [[ ! "$1" =~ user|group|domain|serviceAccount ]] && echo "ERROR: invalid member type '$1', must be one of user|group|domain|serviceAccount" && exit 1
 
-MEMBER_TYPE=${1,,}
+MEMBER_TYPE=${1}
 MEMBER=$2
 PROJECT=$3
 
