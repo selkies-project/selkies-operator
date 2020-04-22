@@ -19,7 +19,7 @@ gcloud config set project ${PROJECT_ID?}
 1. Enable the services used by this tutorial:
 
 ```bash
-gcloud services enable \
+gcloud services enable --project ${PROJECT_ID} \
     cloudresourcemanager.googleapis.com \
     compute.googleapis.com \
     container.googleapis.com \
