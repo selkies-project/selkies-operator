@@ -17,7 +17,9 @@ substitutions:
   _ACTION: apply
   _NAME: broker
   _REGION: us-west1
-
+tags:
+  - kube-app-launcher-setup
+  - kube-app-launcher-cluster
 steps:
   ###
   # Apply terraform to create cluster

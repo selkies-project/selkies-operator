@@ -19,7 +19,9 @@ substitutions:
   _REGION: us-west1
   _TIER1: "true"
   _TIER2: "true"
-
+tags:
+  - kube-app-launcher-setup
+  - kube-app-launcher-node-pool-apps
 steps:
   ###
   # Apply terraform to create cluster

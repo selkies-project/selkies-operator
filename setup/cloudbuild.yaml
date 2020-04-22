@@ -16,8 +16,21 @@ timeout: 10800s
 substitutions:
   _ACTION: apply
   _NAME: broker
-
+tags:
+  - kube-app-launcher-setup
+  - kube-app-launcher-base
 steps:
+  ###
+  # Cleanup any existing sub-jobs to prevent overlapping executions.
+  ###
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: cleanup-sub-jobs
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud -q builds list --ongoing --filter='tags[]~kube-app-launcher-infra' --format='value(id)' | \
+          xargs --no-run-if-empty gcloud -q builds cancel >/dev/null
   ###
   # Create GCS bucket to store terraform state
   ###

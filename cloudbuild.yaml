@@ -45,8 +45,20 @@ substitutions:
   _USER:
   _ENABLE_COS_GPU: "true"
   _ENABLE_UBUNTU_GPU: "false"
-
+tags:
+  - kube-app-launcher-deploy
 steps:
+  ###
+  # Cleanup any existing sub-jobs to prevent overlapping executions.
+  ###
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: cleanup-sub-jobs
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud builds list --ongoing --filter='tags[]~kube-app-launcher-setup' --format='value(id)' | \
+          xargs --no-run-if-empty gcloud builds cancel
   ###
   # Build images
   ###

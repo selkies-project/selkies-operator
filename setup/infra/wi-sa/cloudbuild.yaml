@@ -16,7 +16,9 @@ timeout: 10800s
 substitutions:
   _ACTION: apply
   _NAME: broker
-
+tags:
+  - kube-app-launcher-setup
+  - kube-app-launcher-wi-sa
 steps:
   ###
   # Apply terraform to create cluster

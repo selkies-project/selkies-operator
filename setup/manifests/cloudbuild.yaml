@@ -17,7 +17,9 @@ substitutions:
   _INFRA_NAME: broker
   _REGION: us-west1
   _IMAGE_TAG: latest
-
+tags:
+  - kube-app-launcher-setup
+  - kube-app-launcher-manifests
 steps:
   ###
   # Waits for the cluster to become ready.

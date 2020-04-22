@@ -19,7 +19,9 @@ substitutions:
   _REGION: us-west1
   _COS: "true"
   _UBUNTU: "true"
-
+tags:
+  - kube-app-launcher-setup
+  - kube-app-launcher-node-pool-gpu
 steps:
   ###
   # Apply terraform to create cluster
