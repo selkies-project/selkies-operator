@@ -13,29 +13,11 @@
 # limitations under the License.
 
 # Pre-requisites to running with cloud build
-# gcloud services enable \
-#     compute.googleapis.com \
-#     container.googleapis.com \
-#     cloudbuild.googleapis.com \
-#     cloudresourcemanager.googleapis.com \
-#     servicemanagement.googleapis.com \
-#     serviceusage.googleapis.com \
-#     monitoring.googleapis.com \
-#     secretmanager.googleapis.com \
-#     iap.googleapis.com
-#
+# gcloud services enable compute.googleapis.com container.googleapis.com cloudbuild.googleapis.com cloudresourcemanager.googleapis.com servicemanagement.googleapis.com serviceusage.googleapis.com monitoring.googleapis.com secretmanager.googleapis.com iap.googleapis.com
 # export PROJECT_ID=$(gcloud config get-value core/project 2>/dev/null)
-#
-# export CLOUDBUILD_SA=$(gcloud projects describe $PROJECT_ID \
-#     --format='value(projectNumber)')@cloudbuild.gserviceaccount.com
-#
-# gcloud projects add-iam-policy-binding $PROJECT_ID \
-#     --member serviceAccount:$CLOUDBUILD_SA \
-#     --role roles/owner
-#
-# gcloud projects add-iam-policy-binding $PROJECT_ID \
-#     --member serviceAccount:$CLOUDBUILD_SA \
-#     --role roles/iam.serviceAccountTokenCreator
+# export CLOUDBUILD_SA=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')@cloudbuild.gserviceaccount.com
+# gcloud projects add-iam-policy-binding $PROJECT_ID --member serviceAccount:$CLOUDBUILD_SA --role roles/owner
+# gcloud projects add-iam-policy-binding $PROJECT_ID --member serviceAccount:$CLOUDBUILD_SA --role roles/iam.serviceAccountTokenCreator
 
 timeout: 3600s
 substitutions:
