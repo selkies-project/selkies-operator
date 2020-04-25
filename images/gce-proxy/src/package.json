@@ -1,0 +1,17 @@
+{
+    "name": "gst-webrtc-app-proxy",
+    "version": "1.0.0",
+    "description": "Lightweight proxy for gst-webrtc-app",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "author": "disla@google.com",
+    "license": "Apache-2.0",
+    "dependencies": {
+        "http-proxy": "^1.1.0"
+    },
+    "devDependencies": {
+        "http-proxy-cli": "^1.1.0"
+    }
+}
