@@ -99,10 +99,20 @@ proxy.on('proxyReq', function (proxyReq, req, res, options) {
     proxyReq.setHeader('Cookie', BROKER_COOKIE);
 });
 
+proxy.on('proxyReqWs', function (proxyReq, req, socket, res, options) {
+    proxyReq.setHeader('Authorization', 'Bearer ' + token);
+    proxyReq.setHeader('Cookie', BROKER_COOKIE);
+});
+
 console.log("INFO: listening on port 5050")
 http.createServer((req, res) => {
     getToken(token).then((t) => {
         token = t;
         proxy.web(req, res);
+    });
+}).on('upgrade', (req, socket, head) => {
+    getToken(token).then((t) => {
+        token = t;
+        proxy.ws(req, socket, head);
     });
 }).listen(5050);
