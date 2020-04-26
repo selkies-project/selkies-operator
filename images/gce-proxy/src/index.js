@@ -42,50 +42,56 @@ var proxy = httpProxy.createProxyServer({
     ws: true,
 });
 
-// Global token variable that is updated in the background.
-var token = "";
-
 // Function to fetch identity token from GCE metadata server.
-var refreshToken = () => {
-    var refresh = false;
-    if (token === "") {
-        refresh = true;
-    }
-    let toks = token.split(".");
-    if (toks.length === 3) {
-        let payload = JSON.parse(Buffer.from(toks[1], "base64").toString());
-        if (payload.exp - payload.iat < 600) {
-            // Refresh if token is less than 10 minutes from expiring.
+var getToken = (token) => {
+    return new Promise((resolve, reject) => {
+        var refresh = false;
+        if (token === "") {
             refresh = true;
         }
-    } else {
-        // refresh if token is bad.
-        refresh = true;
-    }
-    if (refresh === true) {
-        console.log("INFO: Refreshing token");
-
-        const options = {
-            hostname: 'metadata.google.internal',
-            port: 80,
-            path: '/computeMetadata/v1/instance/service-accounts/default/identity?audience=' + CLIENT_ID + '&format=full',
-            method: 'GET',
-            headers: {
-                'Metadata-Flavor': 'Google'
+        let toks = token.split(".");
+        if (toks.length === 3) {
+            let payload = JSON.parse(Buffer.from(toks[1], "base64").toString());
+            let expTime = payload.exp - Math.floor(new Date().getTime() / 1000);
+            if (expTime < 0) {
+                // Refresh if token is expired.
+                refresh = true;
             }
+        } else {
+            // refresh if token is bad.
+            refresh = true;
         }
+        if (refresh === true) {
+            console.log("INFO: Refreshing token");
 
-        const req = http.get(options, (res) => {
-            if (res.statusCode !== 200) {
-                console.log("ERROR: Failed to fetch token, status: " + res.statusCode);
-            } else {
-                res.on('data', (d) => {
-                    token = d.toString();
-                });
+            const options = {
+                hostname: 'metadata.google.internal',
+                port: 80,
+                path: '/computeMetadata/v1/instance/service-accounts/default/identity?audience=' + CLIENT_ID + '&format=full',
+                method: 'GET',
+                headers: {
+                    'Metadata-Flavor': 'Google'
+                }
             }
-        });
-    }
+
+            const req = http.get(options, (res) => {
+                if (res.statusCode !== 200) {
+                    console.log("ERROR: Failed to fetch token, status: " + res.statusCode);
+                    reject();
+                } else {
+                    res.on('data', (d) => {
+                        resolve(d.toString());
+                    });
+                }
+            });
+        } else {
+            resolve(token);
+        }
+    });
 }
+
+// Token variable used by proxy function.
+var token = "";
 
 // Proxy request handler to inject identity token and broker cookie.
 proxy.on('proxyReq', function (proxyReq, req, res, options) {
@@ -93,12 +99,10 @@ proxy.on('proxyReq', function (proxyReq, req, res, options) {
     proxyReq.setHeader('Cookie', BROKER_COOKIE);
 });
 
-setInterval(() => {
-    refreshToken();
-}, 10000);
-
-// Get initial token
-refreshToken();
-
 console.log("INFO: listening on port 5050")
-proxy.listen(5050);
+http.createServer((req, res) => {
+    getToken(token).then((t) => {
+        token = t;
+        proxy.web(req, res);
+    });
+}).listen(5050);
