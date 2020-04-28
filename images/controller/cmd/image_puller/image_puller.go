@@ -21,12 +21,13 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	broker "gcp.solutions/kube-app-launcher/pkg"
 )
 
-const loopInterval = 10
+const loopInterval = 2
 
 func main() {
 
@@ -51,19 +52,29 @@ func main() {
 		log.Fatalf("failed to configure docker with gcloud: %s, %v", string(stdoutStderr), err)
 	}
 
+	var wg sync.WaitGroup
+
 	for {
 		images, err := findImageTags(namespace)
 		if err != nil {
 			log.Fatal(err)
 		}
 
+		wg.Add(len(images))
+
 		for _, image := range images {
-			log.Printf("pulling image: %s", image)
-			if err := pullImage(image); err != nil {
-				// non-fatal error to try pulling all images.
-				log.Printf("failed to pull image: %s, %v", image, err)
-			}
+			go func(image string) {
+				log.Printf("pulling image: %s", image)
+				if err := pullImage(image); err != nil {
+					log.Printf("error pulling %s: %v", image, err)
+				}
+				wg.Done()
+			}(image)
 		}
+
+		wg.Wait()
+
+		log.Printf("pulled %d images", len(images))
 
 		if loop {
 			time.Sleep(loopInterval * time.Second)
