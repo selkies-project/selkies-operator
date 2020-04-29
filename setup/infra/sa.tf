@@ -108,3 +108,18 @@ resource "google_project_iam_member" "autoneg-system" {
   role    = "projects/${google_project_iam_custom_role.autoneg.project}/roles/${google_project_iam_custom_role.autoneg.role_id}"
   member  = "serviceAccount:${google_service_account.autoneg-system.email}"
 }
+
+# Service account used by the user pods.
+resource "google_service_account" "user_pod_service_account" {
+  project      = var.project_id
+  account_id   = "${var.name}-user"
+  display_name = "${var.name} user workload"
+  depends_on   = [google_project_service.iam]
+}
+
+# Grant user service account access to IAP.
+resource "google_project_iam_member" "user_pod_service_account-iap-user" {
+  project = google_project_iam_member.cluster_service_account-metric_writer.project
+  role    = "roles/iap.httpsResourceAccessor"
+  member  = "serviceAccount:${google_service_account.user_pod_service_account.email}"
+}

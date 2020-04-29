@@ -36,8 +36,16 @@ COOKIE_SECRET_VERSION=${COOKIE_SECRET_VERSION:-$(gcloud secrets versions list br
 COOKIE_SECRET=$(gcloud secrets versions access ${COOKIE_SECRET_VERSION} --secret broker-cookie-secret)
 [[ -z "${COOKIE_SECRET}" ]] && echo "Failed to get broker-cookie-secret from Secret Manager" && exit 1
 
-# Add secret to pod-broker kustomization
+###
+# Fetch OAuth client ID from Secret Manager
+###
+CLIENT_ID_SECRET_VERSION=${OAUTH_CLIENT_ID_SECRET_VERSION:-$(gcloud secrets versions list broker-oauth2-client-id --sort-by=created --limit=1 --format='value(name)')}
+CLIENT_ID=$(gcloud secrets versions access ${CLIENT_ID_SECRET_VERSION} --secret broker-oauth2-client-id)
+[[ -z "${CLIENT_ID}" ]] && echo "Failed to get broker-oauth2-client-id from Secret Manager" && exit 1
+
+# Add secrets to pod-broker kustomization
 (cd "${SCRIPT_DIR}/base/pod-broker" && kustomize edit add secret pod-broker --from-literal=COOKIE_SECRET=${COOKIE_SECRET})
+(cd "${SCRIPT_DIR}/base/pod-broker" && kustomize edit add secret oauth-client-id --from-literal=CLIENT_ID=${CLIENT_ID})
 
 ###
 # Broker configmap items

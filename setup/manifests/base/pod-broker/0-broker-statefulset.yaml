@@ -191,6 +191,11 @@ spec:
                 secretKeyRef:
                   name: pod-broker
                   key: COOKIE_SECRET
+            - name: OAUTH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: oauth-client-id
+                  key: CLIENT_ID
           volumeMounts:
             - name: build
               mountPath: /var/run/build

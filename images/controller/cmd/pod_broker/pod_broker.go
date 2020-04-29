@@ -48,6 +48,11 @@ func main() {
 		cookieSecret = fmt.Sprintf("%x", h.Sum(nil))
 	}
 
+	clientID := os.Getenv("OAUTH_CLIENT_ID")
+	if len(clientID) == 0 {
+		log.Fatalf("missing env, OAUTH_CLIENT_ID")
+	}
+
 	// Values available to templates from environment variables prefixed with POD_BROKER_PARAM_Name=Value
 	// Map of Name=Value
 	sysParams := broker.GetEnvPrefixedVars("POD_BROKER_PARAM_")
@@ -169,6 +174,8 @@ func main() {
 
 		appName := app.Name
 
+		cookieName := fmt.Sprintf("broker_%s", appName)
+
 		switch r.Method {
 		case "POST":
 			create = true
@@ -178,10 +185,10 @@ func main() {
 			getStatus = true
 		}
 
-		// Get user from header
-		user := r.Header.Get(authHeaderName)
+		// Get user from cookie or header
+		user := getUserFromCookieOrAuthHeader(r, cookieName, authHeaderName)
 		if len(user) == 0 {
-			writeResponse(w, http.StatusBadRequest, fmt.Sprintf("Missing or invalid %s header", authHeaderName))
+			writeResponse(w, http.StatusBadRequest, fmt.Sprintf("Failed to get user from cookie or auth header"))
 			return
 		}
 		// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
@@ -383,6 +390,7 @@ func main() {
 		data := &broker.UserPodData{
 			Namespace:                 namespace,
 			ProjectID:                 projectID,
+			ClientID:                  clientID,
 			AppSpec:                   app,
 			AppUserConfig:             userConfig.Spec,
 			App:                       appName,
@@ -409,8 +417,6 @@ func main() {
 		}
 
 		appPath := fmt.Sprintf("/%s/", appName)
-
-		cookieName := fmt.Sprintf("broker_%s", appName)
 
 		// Build user application bundle.
 		srcDirApp := path.Join(broker.BundleSourceBaseDir, app.Name)
@@ -533,4 +539,18 @@ func writeResponseWithIPs(w http.ResponseWriter, statusCode int, message string,
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(status)
+}
+
+func getUserFromCookieOrAuthHeader(r *http.Request, cookieName, authHeaderName string) string {
+	res := ""
+	cookie, err := r.Cookie(cookieName)
+	if err == nil {
+		toks := strings.Split(cookie.Value, "#")
+		if len(toks) == 2 {
+			res = toks[0]
+		}
+	} else {
+		res = r.Header.Get(authHeaderName)
+	}
+	return res
 }

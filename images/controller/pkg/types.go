@@ -54,6 +54,7 @@ type ConfigMapObject struct {
 type UserPodData struct {
 	Namespace                 string
 	ProjectID                 string
+	ClientID                  string
 	AppSpec                   AppConfigSpec
 	App                       string
 	AppUserConfig             AppUserConfigSpec
@@ -147,7 +148,7 @@ type AppConfigSpec struct {
 	UserParams    []AppConfigParam        `yaml:"userParams" json:"userParams"`
 	AppParams     []AppConfigParam        `yaml:"appParams" json:"appParams"`
 	AppEnv        []AppEnvSpec            `yaml:"appEnv" json:"appEnv"`
-	ShutdownHooks []ShutdownHookSpec        `yaml:"shutdownHooks" json:"shutdownHooks"`
+	ShutdownHooks []ShutdownHookSpec      `yaml:"shutdownHooks" json:"shutdownHooks"`
 }
 
 type AppConfigObject struct {
