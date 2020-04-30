@@ -23,6 +23,8 @@ REGION=$6
 
 [[ $# -ne 6 ]] && echo "USAGE: $0 <node pool name> <min nodes> <max nodes> <cron schedule up> <cron schedule down> <region>" && exit 1
 
+[[ ${MIN_NODES} -lt 1 ]] && echo "ERROR: min nodes must be greater than 0. This is the min node pool size when scaling UP." && exit 1
+
 IFS=' ' read -ra toks < <(echo "$CRON_SCHEDULE_UP")
 [[ ${#toks[@]} -ne 5 ]] && echo "ERROR: Invalid CRON_SCHEDULE_UP, cron schedule must be 5 elements, ex, 8am every day: '0 15 * * *'" && exit 1
 
