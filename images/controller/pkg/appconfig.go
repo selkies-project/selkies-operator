@@ -17,10 +17,9 @@
 package pod_broker
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/exec"
-
-	"gopkg.in/yaml.v2"
 )
 
 func (spec *AppConfigSpec) NodeTierNames() []string {
@@ -39,13 +38,13 @@ func FetchBrokerAppConfigs(namespace string) ([]AppConfigObject, error) {
 	}
 
 	// Fetch all broker app configs
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get brokerappconfigs -n %s -o yaml", namespace))
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get brokerappconfigs -n %s -o json", namespace))
 	output, err := cmd.Output()
 	if err != nil {
 		return appConfigs, err
 	}
 
 	var items appConfigItems
-	err = yaml.Unmarshal(output, &items)
+	err = json.Unmarshal(output, &items)
 	return items.Items, err
 }

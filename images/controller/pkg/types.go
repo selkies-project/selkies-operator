@@ -81,13 +81,13 @@ type UserPodData struct {
 }
 
 type NodeResource struct {
-	CPU    int    `yaml:"cpu,omitempty" json:"cpu,omitempty"`
-	Memory string `yaml:"memory,omitempty"`
+	CPU    interface{} `yaml:"cpu,omitempty" json:"cpu,omitempty,string"`
+	Memory interface{} `yaml:"memory,omitempty" json:"memory,omitempty,string"`
 }
 
 type NodeResourceRequestSpec struct {
-	Requests NodeResource `yaml:"requests,omitempty" json:"requests,omitempty"`
-	Limits   NodeResource `yaml:"limits,omitempty" json:"limits,omitempty"`
+	Requests *NodeResource `yaml:"requests,omitempty" json:"requests,omitempty"`
+	Limits   *NodeResource `yaml:"limits,omitempty" json:"limits,omitempty"`
 }
 
 type NodeTierSpec struct {
