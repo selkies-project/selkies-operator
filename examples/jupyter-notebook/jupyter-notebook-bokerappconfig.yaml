@@ -26,7 +26,7 @@ spec:
     configMapRef:
       name: jupyter-notebook-manifests-1.2.0
   serviceName: jupyter
-  defaultRepo: gcr.io/kubeflow/jupyterhub
+  defaultRepo: gcr.io/cloud-solutions-images/jupyterhub
   defaultTag: "1.0"
   userParams:
     - name: enablePersistence
