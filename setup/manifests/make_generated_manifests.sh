@@ -20,7 +20,6 @@ set -e
 
 PROJECT_ID=${PROJECT_ID?}
 INFRA_NAME=${INFRA_NAME?}
-IMAGE_TAG=${IMAGE_TAG?}
 NODE_SERVICE_ACCOUNT=${NODE_SERVICE_ACCOUNT?}
 ENDPOINT=${ENDPOINT?}
 
@@ -125,6 +124,22 @@ EOF
 echo "INFO: Created pod broker virtualservice patch: ${DEST}"
 
 ###
+# Extract the latest image tag digests
+# This enables rolling updates.
+###
+function fetchLatestDigest() {
+  local image=$1
+  local digest=$(gcloud -q container images list-tags $image --limit 1 --filter=tags~latest --format="json" | jq -r ".[].digest")
+  [[ $? -ne 0 || -z "$digest" ]] && echo "ERROR: failed to find digest for ${image}:latest" >&2 && return 1
+  echo "${image}@${digest}"
+}
+
+CONTROLLER_IMAGE=${CONTROLLER_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-controller)}
+WEB_IMAGE=${WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-web)}
+COTURN_IMAGE=${COTURN_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn)}
+COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn-web)}
+
+###
 # Generate kustomization file with project scoped images.
 ###
 (
@@ -141,8 +156,8 @@ echo "INFO: Created pod broker virtualservice patch: ${DEST}"
   kustomize edit add patch "patch-pod-broker-gateway.yaml"
   kustomize edit add patch "patch-pod-broker-virtual-service.yaml"
   kustomize edit set image \
-    gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest=gcr.io/${PROJECT_ID}/kube-pod-broker-controller:${IMAGE_TAG} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-web:latest=gcr.io/${PROJECT_ID}/kube-pod-broker-web:${IMAGE_TAG} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-coturn:latest=gcr.io/${PROJECT_ID}/kube-pod-broker-coturn:${IMAGE_TAG} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest=gcr.io/${PROJECT_ID}/kube-pod-broker-coturn-web:${IMAGE_TAG}
+    gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest=${CONTROLLER_IMAGE} \
+    gcr.io/cloud-solutions-images/kube-pod-broker-web:latest=${WEB_IMAGE} \
+    gcr.io/cloud-solutions-images/kube-pod-broker-coturn:latest=${COTURN_IMAGE} \
+    gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest=${COTURN_WEB_IMAGE}
 )

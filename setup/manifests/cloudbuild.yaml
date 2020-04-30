@@ -16,7 +16,6 @@ timeout: 3600s
 substitutions:
   _INFRA_NAME: broker
   _REGION: us-west1
-  _IMAGE_TAG: latest
 tags:
   - kube-app-launcher-setup
   - kube-app-launcher-manifests
@@ -40,6 +39,5 @@ steps:
       - PROJECT_ID=${PROJECT_ID}
       - INFRA_NAME=${_INFRA_NAME}
       - REGION=${_REGION}
-      - IMAGE_TAG=${_IMAGE_TAG}
       - NODE_SERVICE_ACCOUNT=broker@${PROJECT_ID}.iam.gserviceaccount.com
       - ENDPOINT=broker.endpoints.${PROJECT_ID}.cloud.goog
