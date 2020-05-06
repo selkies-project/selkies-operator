@@ -2,6 +2,10 @@
 
 Operator for orchestrating per-user stateful workloads.
 
+## Limitations
+
+* The instructions below must be run within a Google Cloud Organization by a member of that org. This is due to the use of  `setup/scripts/create_oauth_client.sh`'s use of `gcloud alpha iap oauth-brand` commands - which implicity operate on internal brands. For details see https://cloud.google.com/iap/docs/programmatic-oauth-clients
+
 ## Quick start
 
 The steps below will create the infrastructure for the app launcher. You should deploy to a new project.
@@ -67,3 +71,6 @@ gcloud builds submit --project=${PROJECT_ID?} --substitutions=_USER=${ACCOUNT?},
 # Print real URL
 echo "https://broker.endpoints.${PROJECT_ID?}.cloud.goog/"
 ```
+
+## Troubleshooting
+* If the initial cloud build fails with the message `Step #2 - "create-oauth-client": ERROR: (gcloud.alpha.iap.oauth-brands.list) INVALID_ARGUMENT: Request contains an invalid argument.` It is most likely due to running as a user that is not a member of the Cloud Identity Organization. See the limitation described above.
