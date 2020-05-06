@@ -27,7 +27,7 @@ steps:
       - "-c"
       - |
         gsutil mb gs://${PROJECT_ID}-${_NAME}-tf-state || true
-  - name: "gcr.io/kaniko-project/executor:latest"
+  - name: "gcr.io/kaniko-project/executor:v0.19.0"
     id: "build-installer-image"
     args:
       - --destination=gcr.io/${PROJECT_ID}/${_NAME}-installer
