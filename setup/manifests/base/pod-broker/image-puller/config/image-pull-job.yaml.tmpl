@@ -12,34 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: extensions/v1beta1
-kind: DaemonSet
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: pod-broker-image-puller
+  name: "image-pull-{{.NameSuffix}}"
+  annotations:
+    pod.broker/image-pull: "{{.NodeName}},{{.Image}}"
 spec:
-  selector:
-    matchLabels:
-      app: pod-broker-image-puller
-  updateStrategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 100%
+  # 1 hour max runtime to pull image.
+  activeDeadlineSeconds: 3600
+  # Delete job after it hass been complete for 10 minutes.
+  ttlSecondsAfterFinished: 600
+  completions: 1
   template:
     metadata:
       labels:
-        app: pod-broker-image-puller
+        app: image-pull
+        app.kubernetes.io/managed-by: pod-broker-image-puller
     spec:
+      restartPolicy: OnFailure
       serviceAccountName: pod-broker
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: app.broker/initialized
-                    operator: In
-                    values: ["true"]
-                  - key: app.broker/tier
-                    operator: Exists
+      nodeSelector:
+        kubernetes.io/hostname: "{{.NodeName}}"
       tolerations:
         - effect: "NoSchedule"
           operator: "Exists"
@@ -53,19 +47,20 @@ spec:
             type: File
       containers:
         ###
-        # Pull images
-        # This helps to speed up container startup with large images.
+        # Pull image and then exit
         ###
         - name: image-puller
-          image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
-          command: ["/usr/local/bin/image-puller"]
+          image: google/cloud-sdk:alpine
+          command: ["/bin/bash"]
+          args:
+            - -ec
+            - |
+              echo "Pulling image: ${IMAGE}"
+              gcloud -q auth configure-docker
+              docker pull ${IMAGE}
           env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: IMAGE_PULL_LOOP
-              value: "true"
+            - name: IMAGE
+              value: "{{.Image}}"
           volumeMounts:
             - name: docker
               mountPath: /var/run/docker.sock

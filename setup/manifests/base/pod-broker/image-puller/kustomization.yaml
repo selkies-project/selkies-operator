@@ -14,15 +14,10 @@
 
 namespace: pod-broker-system
 
-generatorOptions:
-  # Generate stable ConfigMap and Secret names.
-  disableNameSuffixHash: true
-
-bases:
-  - image-puller/
+configMapGenerator:
+  - name: image-pull-job-template
+    files:
+      - config/image-pull-job.yaml.tmpl
 
 resources:
-  - namespace.yaml
-  - crd.yaml
-  - broker-statefulset.yaml
-  - network-policy.yaml
+  - image-puller-daemonset.yaml

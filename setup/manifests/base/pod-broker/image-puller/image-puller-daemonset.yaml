@@ -1,0 +1,84 @@
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: pod-broker-image-puller
+spec:
+  selector:
+    matchLabels:
+      app: pod-broker-image-puller
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 100%
+  template:
+    metadata:
+      labels:
+        app: pod-broker-image-puller
+    spec:
+      serviceAccountName: pod-broker
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: app.broker/initialized
+                    operator: In
+                    values: ["true"]
+                  - key: app.broker/tier
+                    operator: Exists
+      tolerations:
+        - effect: "NoSchedule"
+          operator: "Exists"
+      volumes:
+        ###
+        # Local docker socket for pulling images
+        ###
+        - name: docker
+          hostPath:
+            path: /var/run/docker.sock
+            type: File
+        ###
+        # Job template
+        ###
+        - name: image-pull-job-template
+          configMap:
+            name: image-pull-job-template
+      containers:
+        ###
+        # Pull images
+        # This helps to speed up container startup with large images.
+        ###
+        - name: image-puller
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
+          command: ["/usr/local/bin/image-puller"]
+          workingDir: /run/image-puller
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: IMAGE_PULL_LOOP
+              value: "true"
+          volumeMounts:
+            - name: docker
+              mountPath: /var/run/docker.sock
+            - name: image-pull-job-template
+              mountPath: /run/image-puller/template

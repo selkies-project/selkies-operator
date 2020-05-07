@@ -249,9 +249,20 @@ type ImageListResponse struct {
 	Manifest map[string]ImageListManifestResponse `json:"manifest"`
 }
 
+type BrokerImage struct {
+	Name   string `json:"name"`
+	Tag    string `json:"tag"`
+	Digest string `json:"digest"`
+}
+
 type NodeAddress struct {
 	Address string `json:"address"`
 	Type    string `json:"type"`
+}
+
+type DockerImage struct {
+	Repository string `json:"Repository"`
+	Digest     string `json:"Digest"`
 }
 
 // Map of endpoint name to nodes that endpoint is deployed to.
@@ -284,4 +295,16 @@ type ServiceClusterIPList struct {
 type NetworkPolicyTemplateData struct {
 	TURNIPs          []string `json:"turnIPs"`
 	KubeDNSClusterIP string   `json:"kubeDNSClusterIP"`
+}
+
+type JobStatusSpec struct {
+	CompletionTime string              `json:"completionTime"`
+	Conditions     []map[string]string `json:"conditions"`
+	StartTime      string              `json:"startTime"`
+	Succeeded      int                 `json:"succeeded"`
+}
+
+type GetJobSpec struct {
+	Metadata map[string]interface{} `json:"metadata"`
+	Status   JobStatusSpec          `json:"status"`
 }

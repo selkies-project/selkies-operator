@@ -31,6 +31,9 @@ import (
 	metadata "cloud.google.com/go/compute/metadata"
 )
 
+const GCRImageWithTagPattern = `gcr.io.*:.*$`
+const GCRImageWithDigestPattern = `gcr.io.*@sha256.*$`
+
 func GetEnvPrefixedVars(prefix string) map[string]string {
 	params := map[string]string{}
 
@@ -119,9 +122,16 @@ func GetServiceAccountTokenFromMetadataServer(sa string) (string, error) {
 
 func ListGCRImageTags(image string, authToken string) (ImageListResponse, error) {
 	listResp := ImageListResponse{}
-
-	// Extract just the repo/image format from the image, excluding any tag at the end.
-	gcrRepo := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), ":")[0]
+	gcrRepo := ""
+	if len(regexp.MustCompile(GCRImageWithTagPattern).FindAllString(image, -1)) > 0 {
+		// Extract just the repo/image format from the image, excluding any tag at the end.
+		gcrRepo = strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), ":")[0]
+	} else if len(regexp.MustCompile(GCRImageWithDigestPattern).FindAllString(image, -1)) > 0 {
+		// Extract just the repo/image format from the image, excluding the digest at the end.
+		gcrRepo = strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@")[0]
+	} else {
+		return listResp, fmt.Errorf("could not determine tag or digest from image: %s", image)
+	}
 
 	url := fmt.Sprintf("https://gcr.io/v2/%s/tags/list", gcrRepo)
 
@@ -161,6 +171,35 @@ func ListGCRImageTagsInternalMetadataToken(image string) (ImageListResponse, err
 	}
 
 	return ListGCRImageTags(image, authToken)
+}
+
+func GetImagesOnNode() ([]DockerImage, error) {
+	resp := make([]DockerImage, 0)
+
+	cmd := exec.Command("sh", "-c", "docker images --digests --format '{{json .}}'")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return resp, fmt.Errorf("failed to get node images, stdoutpipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return resp, fmt.Errorf("failed to get node images, command start: %v", err)
+	}
+
+	d := json.NewDecoder(stdout)
+	for {
+		var jsonResp DockerImage
+		if err := d.Decode(&jsonResp); err == io.EOF {
+			break
+		} else if err != nil {
+			return resp, err
+		}
+		resp = append(resp, jsonResp)
+	}
+	if err := cmd.Wait(); err != nil {
+		return resp, fmt.Errorf("failed to get node images, command wait: %v", err)
+	}
+
+	return resp, nil
 }
 
 func FileExists(filename string) bool {
@@ -305,4 +344,25 @@ func GetServiceClusterIP(namespace, selector string) (ServiceClusterIPList, erro
 	}
 
 	return resp, nil
+}
+
+func GetJobs(namespace, selector string) ([]GetJobSpec, error) {
+	resp := make([]GetJobSpec, 0)
+
+	type getJobsList struct {
+		Items []GetJobSpec `json:"items"`
+	}
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get jobs -n %s -l %s -o json 1>&2", namespace, selector))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return resp, fmt.Errorf("failed to get jobs: %s, %v", string(stdoutStderr), err)
+	}
+
+	var jsonResp getJobsList
+	if err := json.Unmarshal(stdoutStderr, &jsonResp); err != nil {
+		return resp, fmt.Errorf("failed to parse jobs spec: %v", err)
+	}
+
+	return jsonResp.Items, nil
 }
