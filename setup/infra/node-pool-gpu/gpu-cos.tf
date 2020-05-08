@@ -98,7 +98,9 @@ resource "google_container_node_pool" "gpu-cos" {
   lifecycle {
     ignore_changes = [
       node_config[0].labels,
-      node_config[0].taint
+      node_config[0].taint,
+      autoscaling[0].min_node_count,
+      autoscaling[0].max_node_count
     ]
   }
 }
