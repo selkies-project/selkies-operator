@@ -13,13 +13,13 @@
 # limitations under the License.
 
 FROM gcr.io/cloud-builders/gke-deploy as gke-deploy
+FROM gcr.io/cloud-builders/kubectl as kubectl
 
 FROM gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
 RUN apk add -u \
     jq
 
 ARG TERRAFORM_VERSION=0.12.20
-ARG KUBECTL_VERSION=1.18.1
 ARG KUSTOMIZE_VERSION=3.5.3
 ARG ISTIO_OPERATOR_VERSION=1.4.7
 ARG CNRM_VERSION=1.7.1
@@ -31,11 +31,6 @@ RUN wget --timeout 2 --tries 5 https://releases.hashicorp.com/terraform/${TERRAF
     mv terraform /usr/local/bin && \
     rm -rf terraform_${TERRAFORM_VERSION}_linux_amd64.zip
 
-# Install kubectl
-RUN wget --timeout 2 --tries 5 https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
-    chmod +x kubectl && \
-    mv kubectl /usr/local/bin/
-
 # Install kustomize
 RUN wget --timeout 2 --tries 5 -O- https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz | \
     tar zxvf - kustomize && \
@@ -44,6 +39,9 @@ RUN wget --timeout 2 --tries 5 -O- https://github.com/kubernetes-sigs/kustomize/
 
 # Install gke-deploy
 COPY --from=gke-deploy /gke-deploy /usr/local/bin/
+
+# Install kubectl
+COPY --from=kubectl /builder/google-cloud-sdk/bin/kubectl /usr/local/bin/kubectl
 
 # Download cnrm installer
 RUN mkdir -p /opt/cnrm && cd /opt/cnrm && \

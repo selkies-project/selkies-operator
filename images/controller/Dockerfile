@@ -22,11 +22,11 @@ RUN go build cmd/image_finder/image_finder.go
 RUN go build cmd/image_puller/image_puller.go
 RUN go build cmd/pod_broker/pod_broker.go
 
+FROM gcr.io/cloud-builders/kubectl as kubectl
 FROM gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
 
-# Install kubectl with integrated kustomize 
-RUN wget --timeout 2 --tries 5 -qO /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/v1.18.1/bin/linux/amd64/kubectl && \
-    chmod +x /usr/bin/kubectl
+# Install kubectl
+COPY --from=kubectl /builder/google-cloud-sdk/bin/kubectl /usr/local/bin/kubectl
 
 # Copy build from previous layer
 COPY --from=build /go/src/gcp.solutions/kube-app-launcher/app_finder /usr/local/bin/app-finder
