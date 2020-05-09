@@ -22,7 +22,7 @@ RUN apk add -u \
 ARG TERRAFORM_VERSION=0.12.20
 ARG KUSTOMIZE_VERSION=3.5.3
 ARG ISTIO_OPERATOR_VERSION=1.4.7
-ARG CNRM_VERSION=1.7.1
+ARG CNRM_VERSION=1.8.0
 
 # Install terraform
 RUN wget --timeout 2 --tries 5 https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
