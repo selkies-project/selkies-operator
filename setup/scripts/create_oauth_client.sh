@@ -38,36 +38,30 @@ log_cyan "INFO: Creating OAuth Brand"
 BRAND_ID=$($GCLOUD alpha iap oauth-brands list --filter="applicationTitle~'${APP_NAME?}'" --format='value(name)')
 if [[ -z "${BRAND_ID}" ]]; then
     # Create the OAuth Brand
-    $GCLOUD alpha iap oauth-brands create --application_title="${APP_NAME?}" --support_email=$($GCLOUD config get-value account) >&2
+    BRAND_ID=$($GCLOUD alpha iap oauth-brands create --application_title="${APP_NAME?}" --support_email=$($GCLOUD config get-value account) --format='value(name)')
+    [[ $? -ne 0 ]] && echo "ERROR: Failed to create oauth brand." && exit 1
     sleep 2
-    BRAND_ID=$($GCLOUD alpha iap oauth-brands list --filter="applicationTitle~'${APP_NAME?}'" --format='value(name)')
 else
     log_cyan "INFO:   Using existing brand: ${BRAND_ID}"
 fi
 
 # Check to see if OAuth client already exists.
+CLIENT_ID=
+CLIENT_SECRET=
 IFS=',' read -ra toks < <($GCLOUD alpha iap oauth-clients list ${BRAND_ID?} --filter="displayName~'${APP_NAME?}'"  --limit=1 --format 'csv[no-heading](name,secret)') 
 if [[ ${#toks[@]} -eq 0 ]]; then
     log_cyan "INFO: Creating OAuth client"
-    $GCLOUD alpha iap oauth-clients create ${BRAND_ID?} --display_name="${APP_NAME?}" >&2
+    IFS=',' read -ra toks < <($GCLOUD alpha iap oauth-clients create ${BRAND_ID?} --display_name="${APP_NAME?}" --format 'csv[no-heading](name,secret)')
+    [[ $? -ne 0 ]] && echo "ERROR: Failed to create oauth client." && exit 1
+    CLIENT_ID=$(basename ${toks[0]})
+    CLIENT_SECRET=${toks[1]}
 else
     log_cyan "INFO:   Using existing client: ${toks[0]}"
+    CLIENT_ID=$(basename ${toks[0]})
+    CLIENT_SECRET=${toks[1]}
 fi
 
-# Poll until oauth client is ready.
-CLIENT_ID=
-CLIENT_SECRET=
-count=0
-while [[ $count -lt 10 ]]; do
-    # Read client ID and secret into bash array
-    IFS=',' read -ra toks < <($GCLOUD alpha iap oauth-clients list ${BRAND_ID?} --filter="displayName~'${APP_NAME?}'"  --limit=1 --format 'csv[no-heading](name,secret)') 
-    if [[ ${#toks[@]} -eq 2 ]]; then
-        CLIENT_ID=$(basename ${toks[0]})
-        CLIENT_SECRET=${toks[1]}
-    fi
-    [[ -n "${CLIENT_ID}" ]] && break
-    sleep 1
-done
+[[ -z "${CLIENT_ID}" || -z "${CLIENT_SECRET}" ]] && echo "ERROR: Failed to get oauth client" && exit 1
 
 echo "export CLIENT_ID=${CLIENT_ID}"
 echo "export CLIENT_SECRET=${CLIENT_SECRET}"
