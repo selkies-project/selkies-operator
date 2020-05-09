@@ -50,8 +50,14 @@ sed -i 's/${PROJECT_ID?}/'${PROJECT_ID}'/g' \
 kubectl apply -k base/cnrm-system/
 
 # Wait for CNRM controller
+log_cyan "Waiting for pod 'cnrm-controller-manager-0'"
+until [[ -n $(kubectl get pod cnrm-controller-manager-0 -n cnrm-system -oname 2>/dev/null) ]]; do sleep 2; done
 kubectl wait pod cnrm-controller-manager-0 -n cnrm-system --for=condition=Ready --timeout=60s
+log_cyan "Pod 'cnrm-controller-manager-0' is ready"
+
+log_cyan "Waiting for Deployment 'cnrm-webhook-manager'"
 kubectl wait deploy cnrm-webhook-manager -n cnrm-system --for=condition=Available --timeout=60s
+log_cyan "Deployment 'cnrm-webhook-manager' is ready"
 
 # Install AutoNEG controller
 log_cyan "Installing AutoNEG controller..."
