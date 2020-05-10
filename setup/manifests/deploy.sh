@@ -56,7 +56,7 @@ kubectl wait pod cnrm-controller-manager-0 -n cnrm-system --for=condition=Ready 
 log_cyan "Pod 'cnrm-controller-manager-0' is ready"
 
 log_cyan "Waiting for Deployment 'cnrm-webhook-manager'"
-kubectl wait deploy cnrm-webhook-manager -n cnrm-system --for=condition=Available --timeout=60s
+kubectl wait deploy cnrm-webhook-manager -n cnrm-system --for=condition=Available --timeout=600s
 kubectl wait pod -n cnrm-system -l cnrm.cloud.google.com/component=cnrm-webhook-manager --for=condition=Ready --timeout=120s
 log_cyan "Deployment 'cnrm-webhook-manager' is ready"
 
