@@ -43,22 +43,3 @@ resource "google_compute_firewall" "turn" {
   target_tags   = ["gke-turn"]
   source_ranges = ["0.0.0.0/0"]
 }
-
-resource "google_compute_subnetwork" "broker" {
-  for_each      = local.cluster_regions
-  name          = "${var.name}-${each.key}"
-  ip_cidr_range = "10.${2 + each.value}.0.0/16"
-  region        = each.key
-  network       = google_compute_network.broker.self_link
-
-  secondary_ip_range = [
-    {
-      range_name    = "${var.name}-pods"
-      ip_cidr_range = "172.${16 + each.value}.0.0/16"
-    },
-    {
-      range_name    = "${var.name}-services"
-      ip_cidr_range = "192.168.${each.value}.0/24"
-    },
-  ]
-}

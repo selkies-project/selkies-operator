@@ -17,15 +17,6 @@
 variable project_id {}
 variable region {}
 
-variable network {
-  default = "broker"
-}
-
-variable subnetwork {
-  # If not specified, will use: "broker-${var.region}"
-  default = ""
-}
-
 variable service_account {
   # If not specified, will use: broker@${var.project_id}.iam.gserviceaccount.com
   default = ""

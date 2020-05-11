@@ -21,8 +21,8 @@ module "broker" {
   name                   = "${var.name}-${var.region}"
   regional               = true
   region                 = var.region
-  network                = var.network
-  subnetwork             = length(var.subnetwork) == 0 ? "broker-${var.region}" : var.subnetwork
+  network                = data.google_compute_network.broker.name
+  subnetwork             = google_compute_subnetwork.broker.name
   ip_range_pods          = "broker-pods"
   ip_range_services      = "broker-services"
   node_metadata          = "GKE_METADATA_SERVER"
