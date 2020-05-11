@@ -15,19 +15,20 @@
  */
 
 module "broker" {
-  source                 = "github.com/terraform-google-modules/terraform-google-kubernetes-engine//modules/beta-public-cluster?ref=v8.1.0"
-  project_id             = var.project_id
-  release_channel        = "REGULAR"
-  name                   = "${var.name}-${var.region}"
-  regional               = true
-  region                 = var.region
-  network                = data.google_compute_network.broker.name
-  subnetwork             = google_compute_subnetwork.broker.name
-  ip_range_pods          = "broker-pods"
-  ip_range_services      = "broker-services"
-  node_metadata          = "GKE_METADATA_SERVER"
-  create_service_account = false
-  service_account        = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
+  source                   = "github.com/terraform-google-modules/terraform-google-kubernetes-engine//modules/beta-public-cluster?ref=v9.0.0"
+  project_id               = var.project_id
+  release_channel          = "REGULAR"
+  name                     = "${var.name}-${var.region}"
+  regional                 = true
+  region                   = var.region
+  network                  = data.google_compute_network.broker.name
+  subnetwork               = google_compute_subnetwork.broker.name
+  ip_range_pods            = google_compute_subnetwork.broker.secondary_ip_range[0].range_name
+  ip_range_services        = google_compute_subnetwork.broker.secondary_ip_range[1].range_name
+  node_metadata            = "GKE_METADATA_SERVER"
+  create_service_account   = false
+  service_account          = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
+  remove_default_node_pool = true
 
   # Zones must be compatible with the chosen accelerator_type in the gpu-* node pools.
   zones = length(var.zones) == 0 ? lookup(local.cluster_node_zones, var.region) : var.zones
