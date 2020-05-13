@@ -29,6 +29,7 @@ substitutions:
   _BUILD_IMAGES: "true"
   _ENABLE_COS_GPU: "true"
   _ENABLE_UBUNTU_GPU: "false"
+  _WAIT_FOR_IAP: "true"
 tags:
   - kube-app-launcher-deploy
 steps:
@@ -192,8 +193,9 @@ steps:
     id: "wait-for-iap"
     entrypoint: "bash"
     args:
-      - -exc
+      - -xc
       - |
+        [[ "${_WAIT_FOR_IAP}" == "false" ]] && exit 0
         CLIENT_ID=$$(gcloud secrets versions access 1 --secret broker-oauth2-client-id)
         ENDPOINT="https://${_NAME}.endpoints.${PROJECT_ID}.cloud.goog/broker/"
         bash ./setup/scripts/wait_for_iap.sh broker@${PROJECT_ID}.iam.gserviceaccount.com $${CLIENT_ID} $${ENDPOINT}
