@@ -101,9 +101,19 @@ REGION=us-west1
 (cd setup/infra/cluster && gcloud builds submit --substitutions=_REGION=${REGION?})
 ```
 
-> NOTE: this can be run multiple times with different regions.
+3. Create the node pool for apps
 
-3. Create the workload identity bindings:
+```bash
+(cd setup/infra/node-pool-apps && gcloud builds submit --substitutions=_REGION=${REGION?})
+```
+
+4. Create the node pool for GPU accelerated apps
+
+```bash
+(cd setup/infra/node-pool-gpu && gcloud builds submit --substitutions=_REGION=${REGION?})
+```
+
+5. Create the workload identity bindings:
 
 ```bash
 (cd setup/infra/wi-sa && gcloud builds submit)
@@ -111,7 +121,7 @@ REGION=us-west1
 
 > NOTE: this is a workaround because the identity namespace does not exist until the first cluster in a project has been created with worload identity enabled.
 
-4. Deploy the manifests to the regional cluster:
+6. Deploy the manifests to the regional cluster:
 
 ```bash
 (cd setup/manifests && gcloud builds submit --substitutions=_REGION=${REGION?})
