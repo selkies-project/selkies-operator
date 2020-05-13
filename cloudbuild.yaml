@@ -66,7 +66,14 @@ steps:
     args:
       - -exc
       - |
-        eval $$(./setup/scripts/create_oauth_client.sh "${_OAUTH_APP_NAME}")
+        count=0
+        while [[ $$count -lt 10 ]]; do
+          eval $$(./setup/scripts/create_oauth_client.sh "${_OAUTH_APP_NAME}")
+          [[ $? -eq 0 ]] && break
+          ((count=count+1))
+          sleep 2
+        done
+
         (gcloud secrets versions access 1 --secret broker-oauth2-client-id) || \
           gcloud secrets create broker-oauth2-client-id \
             --replication-policy=automatic \
