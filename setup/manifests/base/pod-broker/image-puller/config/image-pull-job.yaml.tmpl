@@ -58,6 +58,10 @@ spec:
               echo "Pulling image: ${IMAGE}"
               gcloud -q auth configure-docker
               docker pull ${IMAGE}
+              echo "Tagging image ${IMAGE} with latest"
+              STRIPTAG=${IMAGE//:*/}
+              STRIPSHA=${STRIPTAG//@*/}
+              docker tag ${IMAGE} ${STRIPSHA}:latest
           env:
             - name: IMAGE
               value: "{{.Image}}"
