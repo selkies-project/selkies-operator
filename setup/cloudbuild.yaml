@@ -17,8 +17,8 @@ substitutions:
   _ACTION: apply
   _NAME: broker
 tags:
-  - kube-app-launcher-setup
   - kube-app-launcher-base
+  - kube-app-launcher-setup
 steps:
   ###
   # Cleanup any existing sub-jobs to prevent overlapping executions.

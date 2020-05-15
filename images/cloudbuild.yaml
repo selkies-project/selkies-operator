@@ -18,7 +18,8 @@ substitutions:
   _USE_CACHE: "false"
   _IMAGE_PREFIX: kube-pod-broker
   _IMAGE_TAG: latest
-
+tags:
+  - kube-app-launcher-images
 ###
 # Images to be pushed
 ###

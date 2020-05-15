@@ -106,7 +106,9 @@ substitutions:
   _INFRA_NAME: broker
   _REGION:
   _NODE_POOL:
-
+tags:
+  - autoscaling-cronjob
+  - kube-app-launcher-setup
 steps:
   - name: "gcr.io/cloud-builders/gcloud"
     id: "verify-node-pool"
@@ -118,7 +120,7 @@ steps:
         [[ -z "$$RES" ]] && echo "ERROR: Node pool not found: ${_NODE_POOL}" && exit 1
         exit 0
   - name: "gcr.io/cloud-builders/kubectl"
-    id: "deploy-manifests"
+    id: "deploy-autoscaling-cronjob"
     args: ["apply", "-f", "manifests/"]
     env:
       - "CLOUDSDK_CORE_PROJECT=${PROJECT_ID}"
