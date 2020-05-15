@@ -225,7 +225,7 @@ func GetEgressNetworkPolicyData(podBrokerNamespace, turnEndpointSelector string)
 
 func ExecPodCommand(namespace, selector, container, command string) error {
 	// Fetch pod name from selector query.
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get pod -n %s -l %s -o name 1>&2", namespace, selector))
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get pod -n %s -l %s -o 'jsonpath={..metadata.name}' 1>&2", namespace, selector))
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to get pods: %s, %v", string(stdoutStderr), err)
