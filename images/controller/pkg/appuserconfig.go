@@ -72,7 +72,7 @@ func NewAppUserConfigFromJSON(srcFile string) (AppUserConfigObject, error) {
 	return userConfig, err
 }
 
-func FetchAppUserConfigs(namespace string) ([]AppUserConfigObject, error) {
+func FetchAppUserConfigs() ([]AppUserConfigObject, error) {
 	userConfigs := make([]AppUserConfigObject, 0)
 
 	type appUserConfigItems struct {
@@ -81,7 +81,7 @@ func FetchAppUserConfigs(namespace string) ([]AppUserConfigObject, error) {
 
 	// Fetch all app user config objects
 	// 	 kubectl get brokerappuserconfigs -l app.kubernetes.io/managed-by=pod-broker
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get brokerappuserconfigs -n %s -l app.kubernetes.io/managed-by=pod-broker -o json", namespace))
+	cmd := exec.Command("sh", "-c", "kubectl get brokerappuserconfigs --all-namespaces -l app.kubernetes.io/managed-by=pod-broker -o json")
 	output, err := cmd.Output()
 	if err != nil {
 		return userConfigs, err

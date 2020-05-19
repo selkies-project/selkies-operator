@@ -17,6 +17,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -29,15 +30,9 @@ func main() {
 
 	log.Printf("Starting image tag discovery service")
 
-	// Set from downward API.
-	namespace := os.Getenv("NAMESPACE")
-	if len(namespace) == 0 {
-		log.Fatal("Missing NAMESPACE env.")
-	}
-
 	for {
 		// Fetch all user app configs
-		userConfigs, err := broker.FetchAppUserConfigs(namespace)
+		userConfigs, err := broker.FetchAppUserConfigs()
 		if err != nil {
 			log.Fatalf("failed to fetch user app configs: %v", err)
 		}
@@ -72,9 +67,10 @@ func main() {
 }
 
 func getImageTags(currConfig broker.AppUserConfigObject, destDir string, authToken string) {
-	listResp, err := broker.ListGCRImageTags(currConfig.Spec.ImageRepo, authToken)
+	image := fmt.Sprintf("%s:%s", currConfig.Spec.ImageRepo, currConfig.Spec.ImageTag)
+	listResp, err := broker.ListGCRImageTags(image, authToken)
 	if err != nil {
-		log.Printf("failed to list image tags for: %s", currConfig.Spec.ImageRepo)
+		log.Printf("failed to list image tags for: %s\n%v", image, err)
 		return
 	}
 

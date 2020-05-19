@@ -216,7 +216,7 @@ func findImageTags(namespace string) ([]string, error) {
 	}
 
 	// Fetch all user app configs
-	userConfigs, err := broker.FetchAppUserConfigs(namespace)
+	userConfigs, err := broker.FetchAppUserConfigs()
 	if err != nil {
 		log.Printf("failed to fetch user app configs: %v", err)
 	} else {
