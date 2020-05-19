@@ -51,6 +51,16 @@ spec:
               number: 8080
     - match:
         - uri:
+            prefix: /publish/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: pod-broker
+            port:
+              number: 8081
+    - match:
+        - uri:
             prefix: /
       route:
         - destination:
@@ -121,6 +131,9 @@ spec:
     - port: 8080
       name: pod-broker
       targetPort: 8080
+    - port: 8081
+      name: app-publish
+      targetPort: 8081
     - port: 80
       name: web
       targetPort: 80
@@ -164,12 +177,11 @@ spec:
         - name: userconfig
           emptyDir: {}
         ###
-        # Local docker socket for pulling images
+        # App publishing job template
         ###
-        - name: docker
-          hostPath:
-            path: /var/run/docker.sock
-            type: File
+        - name: app-publish-job-template
+          configMap:
+            name: app-publish-job-template
 
       containers:
         ###
@@ -243,6 +255,33 @@ spec:
               mountPath: /var/run/build
             - name: userconfig
               mountPath: /var/run/userconfig
+
+        ###
+        # App publisher sidecar
+        ###
+        - name: app-publisher
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
+          workingDir: /run/app-publisher
+          command: ["/usr/local/bin/app-publisher"]
+          # Pull default pod broker config from ConfigMap
+          # Contains keys in the form of POD_BROKER_PARAM_ValueName=Value
+          envFrom:
+            - configMapRef:
+                name: pod-broker-config
+                optional: false
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: buildsrc
+              mountPath: /run/buildsrc
+            - name: app-publish-job-template
+              mountPath: /run/app-publisher/template
+          readinessProbe:
+            tcpSocket:
+              port: 8080
 
         ###
         # pod-broker web

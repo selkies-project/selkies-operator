@@ -163,6 +163,10 @@ spec:
                     type: string
                   command:
                     type: string
+            editors:
+              type: array
+              items:
+                type: string
             defaultTier:
               type: string
             nodeTiers:

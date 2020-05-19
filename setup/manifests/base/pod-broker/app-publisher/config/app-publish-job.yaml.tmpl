@@ -1,0 +1,154 @@
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{.JobName}}"
+  namespace: "{{.Namespace}}"
+  annotations:
+    pod.broker/app-publish-user: "{{.User}}"
+    pod.broker/app-publish-node: "{{.NodeName}}"
+    pod.broker/app-publish-container: "{{.ContainerID}}"
+spec:
+  # 1 hour max runtime to publish image.
+  activeDeadlineSeconds: 3600
+  # Delete job after it hass been complete for 10 minutes.
+  ttlSecondsAfterFinished: 600
+  completions: 1
+  template:
+    metadata:
+      labels:
+        app: {{.JobName}}
+        app.kubernetes.io/managed-by: pod-broker-app-publisher
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: pod-broker
+      nodeSelector:
+        kubernetes.io/hostname: "{{.NodeName}}"
+      tolerations:
+        - effect: "NoSchedule"
+          operator: "Exists"
+      volumes:
+        ###
+        # Local docker socket for pulling images
+        ###
+        - name: docker
+          hostPath:
+            path: /var/run/docker.sock
+            type: File
+      initContainers:
+        ###
+        # Commit changes to docker image to new tag and push to registry.
+        ###
+        - name: docker-commit
+          image: google/cloud-sdk:alpine
+          command: ["/bin/bash"]
+          args:
+            - -ec
+            - |
+              echo "INFO: waiting for workload identity"
+              while true; do
+                  gcloud -q auth list --format='value(account)' 2>/dev/null
+                  [[ $? -eq 0 ]] && break
+                  sleep 2
+              done
+              echo "INFO: workload identity is ready"
+
+              gcloud -q auth configure-docker
+
+              echo "INFO: Commiting changes to docker container '${CONTAINER_ID}' to new tag: '${IMAGE_TAG}'"
+              docker commit ${CONTAINER_ID} ${IMAGE_TAG}
+              docker push ${IMAGE_TAG}
+              sleep 2
+          env:
+            - name: CONTAINER_ID
+              value: "{{.ContainerID}}"
+            - name: IMAGE_TAG
+              value: "{{.ImageTag}}"
+          volumeMounts:
+            - name: docker
+              mountPath: /var/run/docker.sock
+      containers:
+        ###
+        # Apply BrokerAppConfig
+        ###
+        - name: apply-appconfig
+          image: gcr.io/{{.ProjectID}}/broker-installer
+          command: ["/bin/bash"]
+          args:
+            - -exc
+            - |
+              function cleanup() {
+                # Self-delete job.
+                echo "INFO: deleteing job"
+                kubectl delete job {{.JobName}}
+              }
+              trap cleanup EXIT
+
+              cat - | tee jsonpatch-brokerappconfig.yaml <<EOF
+              - op: replace
+                path: /metadata/name
+                value: {{.NewApp.Name}}
+
+              - op: replace
+                path: /spec/name
+                value: {{.NewApp.Name}}
+              
+              - op: replace
+                path: /spec/displayName
+                value: "{{.NewApp.DisplayName}}"
+              
+              - op: replace
+                path: /spec/description
+                value: "{{.NewApp.Description}}"
+              
+              - op: replace
+                path: /spec/icon
+                value: {{.NewApp.Icon}}
+              
+              - op: replace
+                path: /spec/defaultRepo
+                value: "${IMAGE_TAG/:*/}"
+              
+              - op: replace
+                path: /spec/defaultTag
+                value: "${IMAGE_TAG/*:/}"
+              EOF
+
+              cat - | tee kustomization.yaml <<EOF
+              apiVersion: kustomize.config.k8s.io/v1beta1
+              kind: Kustomization
+
+              resources:
+                - ./brokerappconfig.yaml
+
+              patchesJson6902:
+                - target:
+                    group: gcp.solutions
+                    version: v1
+                    kind: BrokerAppConfig
+                    name: {{.AppName}}
+                  path: jsonpatch-brokerappconfig.yaml
+              EOF
+              
+              kubectl get brokerappconfig {{.AppName}} -o yaml > brokerappconfig.yaml
+
+              echo "INFO: Applying BrokerAppConfig from base app: {{.AppName}}"
+              kubectl apply -k .
+
+              sleep 2
+          env:
+            - name: IMAGE_TAG
+              value: "{{.ImageTag}}"

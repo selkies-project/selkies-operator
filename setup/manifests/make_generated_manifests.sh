@@ -56,6 +56,7 @@ kind: ConfigMap
 metadata:
   name: pod-broker-config
 data:
+  POD_BROKER_PARAM_ProjectID: "${PROJECT_ID}"
   POD_BROKER_PARAM_Theme: "dark"
   POD_BROKER_PARAM_Title: "App Launcher"
   POD_BROKER_PARAM_Domain: "${ENDPOINT}"

@@ -42,13 +42,21 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 		Status string `json:"status"`
 	}
 
+	type containerStatusSpec struct {
+		ContainerID string `json:"containerID"`
+		Image       string `json:"image"`
+		Name        string `json:"name"`
+	}
+
 	type podStatusSpec struct {
-		PodIP      string               `json:"podIP"`
-		Conditions []podStatusCondition `json:"conditions"`
+		PodIP             string                `json:"podIP"`
+		Conditions        []podStatusCondition  `json:"conditions"`
+		ContainerStatuses []containerStatusSpec `json:"containerStatuses"`
 	}
 
 	type podSpec struct {
 		Metadata map[string]interface{} `json:"metadata"`
+		Spec     map[string]interface{} `json:"spec"`
 		Status   podStatusSpec          `json:"status"`
 	}
 
@@ -68,6 +76,9 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 	}
 
 	resp.Code = http.StatusOK
+	resp.Nodes = make([]string, 0)
+	resp.Containers = make(map[string]string, 0)
+	resp.Images = make(map[string]string, 0)
 
 	podStatus := PodStatusResponse{}
 
@@ -83,6 +94,10 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 			if cond.Type == "Ready" {
 				if cond.Status == "True" {
 					resp.PodIPs = append(resp.PodIPs, item.Status.PodIP)
+					nodeName := item.Spec["nodeName"]
+					if nodeName != nil {
+						resp.Nodes = append(resp.Nodes, nodeName.(string))
+					}
 					podStatus.Ready++
 				} else {
 					podStatus.Waiting++
@@ -90,6 +105,11 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 			} else if cond.Type == "PodScheduled" && cond.Status == "False" {
 				podStatus.Waiting++
 			}
+		}
+
+		for _, containerStatus := range item.Status.ContainerStatuses {
+			resp.Containers[containerStatus.Name] = containerStatus.ContainerID
+			resp.Images[containerStatus.Name] = containerStatus.Image
 		}
 	}
 
@@ -247,4 +267,24 @@ func ExecPodCommand(namespace, selector, container, command string) error {
 		return fmt.Errorf("failed to exec pod command: %s, %v", string(stdoutStderr), err)
 	}
 	return nil
+}
+
+func GetUserFromCookieOrAuthHeader(r *http.Request, cookieName, authHeaderName string) string {
+	res := ""
+
+	if len(cookieName) > 0 {
+		cookie, err := r.Cookie(cookieName)
+		if err == nil {
+			toks := strings.Split(cookie.Value, "#")
+			if len(toks) == 2 {
+				res = toks[0]
+			}
+		}
+	}
+
+	if len(res) == 0 {
+		res = r.Header.Get(authHeaderName)
+	}
+
+	return res
 }

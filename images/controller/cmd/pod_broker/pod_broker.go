@@ -125,6 +125,16 @@ func main() {
 		getStatus := false
 
 		if r.URL.Path == "/" {
+			// Get user from header. At this time the per-app cookie has not been set and is not required.
+			user := broker.GetUserFromCookieOrAuthHeader(r, "", authHeaderName)
+			if len(user) == 0 {
+				writeResponse(w, http.StatusBadRequest, fmt.Sprintf("Failed to get user from auth header"))
+				return
+			}
+			// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
+			userToks := strings.Split(user, ":")
+			user = userToks[len(userToks)-1]
+
 			// Return list of apps
 			appList := broker.AppListResponse{
 				BrokerName:   brokerName,
@@ -144,6 +154,15 @@ func main() {
 					app.LaunchURL = fmt.Sprintf("/%s/", app.Name)
 				}
 
+				// App is editable if user is in the list of editors.
+				editable := false
+				for _, appEditor := range app.Editors {
+					if appEditor == user {
+						editable = true
+						break
+					}
+				}
+
 				appData := broker.AppDataResponse{
 					Name:        app.Name,
 					DisplayName: app.DisplayName,
@@ -155,6 +174,7 @@ func main() {
 					Params:      app.UserParams,
 					DefaultTier: app.DefaultTier,
 					NodeTiers:   app.NodeTierNames(),
+					Editable:    editable,
 				}
 				appList.Apps = append(appList.Apps, appData)
 			}
@@ -186,7 +206,7 @@ func main() {
 		}
 
 		// Get user from cookie or header
-		user := getUserFromCookieOrAuthHeader(r, cookieName, authHeaderName)
+		user := broker.GetUserFromCookieOrAuthHeader(r, cookieName, authHeaderName)
 		if len(user) == 0 {
 			writeResponse(w, http.StatusBadRequest, fmt.Sprintf("Failed to get user from cookie or auth header"))
 			return
@@ -194,6 +214,15 @@ func main() {
 		// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
 		userToks := strings.Split(user, ":")
 		user = userToks[len(userToks)-1]
+
+		// App is editable if user is in the list of editors.
+		editable := false
+		for _, appEditor := range app.Editors {
+			if appEditor == user {
+				editable = true
+				break
+			}
+		}
 
 		// Compute pod ID from user and app, must conform to DNS-1035.
 		id := broker.MakePodID(user)
@@ -414,6 +443,7 @@ func main() {
 			NetworkPolicyData:         registeredApps.NetworkPolicyData,
 			Timestamp:                 ts,
 			Region:                    brokerRegion,
+			Editable:                  editable,
 		}
 
 		appPath := fmt.Sprintf("/%s/", appName)
@@ -539,18 +569,4 @@ func writeResponseWithIPs(w http.ResponseWriter, statusCode int, message string,
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(status)
-}
-
-func getUserFromCookieOrAuthHeader(r *http.Request, cookieName, authHeaderName string) string {
-	res := ""
-	cookie, err := r.Cookie(cookieName)
-	if err == nil {
-		toks := strings.Split(cookie.Value, "#")
-		if len(toks) == 2 {
-			res = toks[0]
-		}
-	} else {
-		res = r.Header.Get(authHeaderName)
-	}
-	return res
 }

@@ -162,7 +162,7 @@ func main() {
 
 		wg.Wait()
 
-		log.Printf("processed %d images", len(images))
+		//log.Printf("processed %d images", len(images))
 
 		// Delete completed jobs.
 		for _, job := range currJobs {
@@ -173,7 +173,7 @@ func main() {
 						// Found job for node.
 						jobName := job.Metadata["name"].(string)
 						if job.Status.Succeeded > 0 {
-							log.Printf("deleting completed job %s:", jobName)
+							log.Printf("deleting completed job: %s", jobName)
 							cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl delete job -n %s %s 1>&2", namespace, jobName))
 							stdoutStderr, err := cmd.CombinedOutput()
 							if err != nil {

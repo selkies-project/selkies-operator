@@ -120,16 +120,23 @@ func GetServiceAccountTokenFromMetadataServer(sa string) (string, error) {
 	return tokenResp.AccessToken, nil
 }
 
-func ListGCRImageTags(image string, authToken string) (ImageListResponse, error) {
-	listResp := ImageListResponse{}
+func ExtractGCRRepoFromImage(image string) string {
 	gcrRepo := ""
+
 	if len(regexp.MustCompile(GCRImageWithTagPattern).FindAllString(image, -1)) > 0 {
 		// Extract just the repo/image format from the image, excluding any tag at the end.
 		gcrRepo = strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), ":")[0]
 	} else if len(regexp.MustCompile(GCRImageWithDigestPattern).FindAllString(image, -1)) > 0 {
 		// Extract just the repo/image format from the image, excluding the digest at the end.
 		gcrRepo = strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@")[0]
-	} else {
+	}
+	return gcrRepo
+}
+
+func ListGCRImageTags(image string, authToken string) (ImageListResponse, error) {
+	listResp := ImageListResponse{}
+	gcrRepo := ExtractGCRRepoFromImage(image)
+	if len(gcrRepo) == 0 {
 		return listResp, fmt.Errorf("could not determine tag or digest from image: %s", image)
 	}
 

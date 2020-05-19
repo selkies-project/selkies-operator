@@ -18,6 +18,7 @@ ENV GO111MODULE=on
 WORKDIR /go/src/gcp.solutions/kube-app-launcher
 COPY . ./
 RUN go build cmd/app_finder/app_finder.go
+RUN go build cmd/app_publisher/app_publisher.go
 RUN go build cmd/image_finder/image_finder.go
 RUN go build cmd/image_puller/image_puller.go
 RUN go build cmd/pod_broker/pod_broker.go
@@ -30,6 +31,7 @@ COPY --from=kubectl /builder/google-cloud-sdk/bin/kubectl /usr/local/bin/kubectl
 
 # Copy build from previous layer
 COPY --from=build /go/src/gcp.solutions/kube-app-launcher/app_finder /usr/local/bin/app-finder
+COPY --from=build /go/src/gcp.solutions/kube-app-launcher/app_publisher /usr/local/bin/app-publisher
 COPY --from=build /go/src/gcp.solutions/kube-app-launcher/image_finder /usr/local/bin/image-finder
 COPY --from=build /go/src/gcp.solutions/kube-app-launcher/image_puller /usr/local/bin/image-puller
 COPY --from=build /go/src/gcp.solutions/kube-app-launcher/pod_broker /usr/local/bin/pod-broker

@@ -14,16 +14,7 @@
 
 namespace: pod-broker-system
 
-generatorOptions:
-  # Generate stable ConfigMap and Secret names.
-  disableNameSuffixHash: true
-
-bases:
-  - app-publisher/
-  - image-puller/
-
-resources:
-  - namespace.yaml
-  - crd.yaml
-  - broker-statefulset.yaml
-  - network-policy.yaml
+configMapGenerator:
+  - name: app-publish-job-template
+    files:
+      - config/app-publish-job.yaml.tmpl

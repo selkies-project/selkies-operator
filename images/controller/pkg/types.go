@@ -78,6 +78,7 @@ type UserPodData struct {
 	NetworkPolicyData         NetworkPolicyTemplateData
 	Timestamp                 string
 	Region                    string
+	Editable                  bool
 }
 
 type NodeResource struct {
@@ -149,6 +150,7 @@ type AppConfigSpec struct {
 	AppParams     []AppConfigParam        `yaml:"appParams" json:"appParams"`
 	AppEnv        []AppEnvSpec            `yaml:"appEnv" json:"appEnv"`
 	ShutdownHooks []ShutdownHookSpec      `yaml:"shutdownHooks" json:"shutdownHooks"`
+	Editors       []string                `yaml:"editors" json:"editors"`
 }
 
 type AppConfigObject struct {
@@ -196,13 +198,17 @@ type AppDataResponse struct {
 	NodeTiers   []string         `json:"nodeTiers"`
 	DefaultTier string           `json:"defaultTier"`
 	Params      []AppConfigParam `json:"params"`
+	Editable    bool             `json:"editable"`
 }
 
 type StatusResponse struct {
-	Code      int                `json:"code"`
-	Status    string             `json:"status"`
-	PodIPs    []string           `json:"pod_ips,omitempty"`
-	PodStatus *PodStatusResponse `json:"pod_status,omitempty"`
+	Code       int                `json:"code"`
+	Status     string             `json:"status"`
+	Nodes      []string           `json:"nodes,omitempty"`
+	Containers map[string]string  `json:"containers,omitempty"`
+	Images     map[string]string  `json:"images,omitempty"`
+	PodIPs     []string           `json:"pod_ips,omitempty"`
+	PodStatus  *PodStatusResponse `json:"pod_status,omitempty"`
 }
 
 type PodStatusResponse struct {
