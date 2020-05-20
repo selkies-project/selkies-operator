@@ -55,14 +55,10 @@ until [[ -n $(kubectl get pod cnrm-controller-manager-0 -n cnrm-system -oname 2>
 kubectl wait pod cnrm-controller-manager-0 -n cnrm-system --for=condition=Ready --timeout=60s
 log_cyan "Pod 'cnrm-controller-manager-0' is ready"
 
-log_cyan "Removing cnrm-webhook-manager and cnrm-resource-stats-recorder"
-kubectl -n cnrm-system delete deployment cnrm-webhook-manager
-kubectl delete validatingwebhookconfiguration validating-webhook.cnrm.cloud.google.com 2>/dev/null || true
-kubectl -n cnrm-system delete deployment cnrm-resource-stats-recorder
-#log_cyan "Waiting for Deployment 'cnrm-webhook-manager'"
-#kubectl wait deploy cnrm-webhook-manager -n cnrm-system --for=condition=Available --timeout=600s
-#kubectl wait pod -n cnrm-system -l cnrm.cloud.google.com/component=cnrm-webhook-manager --for=condition=Ready --timeout=300s
-#log_cyan "Deployment 'cnrm-webhook-manager' is ready"
+log_cyan "Waiting for Deployment 'cnrm-webhook-manager'"
+kubectl wait deploy cnrm-webhook-manager -n cnrm-system --for=condition=Available --timeout=600s
+kubectl wait pod -n cnrm-system -l cnrm.cloud.google.com/component=cnrm-webhook-manager --for=condition=Ready --timeout=600s
+log_cyan "Deployment 'cnrm-webhook-manager' is ready"
 
 # Install AutoNEG controller
 log_cyan "Installing AutoNEG controller..."
