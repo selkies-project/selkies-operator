@@ -23,11 +23,14 @@ RUN go build cmd/image_finder/image_finder.go
 RUN go build cmd/image_puller/image_puller.go
 RUN go build cmd/pod_broker/pod_broker.go
 
-FROM gcr.io/cloud-builders/kubectl as kubectl
+FROM gcr.io/k8s-skaffold/skaffold:v1.10.1 as skaffold
 FROM gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
 
+# Install kustomize
+COPY --from=skaffold /usr/local/bin/kustomize /usr/local/bin/kustomize
+
 # Install kubectl
-COPY --from=kubectl /builder/google-cloud-sdk/bin/kubectl /usr/local/bin/kubectl
+COPY --from=skaffold /usr/local/bin/kubectl /usr/local/bin/kubectl
 
 # Copy build from previous layer
 COPY --from=build /go/src/gcp.solutions/kube-app-launcher/app_finder /usr/local/bin/app-finder
