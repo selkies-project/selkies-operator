@@ -368,7 +368,7 @@ func main() {
 				}
 
 				// Apply config to cluster
-				cmd := exec.Command("sh", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kubectl apply -f %s", destDirUser, userConfigFile))
+				cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kubectl apply -f %s", destDirUser, userConfigFile))
 				cmd.Dir = path.Dir(destDir)
 				stdoutStderr, err := cmd.CombinedOutput()
 				if err != nil {
@@ -471,7 +471,7 @@ func main() {
 			}
 
 			log.Printf("shutting down %s pod for user: %s", appName, user)
-			cmd := exec.Command("sh", "-c", "kustomize build | kubectl delete --wait=false -f -")
+			cmd := exec.Command("sh", "-o", "pipefail", "-c", "kustomize build | kubectl delete --wait=false -f -")
 			cmd.Dir = destDir
 			stdoutStderr, err := cmd.CombinedOutput()
 			if err != nil {
@@ -529,7 +529,7 @@ func main() {
 			}
 
 			log.Printf("creating pod for user: %s: %s", user, fullName)
-			cmd := exec.Command("sh", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kustomize build %s | kubectl apply -f -", destDirUser, destDir))
+			cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kustomize build %s | kubectl apply -f -", destDirUser, destDir))
 			cmd.Dir = destDir
 			stdoutStderr, err := cmd.CombinedOutput()
 			if err != nil {
