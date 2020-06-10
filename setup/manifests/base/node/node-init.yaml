@@ -118,31 +118,50 @@ spec:
           volumeMounts:
             - name: docker
               mountPath: /var/run/docker.sock
-      containers:
         ###
         # node init, set inotify limits, update node taint and label.
         ###
         - name: node-init
-          image: gcr.io/cloud-builders/kubectl:latest
+          image: busybox
           securityContext:
             privileged: true
-          command: ["/bin/bash"]
+          command: ["/bin/sh"]
           args:
             - -exc
             - |
-              while true; do
-                # Increase max file watches
-                sed -i 's/fs.inotify.max_user_watches=.*/fs.inotify.max_user_watches=524288/g' /hostfs/etc/sysctl.d/99-gke-defaults.conf
-                echo "524288" > /proc/sys/fs/inotify/max_user_watches
+              # Project service account into chroot environment
+              function cleanup {
+                umount /hostfs/run/secrets/kubernetes.io/serviceaccount || true
+                umount /hostfs/tmp/scripts || true
+              }
+              trap cleanup EXIT
 
-                # remove taint
-                kubectl taint node "${MY_NODE_NAME}" app.broker/node-init:NoSchedule- || true
+              mkdir /tmp/serviceaccount
+              cp /var/run/secrets/kubernetes.io/serviceaccount/* /tmp/serviceaccount
+              mkdir -p /hostfs/run/secrets/kubernetes.io/serviceaccount
+              mount --bind /tmp/serviceaccount /hostfs/run/secrets/kubernetes.io/serviceaccount
 
-                # update node label to unschedule self
-                kubectl label node "${MY_NODE_NAME}" --overwrite app.broker/initialized=true
+              mkdir -p /tmp/scripts
+              cat - | tee /tmp/scripts/init.sh <<EOF
+              #!/bin/sh
+              # Increase max file watches
+              sed -i 's/fs.inotify.max_user_watches=.*/fs.inotify.max_user_watches=524288/g' /etc/sysctl.d/99-gke-defaults.conf
+              echo "524288" > /proc/sys/fs/inotify/max_user_watches
 
-                sleep 10
-              done
+              # remove taint
+              /home/kubernetes/bin/kubectl taint node "${MY_NODE_NAME}" app.broker/node-init:NoSchedule- || true
+
+              # update node label
+              /home/kubernetes/bin/kubectl label node "${MY_NODE_NAME}" --overwrite app.broker/initialized=true
+              EOF
+              chmod +x /tmp/scripts/init.sh
+
+              # Mount init script in chroot
+              mkdir -p /hostfs/tmp/scripts
+              mount --bind /tmp/scripts /hostfs/tmp/scripts
+
+              # Run init script in chroot
+              /bin/chroot /hostfs /tmp/scripts/init.sh
           env:
             - name: MY_NODE_NAME
               valueFrom:
@@ -151,3 +170,6 @@ spec:
           volumeMounts:
             - name: hostfs
               mountPath: /hostfs
+      containers:
+        - image: "gcr.io/google-containers/pause:2.0"
+          name: pause

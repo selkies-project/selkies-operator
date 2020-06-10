@@ -142,9 +142,7 @@ func main() {
 								}
 							}
 
-							if jobFound {
-								log.Printf("found existing job for: %s", imageWithDigest)
-							} else {
+							if !jobFound {
 								if err := makeImagePullJob(imageWithDigest, nodeName, namespace, templatePath); err != nil {
 									log.Printf("failed to make job: %v", err)
 								}
@@ -161,8 +159,6 @@ func main() {
 		}
 
 		wg.Wait()
-
-		//log.Printf("processed %d images", len(images))
 
 		// Delete completed jobs.
 		for _, job := range currJobs {

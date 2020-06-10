@@ -155,6 +155,10 @@ func ListGCRImageTags(image string, authToken string) (ImageListResponse, error)
 		return listResp, err
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		return listResp, fmt.Errorf("%v", string(body))
+	}
+
 	if err := json.Unmarshal(body, &listResp); err != nil {
 		return listResp, err
 	}

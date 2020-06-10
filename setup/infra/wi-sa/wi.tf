@@ -34,11 +34,18 @@ resource "google_service_account_iam_member" "cnrm-sa-workload-identity" {
   member             = "serviceAccount:${var.project_id}.svc.id.goog[cnrm-system/cnrm-controller-manager]"
 }
 
-# Workload Identity IAM binding for broker in default namespace.
+# Workload Identity IAM binding for broker in pod-broker-system namespace.
 resource "google_service_account_iam_member" "broker-default-sa-workload-identity" {
   service_account_id = data.terraform_remote_state.broker.outputs.node-service-account
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[pod-broker-system/pod-broker]"
+}
+
+# Workload Identity IAM binding for broker node init in kube-system namespace.
+resource "google_service_account_iam_member" "broker-init-sa-workload-identity" {
+  service_account_id = data.terraform_remote_state.broker.outputs.node-service-account
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[kube-system/pod-broker-node-init]"
 }
 
 # Workload Identity IAM binding for AutoNEG controller.

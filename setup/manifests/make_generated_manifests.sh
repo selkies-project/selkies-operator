@@ -83,6 +83,23 @@ EOF
 echo "INFO: Created pod broker service account patch: ${DEST}"
 
 ###
+# Patch to add cluser service account email to pod-broker-node-init service account annotation.
+# This enables the GKE Workload Identity feature for the pod-broker-node-init pod.
+###
+DEST="${DEST_DIR}/patch-pod-broker-node-init-service-account.yaml"
+cat > "${DEST}" << EOF
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-broker-node-init
+  namespace: kube-system
+  annotations:
+    iam.gke.io/gcp-service-account: "${NODE_SERVICE_ACCOUNT}"
+EOF
+
+echo "INFO: Created pod broker service account patch: ${DEST}"
+
+###
 # Patch to add host to istio Gateway for pod broker.
 ###
 DEST="${DEST_DIR}/patch-pod-broker-gateway.yaml"
@@ -154,6 +171,7 @@ COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/ku
   kustomize edit add base "../base/turn/"
   kustomize edit add patch "patch-pod-broker-config.yaml"
   kustomize edit add patch "patch-pod-broker-service-account.yaml"
+  kustomize edit add patch "patch-pod-broker-node-init-service-account.yaml"
   kustomize edit add patch "patch-pod-broker-gateway.yaml"
   kustomize edit add patch "patch-pod-broker-virtual-service.yaml"
   kustomize edit set image \
