@@ -132,25 +132,26 @@ type ShutdownHookSpec struct {
 }
 
 type AppConfigSpec struct {
-	Name          string                  `yaml:"name" json:"name"`
-	DisplayName   string                  `yaml:"displayName" json:"displayName"`
-	Description   string                  `yaml:"description" json:"description"`
-	Icon          string                  `yaml:"icon,omitempty" json:"icon,omitempty"`
-	LaunchURL     string                  `yaml:"launchURL,omitempty" json:"launchURL,omitempty"`
-	Disabled      bool                    `yaml:"disabled" json:"disabled"`
-	Version       string                  `yaml:"version" json:"version"`
-	Bundle        BundleSpec              `yaml:"bundle" json:"bundle"`
-	DefaultRepo   string                  `yaml:"defaultRepo" json:"defaultRepo"`
-	DefaultTag    string                  `yaml:"defaultTag" json:"defaultTag"`
-	Images        map[string]AppImageSpec `yaml:"images,omitempty" json:"images,omitempty"`
-	NodeTiers     []NodeTierSpec          `yaml:"nodeTiers,omitempty" json:"nodeTiers,omitempty"`
-	DefaultTier   string                  `yaml:"defaultTier,omitempty" json:"defaultTier,omitempty"`
-	ServiceName   string                  `yaml:"serviceName" json:"serviceName"`
-	UserParams    []AppConfigParam        `yaml:"userParams" json:"userParams"`
-	AppParams     []AppConfigParam        `yaml:"appParams" json:"appParams"`
-	AppEnv        []AppEnvSpec            `yaml:"appEnv" json:"appEnv"`
-	ShutdownHooks []ShutdownHookSpec      `yaml:"shutdownHooks" json:"shutdownHooks"`
-	Editors       []string                `yaml:"editors" json:"editors"`
+	Name            string                  `yaml:"name" json:"name"`
+	DisplayName     string                  `yaml:"displayName" json:"displayName"`
+	Description     string                  `yaml:"description" json:"description"`
+	Icon            string                  `yaml:"icon,omitempty" json:"icon,omitempty"`
+	LaunchURL       string                  `yaml:"launchURL,omitempty" json:"launchURL,omitempty"`
+	Disabled        bool                    `yaml:"disabled" json:"disabled"`
+	Version         string                  `yaml:"version" json:"version"`
+	Bundle          BundleSpec              `yaml:"bundle" json:"bundle"`
+	DefaultRepo     string                  `yaml:"defaultRepo" json:"defaultRepo"`
+	DefaultTag      string                  `yaml:"defaultTag" json:"defaultTag"`
+	Images          map[string]AppImageSpec `yaml:"images,omitempty" json:"images,omitempty"`
+	NodeTiers       []NodeTierSpec          `yaml:"nodeTiers,omitempty" json:"nodeTiers,omitempty"`
+	DefaultTier     string                  `yaml:"defaultTier,omitempty" json:"defaultTier,omitempty"`
+	ServiceName     string                  `yaml:"serviceName" json:"serviceName"`
+	UserParams      []AppConfigParam        `yaml:"userParams" json:"userParams"`
+	AppParams       []AppConfigParam        `yaml:"appParams" json:"appParams"`
+	AppEnv          []AppEnvSpec            `yaml:"appEnv" json:"appEnv"`
+	ShutdownHooks   []ShutdownHookSpec      `yaml:"shutdownHooks" json:"shutdownHooks"`
+	Editors         []string                `yaml:"editors" json:"editors"`
+	AuthorizedUsers []string                `yaml:"authorizedUsers" json:"authorizedUsers"`
 }
 
 type AppConfigObject struct {

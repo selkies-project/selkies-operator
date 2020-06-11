@@ -73,6 +73,10 @@ spec:
               type: string
             disabled:
               type: boolean
+            authorizedUsers:
+              type: array
+              items:
+                type: string
             bundle:
               type: object
               required:

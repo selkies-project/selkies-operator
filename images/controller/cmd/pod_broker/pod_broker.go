@@ -157,9 +157,34 @@ func main() {
 				// App is editable if user is in the list of editors.
 				editable := false
 				for _, appEditor := range app.Editors {
-					if appEditor == user {
+					re, err := regexp.Compile(appEditor)
+					if err != nil {
+						log.Printf("failed to parse app editor as regexp: '%s'.", appEditor)
+						continue
+					}
+					if re.MatchString(user) {
 						editable = true
 						break
+					}
+				}
+
+				// Filter app by authorizedUsers if present.
+				if len(app.AuthorizedUsers) > 0 {
+					found := false
+					for _, u := range app.AuthorizedUsers {
+						re, err := regexp.Compile(u)
+						if err != nil {
+							log.Printf("failed to parse authorizedUser as regexp: '%s', skipping app.", u)
+							break
+						}
+						if re.MatchString(user) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						// Skip this app.
+						continue
 					}
 				}
 
@@ -218,9 +243,34 @@ func main() {
 		// App is editable if user is in the list of editors.
 		editable := false
 		for _, appEditor := range app.Editors {
-			if appEditor == user {
+			re, err := regexp.Compile(appEditor)
+			if err != nil {
+				log.Printf("failed to parse app editor as regexp: '%s'.", appEditor)
+				continue
+			}
+			if re.MatchString(user) {
 				editable = true
 				break
+			}
+		}
+
+		// Check per-app user authorization if present.
+		if len(app.AuthorizedUsers) > 0 {
+			found := false
+			for _, u := range app.AuthorizedUsers {
+				re, err := regexp.Compile(u)
+				if err != nil {
+					log.Printf("failed to parse authorizedUser as regexp: '%s', skipping app.", u)
+					break
+				}
+				if re.MatchString(user) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				writeResponse(w, http.StatusUnauthorized, fmt.Sprintf("user is not authorized"))
+				return
 			}
 		}
 
