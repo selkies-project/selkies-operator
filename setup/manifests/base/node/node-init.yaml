@@ -171,5 +171,27 @@ spec:
             - name: hostfs
               mountPath: /hostfs
       containers:
-        - image: "gcr.io/google-containers/pause:2.0"
-          name: pause
+        # Need to constantly apply node labels as they are reset on cluster upgrade:
+        # See also: https://github.com/kubernetes/kubernetes/issues/18307
+        - name: update-labels
+          image: google/cloud-sdk
+          command: ["/bin/sh"]
+          args:
+            - -ec
+            - |
+              cat - | tee /tmp/init.sh <<EOF
+              # update node label
+              kubectl label node "${MY_NODE_NAME}" --overwrite app.broker/initialized=true
+              EOF
+              chmod +x /tmp/init.sh
+
+              while true; do
+                # Run init script in chroot
+                /tmp/init.sh
+                sleep 10
+              done
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
