@@ -37,7 +37,7 @@ $GCLOUD services enable iap.googleapis.com >/dev/null
 function gcloud_alpha() {
     local count=0
     while [[ $count -lt 5 ]]; do
-        gcloud -q alpha $@
+        gcloud -q alpha "$@"
         [[ $? -eq 0 ]] && return 0
         ((count=count+1))
         sleep 2
@@ -60,7 +60,7 @@ fi
 # Check to see if OAuth client already exists.
 CLIENT_ID=
 CLIENT_SECRET=
-IFS=',' read -ra toks < <(gcloud_alpha iap oauth-clients list ${BRAND_ID?} --filter="displayName~'${APP_NAME?}'"  --limit=1 --format 'csv[no-heading](name,secret)') 
+IFS=',' read -ra toks < <(gcloud_alpha iap oauth-clients list ${BRAND_ID?} --filter displayName~"${APP_NAME?}" --limit=1 --format 'csv[no-heading](name,secret)')
 if [[ ${#toks[@]} -eq 0 ]]; then
     log_cyan "INFO: Creating OAuth client"
     IFS=',' read -ra toks < <(gcloud_alpha iap oauth-clients create ${BRAND_ID?} --display_name="${APP_NAME?}" --format 'csv[no-heading](name,secret)')
