@@ -74,11 +74,11 @@ class BrokerApp {
         if (this.status === "ready") {
             window.location.href = this.launchURL;
         } else {
+            this.status = "checking";
             // Build launch params.
             this.waitLaunch = true;
             var launchParams = this.getLaunchParams();
             podBroker.start_app(this.name, launchParams, () => {
-                app.status = "checking";
                 this.update(true);
             });
         }
@@ -88,7 +88,10 @@ class BrokerApp {
         if (this.status === "stopped") return;
         this.status = "terminating";
         podBroker.shutdown_app(this.name, () => {
-            this.update(true);
+            this.status = "terminating";
+            setTimeout(() => {
+                this.update(true);
+            }, 3000);
         });
     }
 
@@ -97,7 +100,7 @@ class BrokerApp {
             switch (data.status) {
                 case "ready":
                     this.status = "running";
-                    this.checkApp(app, loop);
+                    this.checkApp(loop);
                     break;
                 case "shutdown":
                     this.status = "stopped";
@@ -146,7 +149,7 @@ class BrokerApp {
             .finally(() => {
                 if (loop && this.status === "running") {
                     setTimeout(() => {
-                        this.checkApp(this.name, loop);
+                        this.checkApp(loop);
                     }, 1000);
                 }
             });

@@ -87,7 +87,7 @@
                   <v-select :items="app.imageTags" label="Image tag" v-model="app.imageTag"></v-select>
                 </v-list>
 
-                <v-card-actions>
+                <v-item-group style="background: #303030">
 
                   <!-- progress indicator for app config save -->
                   <div v-if="['saving'].indexOf(app.saveStatus) > -1">
@@ -105,14 +105,14 @@
                     </v-progress-circular>
                   </div>
 
-                  <v-btn flat v-on:click="app.saveConfig()">Save</v-btn>
+                  <v-btn text v-on:click="app.saveConfig()">Save</v-btn>
                   <v-btn icon v-on:click="app.fetchConfig()">
                     <v-icon>refresh</v-icon>
                   </v-btn>
                   <v-btn v-btn icon>
                     <v-icon>help</v-icon>
                   </v-btn>
-                </v-card-actions>
+                </v-item-group>
                 <v-textarea v-if="['failed'].indexOf(app.saveStatus) > -1" solo name="errors" readonly
                   :value="app.saveError">
                 </v-textarea>

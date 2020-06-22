@@ -49,6 +49,7 @@ class PodBroker {
     get_status(app_name, cb, fcb) {
         fetch(this.broker_url + app_name + "/", { credentials: 'include' })
             .then(function (response) {
+                console.log(`${app_name} status: ${response.status}`);
                 return response.json();
             })
             .then(cb)
