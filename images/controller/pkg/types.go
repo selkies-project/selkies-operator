@@ -152,6 +152,7 @@ type AppConfigSpec struct {
 	ShutdownHooks   []ShutdownHookSpec      `yaml:"shutdownHooks" json:"shutdownHooks"`
 	Editors         []string                `yaml:"editors" json:"editors"`
 	AuthorizedUsers []string                `yaml:"authorizedUsers" json:"authorizedUsers"`
+	DisableOptions  bool                    `yaml:"disableOptions" json:"disableOptions"`
 }
 
 type AppConfigObject struct {
@@ -189,17 +190,18 @@ type AppListResponse struct {
 }
 
 type AppDataResponse struct {
-	Name        string           `json:"name"`
-	DisplayName string           `json:"displayName"`
-	Description string           `json:"description"`
-	Icon        string           `json:"icon"`
-	LaunchURL   string           `json:"launchURL"`
-	DefaultRepo string           `json:"defaultRepo"`
-	DefaultTag  string           `json:"defaultTag"`
-	NodeTiers   []string         `json:"nodeTiers"`
-	DefaultTier string           `json:"defaultTier"`
-	Params      []AppConfigParam `json:"params"`
-	Editable    bool             `json:"editable"`
+	Name           string           `json:"name"`
+	DisplayName    string           `json:"displayName"`
+	Description    string           `json:"description"`
+	Icon           string           `json:"icon"`
+	LaunchURL      string           `json:"launchURL"`
+	DefaultRepo    string           `json:"defaultRepo"`
+	DefaultTag     string           `json:"defaultTag"`
+	NodeTiers      []string         `json:"nodeTiers"`
+	DefaultTier    string           `json:"defaultTier"`
+	Params         []AppConfigParam `json:"params"`
+	Editable       bool             `json:"editable"`
+	DisableOptions bool             `json:"disableOptions"`
 }
 
 type StatusResponse struct {

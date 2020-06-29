@@ -189,17 +189,18 @@ func main() {
 				}
 
 				appData := broker.AppDataResponse{
-					Name:        app.Name,
-					DisplayName: app.DisplayName,
-					Description: app.Description,
-					Icon:        app.Icon,
-					LaunchURL:   app.LaunchURL,
-					DefaultRepo: app.DefaultRepo,
-					DefaultTag:  app.DefaultTag,
-					Params:      app.UserParams,
-					DefaultTier: app.DefaultTier,
-					NodeTiers:   app.NodeTierNames(),
-					Editable:    editable,
+					Name:           app.Name,
+					DisplayName:    app.DisplayName,
+					Description:    app.Description,
+					Icon:           app.Icon,
+					LaunchURL:      app.LaunchURL,
+					DefaultRepo:    app.DefaultRepo,
+					DefaultTag:     app.DefaultTag,
+					Params:         app.UserParams,
+					DefaultTier:    app.DefaultTier,
+					NodeTiers:      app.NodeTierNames(),
+					Editable:       editable,
+					DisableOptions: app.DisableOptions,
 				}
 				appList.Apps = append(appList.Apps, appData)
 			}
@@ -289,9 +290,9 @@ func main() {
 
 		ts := fmt.Sprintf("%d", time.Now().Unix())
 
-		// Fetch user config.
+		// Fetch user config, only use user options if spec.disableOptions is false.
 		userConfig, err := broker.GetAppUserConfig(userConfigFile)
-		if err != nil {
+		if app.DisableOptions || err != nil {
 			// config does not exist yet, generate default.
 			defaultAppParams := make(map[string]string, 0)
 			for _, param := range app.UserParams {
@@ -333,6 +334,12 @@ func main() {
 				// Read JSON body
 				if r.Header.Get("content-type") != "application/json" {
 					writeResponse(w, http.StatusBadRequest, "invalid content-type")
+					return
+				}
+
+				// Verify config is allowed to be set per broker app config.
+				if app.DisableOptions {
+					writeResponse(w, http.StatusBadRequest, "user config cannot be modified at this time")
 					return
 				}
 

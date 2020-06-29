@@ -110,6 +110,8 @@ spec:
                     type: string
                   digest:
                     type: string
+            disableOptions:
+              type: boolean
             userParams:
               type: array
               items:

@@ -62,7 +62,8 @@
               </div>
               <v-btn text v-on:click="app.launch()" :disabled="launchDisabled(app)">Launch</v-btn>
               <v-btn text v-on:click="app.shutdown()">Shutdown</v-btn>
-              <v-menu bottom right :close-on-content-click="false" :nudge-width="500" offset-x>
+              <v-menu v-if="!app.disableOptions" bottom right :close-on-content-click="false" :nudge-width="500"
+                offset-x>
                 <template v-slot:activator="{ on }">
                   <v-btn v-btn icon v-on="on">
                     <v-icon>more_vert</v-icon>

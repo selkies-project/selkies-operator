@@ -26,11 +26,12 @@ function setStorageItem(appName, key, value) {
 }
 
 class BrokerApp {
-    constructor(name, displayName, description, icon, launchURL, defaultRepo, defaultTag, params, defaultNodeTiers) {
+    constructor(name, displayName, description, icon, launchURL, defaultRepo, defaultTag, params, defaultNodeTiers, disableOptions) {
         this.name = name;
         this.displayName = displayName;
         this.description = description;
         this.icon = icon;
+        this.disableOptions = disableOptions;
         this.status = "checking";
         this.saveStatus = "idle";
         this.saveError = "";
@@ -253,7 +254,8 @@ var fetchApps = () => {
                 item.defaultRepo,
                 item.defaultTag,
                 item.params,
-                item.nodeTiers
+                item.nodeTiers,
+                item.disableOptions
             );
             vue_app.apps.push(app);
             app.update(true);
