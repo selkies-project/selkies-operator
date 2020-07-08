@@ -19,10 +19,11 @@ data "google_compute_network" "broker" {
 }
 
 resource "google_compute_subnetwork" "broker" {
-  name          = "${var.name}-${var.region}"
-  ip_cidr_range = "10.${2 + lookup(local.cluster_regions, var.region)}.0.0/16"
-  region        = var.region
-  network       = data.google_compute_network.broker.self_link
+  name                     = "${var.name}-${var.region}"
+  ip_cidr_range            = "10.${2 + lookup(local.cluster_regions, var.region)}.0.0/16"
+  region                   = var.region
+  network                  = data.google_compute_network.broker.self_link
+  private_ip_google_access = true
 
   secondary_ip_range = [
     {
