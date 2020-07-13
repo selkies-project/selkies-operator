@@ -30,6 +30,7 @@ locals {
     "southamerica-east1"      = 6,  # Osasco (São Paulo), Brazil
     "europe-west1"            = 7,  # St. Ghislain, Belgium
     "europe-west2"            = 8,  # London, England, UK
+    "europe-west3"            = 16, # Frankfurt, Germany
     "europe-west4"            = 9,  # Eemshaven, Netherlands
     "asia-east1"              = 10, # Changhua County, Taiwan
     "asia-northeast1"         = 11, # Tokyo, Japan
@@ -50,6 +51,7 @@ locals {
     "southamerica-east1"      = ["southamerica-east1-c"],
     "europe-west1"            = ["europe-west1-b"],
     "europe-west2"            = ["europe-west2-a"],
+    "europe-west3"            = ["europe-west3-b"],
     "europe-west4"            = ["europe-west4-b"],
     "asia-east1"              = ["asia-east1-a"],
     "asia-northeast1"         = ["asia-northeast1-a"],

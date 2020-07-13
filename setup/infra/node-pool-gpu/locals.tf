@@ -27,6 +27,7 @@ locals {
     "southamerica-east1"      = "nvidia-tesla-t4",
     "europe-west1"            = "nvidia-tesla-p100",
     "europe-west2"            = "nvidia-tesla-t4",
+    "europe-west3"            = "nvidia-tesla-t4",
     "europe-west4"            = "nvidia-tesla-t4",
     "asia-east1"              = "nvidia-tesla-p100",
     "asia-northeast1"         = "nvidia-tesla-t4",
