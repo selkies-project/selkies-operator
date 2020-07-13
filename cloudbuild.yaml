@@ -187,10 +187,10 @@ steps:
       - build-images
       - create-workload-identity-bindings
   ###
-  # Wait for IAP and GCLB to stabilize
+  # Wait for IAP and GCLB to stabilize - phase 1
   ###
   - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
-    id: "wait-for-iap"
+    id: "wait-for-iap-1"
     entrypoint: "bash"
     args:
       - -xc
@@ -198,6 +198,46 @@ steps:
         [[ "${_WAIT_FOR_IAP}" == "false" ]] && exit 0
         CLIENT_ID=$$(gcloud secrets versions access 1 --secret broker-oauth2-client-id)
         ENDPOINT="https://${_NAME}.endpoints.${PROJECT_ID}.cloud.goog/broker/"
-        bash ./setup/scripts/wait_for_iap.sh broker@${PROJECT_ID}.iam.gserviceaccount.com $${CLIENT_ID} $${ENDPOINT}
+        # Wait up to 10 minutes for LB to stabilize
+        rm -f /workspace/iap_timeout
+        timeout 600 bash ./setup/scripts/wait_for_iap.sh broker@${PROJECT_ID}.iam.gserviceaccount.com $${CLIENT_ID} $${ENDPOINT}
+        if [[ $? -ne 0 ]]; then
+          echo "timeout" > /workspace/iap_timeout
+        fi
     waitFor:
       - deploy-cluster-manifests-region
+  ###
+  # Check for phase 1 timeout, if timeout then run fix_autoneg script
+  ###
+  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
+    id: "fix-autoneg"
+    entrypoint: "bash"
+    args:
+      - -exc
+      - |
+        [[ ! -f /workspace/iap_timeout ]] && echo "echo: IAP is ready, skipping fix-autoneg" && exit 0
+
+        gcloud container clusters get-credentials --region ${_REGION} broker-${_REGION}
+        ./setup/scripts/fix_autoneg.sh
+    waitFor:
+      - wait-for-iap-1
+  ###
+  # Wait for IAP and GCLB to stabilize phase 2
+  ###
+  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
+    id: "wait-for-iap-2"
+    entrypoint: "bash"
+    args:
+      - -xc
+      - |
+        [[ "${_WAIT_FOR_IAP}" == "false" ]] && exit 0
+
+        [[ ! -f /workspace/iap_timeout ]] && echo "echo: IAP is ready, skipping wait-for-iap-2" && exit 0
+
+        CLIENT_ID=$$(gcloud secrets versions access 1 --secret broker-oauth2-client-id)
+        ENDPOINT="https://${_NAME}.endpoints.${PROJECT_ID}.cloud.goog/broker/"
+
+        # Wait for up to 20 minutes for IAP.
+        timeout 1200 bash ./setup/scripts/wait_for_iap.sh broker@${PROJECT_ID}.iam.gserviceaccount.com $${CLIENT_ID} $${ENDPOINT}
+    waitFor:
+      - fix-autoneg

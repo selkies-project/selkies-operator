@@ -74,3 +74,31 @@ echo "https://broker.endpoints.${PROJECT_ID?}.cloud.goog/"
 
 ## Troubleshooting
 * If the initial cloud build fails with the message `Step #2 - "create-oauth-client": ERROR: (gcloud.alpha.iap.oauth-brands.list) INVALID_ARGUMENT: Request contains an invalid argument.` It is most likely due to running as a user that is not a member of the Cloud Identity Organization. See the limitation described above.
+
+* If your region only has 500 GB of Persistent Disk SSD quota, run the following but keep in mind the number of apps and image pull performance will be affected.
+
+```
+cat - > selkies-min-ssd.auto.tfvars <<EOF
+default_pool_disk_size_gb = 100
+turn_pool_disk_size_gb = 100
+gpu_cos_pool_disk_size_gb = 100
+tier1_pool_disk_size_gb = 100
+EOF
+```
+
+```bash
+gcloud secrets create broker-tfvars-selkies-min-ssd \
+  --replication-policy=automatic \
+  --data-file selkies-min-ssd.auto.tfvars
+```
+
+* If the load balancer never comes online and you receive 500 errors after the deployment has completed for at least 30 minutes, the autoneg controller annotation may need to be reset:
+
+```bash
+REGION=us-west1
+gcloud container clusters get-credentials --region ${REGION?} broker-${REGION?}
+```
+
+```bash
+./setup/scripts/fix_autoneg.sh
+```
