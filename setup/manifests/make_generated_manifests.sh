@@ -156,6 +156,7 @@ CONTROLLER_IMAGE=${CONTROLLER_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/ku
 WEB_IMAGE=${WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-web)}
 COTURN_IMAGE=${COTURN_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn)}
 COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn-web)}
+COTURN_WEB_AGGREGATOR_IMAGE=${COTURN_WEB_AGGREGATOR_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn-web-aggregator)}
 
 ###
 # Generate kustomization file with project scoped images.
@@ -178,5 +179,6 @@ COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/ku
     gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest=${CONTROLLER_IMAGE} \
     gcr.io/cloud-solutions-images/kube-pod-broker-web:latest=${WEB_IMAGE} \
     gcr.io/cloud-solutions-images/kube-pod-broker-coturn:latest=${COTURN_IMAGE} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest=${COTURN_WEB_IMAGE}
+    gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest=${COTURN_WEB_IMAGE} \
+    gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web-aggregator:latest=${COTURN_WEB_AGGREGATOR_IMAGE}
 )

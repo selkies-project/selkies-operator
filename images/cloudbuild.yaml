@@ -40,6 +40,9 @@ images: [
     # coturn-web
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web:${_IMAGE_TAG}',
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web:latest',
+    # coturn-web-aggregator
+    'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web-aggregator:${_IMAGE_TAG}',
+    'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web-aggregator:latest',
     # broker gce proxy
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG}',
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:latest',
@@ -160,6 +163,34 @@ steps:
         ]
   waitFor:
     - coturn-web
+
+###
+# Coturn web aggregator image
+###
+- name: 'gcr.io/cloud-builders/docker'
+  id: coturn-web-aggregator-pull
+  entrypoint: 'bash'
+  args: ["-c", "if [[ '${_USE_CACHE}' == 'true' ]]; then (docker pull gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web-aggregator:latest || exit 0); fi"]
+  waitFor: ["-"]
+- name: 'gcr.io/cloud-builders/docker'
+  id: coturn-web-aggregator
+  args: [
+            'build',
+            '-t', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web-aggregator:${_IMAGE_TAG}',
+            '--cache-from', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web-aggregator:latest',
+            'coturn-web-aggregator'
+        ]
+  waitFor:
+    - coturn-web-aggregator-pull
+- name: 'gcr.io/cloud-builders/docker'
+  id: coturn-web-aggregator-tags
+  args: [
+            'tag',
+            'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web-aggregator:${_IMAGE_TAG}',
+            'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-coturn-web-aggregator:latest',
+        ]
+  waitFor:
+    - coturn-web-aggregator
 
 ###
 # Broker GCE proxy image

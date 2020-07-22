@@ -20,6 +20,9 @@ kind: Kustomization
 namespace: pod-broker-system
 
 resources:
-  - turn-service.yaml
-  - turn-web-virtualservice.yaml
   - turn-daemonset.yaml
+  - turn-discovery-service.yaml
+  - turn-network-policy.yaml
+  - turn-service.yaml
+  - turn-web-aggregator-deploy.yaml
+  - turn-web-virtualservice.yaml

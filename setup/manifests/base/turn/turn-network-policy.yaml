@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
 metadata:
-  name: turn
+  name: turn-allow-broker-apps
 spec:
-  type: ClusterIP
-  ports:
-    - name: rest
-      port: 80
-      targetPort: 8080
-  selector:
-    app: turn-web-aggregator
+  podSelector:
+    matchLabels:
+      app: turn-web-aggregator
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/managed-by: pod-broker

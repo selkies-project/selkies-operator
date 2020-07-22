@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-deploy:
-	gcloud beta run deploy coturn-web \
-	  --image gcr.io/cloud-solutions-images/gpu-accel-webrtc-coturn-web:latest \
-	  --no-allow-unauthenticated \
-	  --project $${PROJECT_ID?env not set} \
-	  --set-env-vars=\
-	EXTERNAL_IP=$${EXTERNAL_IP?env not set},\
-	TURN_SHARED_SECRET=$${TURN_SHARED_SECRET?env not set}
+FROM golang:1.12-alpine as build
+WORKDIR /go/src/coturn-web-aggregator
+COPY *.go ./
+RUN go build
+
+FROM alpine:3.9
+
+# Copy build from previous layer
+COPY --from=build /go/src/coturn-web-aggregator/coturn-web-aggregator /usr/local/bin/coturn-web-aggregator
+
+ENTRYPOINT ["/usr/local/bin/coturn-web-aggregator"]
