@@ -99,3 +99,8 @@ spec:
                 # Clear the externalTrafficPolicy for GCLB + NEG support.
                 - path: spec.externalTrafficPolicy
                   value: ""
+  # Uncomment to enable request logging on istio v1.4.x.
+  #values:
+  #  global:
+  #    proxy:
+  #      accessLogFile: "/dev/stdout"

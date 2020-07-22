@@ -49,6 +49,14 @@ spec:
             host: pod-broker
             port:
               number: 8080
+      # When using the istio sidecar, 503 UC errors are common due to per-app TCP connection timeout settings.
+      # https://karlstoney.com/2019/05/31/istio-503s-ucs-and-tcp-fun-times/
+      # https://github.com/istio/istio/issues/9113
+      #
+      retries:
+        attempts: 1
+        perTryTimeout: 250ms
+        retryOn: gateway-error,connect-failure,refused-stream
     - match:
         - uri:
             prefix: /publish/
@@ -67,6 +75,14 @@ spec:
             host: pod-broker
             port:
               number: 80
+      # When using the istio sidecar, 503 UC errors are common due to per-app TCP connection timeout settings.
+      # https://karlstoney.com/2019/05/31/istio-503s-ucs-and-tcp-fun-times/
+      # https://github.com/istio/istio/issues/9113
+      #
+      retries:
+        attempts: 1
+        perTryTimeout: 250ms
+        retryOn: gateway-error,connect-failure,refused-stream
 ---
 apiVersion: v1
 kind: ConfigMap

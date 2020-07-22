@@ -217,7 +217,7 @@ steps:
       - |
         [[ ! -f /workspace/iap_timeout ]] && echo "echo: IAP is ready, skipping fix-autoneg" && exit 0
 
-        gcloud container clusters get-credentials --region ${_REGION} broker-${_REGION}
+        gcloud container clusters get-credentials --region ${_REGION} ${_NAME}-${_REGION}
         ./setup/scripts/fix_autoneg.sh
     waitFor:
       - wait-for-iap-1
