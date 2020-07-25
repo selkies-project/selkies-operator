@@ -23,6 +23,7 @@ resources:
   - turn-daemonset.yaml
   - turn-discovery-service.yaml
   - turn-network-policy.yaml
+  - turn-rbac.yaml
   - turn-service.yaml
   - turn-web-aggregator-deploy.yaml
   - turn-web-virtualservice.yaml

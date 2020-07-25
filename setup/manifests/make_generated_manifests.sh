@@ -165,6 +165,8 @@ COTURN_WEB_AGGREGATOR_IMAGE=${COTURN_WEB_AGGREGATOR_IMAGE:-$(fetchLatestDigest g
   cd ${DEST_DIR}
   rm -f kustomization.yaml
   kustomize create
+  # TODO: need to remove this commonLabel as it causes issues with headless services (turn-discovery).
+  # Simply removing it breaks the ability to apply this change as an update operation because the labeled fields are immutable.
   kustomize edit add label "app.kubernetes.io/name":"${INFRA_NAME}"
   kustomize edit add base "../base/ingress/"
   kustomize edit add base "../base/node/"

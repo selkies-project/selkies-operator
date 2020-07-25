@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -49,6 +50,10 @@ func main() {
 	listenPort := popVarFromEnv("PORT", false, "8080")
 	authHeaderName := popVarFromEnv("AUTH_HEADER_NAME", false, "x-auth-user")
 
+	// Env vars for running in aggregator mode.
+	discoveryDNSName := popVarFromEnv("DISCOVERY_DNS_NAME", false, "")
+	discoveryPortName := popVarFromEnv("DISCOVERY_PORT_NAME", false, "turn")
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		// Get user from auth header.
@@ -60,9 +65,44 @@ func main() {
 		// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
 		userToks := strings.Split(user, ":")
 		user = userToks[len(userToks)-1]
+		ips := make([]string, 0)
 
-		resp, err := makeRTCConfig(sharedSecret, externalIP, turnPort, user)
+		if len(discoveryDNSName) == 0 {
+			// Standard mode, use external IP to return single server.
+			ips = []string{externalIP}
+			resp, err := makeRTCConfig(ips, turnPort, user, sharedSecret)
+			if err != nil {
+				writeStatusResponse(w, http.StatusInternalServerError, "Internal server error")
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(resp)
+		} else {
+			// Aggregator mode, use DNS SRV records to build RTC config.
+			// Fetch all service host and ports using SRV record of headless discovery service.
+			// NOTE: The SRV record returns resolvable aliases to the endpoints, so do another lookup should return the IP.
+			_, srvs, err := net.LookupSRV(discoveryPortName, "tcp", discoveryDNSName)
+			if err != nil {
+				log.Printf("ERROR: failed to query SRV record from %v %v: %v", discoveryDNSName, discoveryPortName, err)
+				writeStatusResponse(w, http.StatusInternalServerError, "Internal server error")
+				return
+			}
+			for _, srv := range srvs {
+				addrs, err := net.LookupHost(srv.Target)
+				if err != nil {
+					log.Printf("ERROR: failed to query A record from %v: %v", srv.Target, err)
+					writeStatusResponse(w, http.StatusInternalServerError, "Internal server error")
+					return
+				}
+				ips = append(ips, addrs[0])
+			}
+		}
+
+		resp, err := makeRTCConfig(ips, turnPort, user, sharedSecret)
 		if err != nil {
+			log.Printf("ERROR: failed to make RTC config: %v", err)
 			writeStatusResponse(w, http.StatusInternalServerError, "Internal server error")
 			return
 		}
@@ -76,26 +116,29 @@ func main() {
 	http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", listenPort), nil)
 }
 
-func makeRTCConfig(secret, externalIP, port, user string) (rtcConfigResponse, error) {
+func makeRTCConfig(ips []string, port, user, secret string) (rtcConfigResponse, error) {
 	var resp rtcConfigResponse
 	var err error
 
 	username, credential := makeCredential(secret, user)
+
+	stunURLs := []string{}
+	turnURLs := []string{}
+
+	for _, ip := range ips {
+		stunURLs = append(stunURLs, fmt.Sprintf("stun:%s:%s", ip, port))
+		turnURLs = append(turnURLs, fmt.Sprintf("turn:%s:%s?transport=udp", ip, port))
+	}
 
 	resp.LifetimeDuration = "86400s"
 	resp.BlockStatus = "NOT_BLOCKED"
 	resp.IceTransportPolicy = "all"
 	resp.IceServers = []iceServerResponse{
 		iceServerResponse{
-			URLs: []string{
-				fmt.Sprintf("stun:%s:%s", externalIP, port),
-			},
+			URLs: stunURLs,
 		},
 		iceServerResponse{
-			URLs: []string{
-				fmt.Sprintf("turn:%s:%s?transport=udp", externalIP, port),
-				// fmt.Sprintf("turn:%s:%s?transport=tcp", externalIP, port),
-			},
+			URLs:       turnURLs,
 			Username:   username,
 			Credential: credential,
 		},

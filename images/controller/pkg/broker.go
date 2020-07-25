@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os/exec"
 	"regexp"
@@ -166,66 +167,23 @@ func MakeCookieValue(user, cookieSecret string) string {
 	return fmt.Sprintf("%s#%x", user, h.Sum(nil))
 }
 
-func GetEgressNetworkPolicyData(podBrokerNamespace, turnEndpointSelector string) (NetworkPolicyTemplateData, error) {
+func GetEgressNetworkPolicyData(podBrokerNamespace string) (NetworkPolicyTemplateData, error) {
 	resp := NetworkPolicyTemplateData{
 		TURNIPs: make([]string, 0),
 	}
 
-	// Fetch map of enpoint names to node names that endpoint is running on.
-	endpointMap, err := GetEndpointNodes(podBrokerNamespace, turnEndpointSelector)
+	// Lookup external TURN IPs. Fetch all service host and ports using SRV record of headless discovery service.
+	// NOTE: The SRV lookup returns resolvable aliases to the endpoints, so do another lookup should return the IP.
+	_, srvs, err := net.LookupSRV("turn", "tcp", fmt.Sprintf("turn-discovery.%s.svc.cluster.local", podBrokerNamespace))
 	if err != nil {
-		return resp, err
+		return resp, fmt.Errorf("ERROR: failed to lookup TURN discovery SRV.")
 	}
-
-	endpointNodeMapList := EndpointNodeIPMapList{
-		Endpoints: make([]EndpointNodeIPMap, 0),
-	}
-
-	for endpointName, nodeMap := range endpointMap {
-		endpointNodeIPMap := EndpointNodeIPMap{
-			EndpointName: endpointName,
-			Nodes:        make([]NodeIPs, 0),
+	for _, srv := range srvs {
+		addrs, err := net.LookupHost(srv.Target)
+		if err != nil {
+			return resp, fmt.Errorf("ERROR: failed to query TURN A record")
 		}
-
-		for _, nodeName := range nodeMap {
-			addresses, err := GetNodeAddresses(nodeName)
-			if err != nil {
-				return resp, err
-			}
-			internalIP := ""
-			externalIP := ""
-			for _, nodeAddress := range addresses {
-				if nodeAddress.Type == "ExternalIP" {
-					externalIP = nodeAddress.Address
-				}
-				if nodeAddress.Type == "InternalIP" {
-					internalIP = nodeAddress.Address
-				}
-			}
-			if len(externalIP) == 0 {
-				return resp, fmt.Errorf("could not find address of type ExternalIP on node: %s", nodeName)
-			}
-			if len(internalIP) == 0 {
-				return resp, fmt.Errorf("could not find address of type InternalIP on node: %s", nodeName)
-			}
-
-			endpointNodeIPMap.Nodes = append(endpointNodeIPMap.Nodes, NodeIPs{
-				NodeName:   nodeName,
-				InternalIP: internalIP,
-				ExternalIP: externalIP,
-			})
-		}
-
-		endpointNodeMapList.Endpoints = append(endpointNodeMapList.Endpoints, endpointNodeIPMap)
-	}
-
-	for _, endpoint := range endpointNodeMapList.Endpoints {
-		if endpoint.EndpointName == "turn" {
-			for _, node := range endpoint.Nodes {
-				resp.TURNIPs = append(resp.TURNIPs, node.ExternalIP)
-				resp.TURNIPs = append(resp.TURNIPs, node.InternalIP)
-			}
-		}
+		resp.TURNIPs = append(resp.TURNIPs, addrs[0])
 	}
 
 	// Get kube-dns service ClusterIP

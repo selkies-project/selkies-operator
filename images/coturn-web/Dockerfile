@@ -17,13 +17,23 @@ WORKDIR /go/src/coturn-web
 COPY *.go ./
 RUN go build
 
+FROM gcr.io/k8s-skaffold/skaffold:v1.10.1 as skaffold
 FROM alpine:3.9
+
+# Install tools
+RUN apk add -u bash jq bind-tools
 
 # Copy build from previous layer
 COPY --from=build /go/src/coturn-web/coturn-web /usr/local/bin/coturn-web
 
+# Install kubectl
+COPY --from=skaffold /usr/local/bin/kubectl /usr/local/bin/kubectl
+
 COPY detect_external_ip.sh /usr/bin/detect_external_ip
 RUN chmod +x /usr/bin/detect_external_ip
+
+COPY node_watcher.sh /node_watcher.sh
+RUN chmod +x /node_watcher.sh
 
 COPY entrypoint.sh /
 RUN chmod +x /entrypoint.sh

@@ -53,7 +53,7 @@ func main() {
 		}
 
 		// Fetch data required for Egress Network Policy
-		networkPolicyData, err := broker.GetEgressNetworkPolicyData(namespace, "app.kubernetes.io/name=broker")
+		networkPolicyData, err := broker.GetEgressNetworkPolicyData(namespace)
 		if err != nil {
 			log.Printf("failed to fetch networkpolicy data: %v", err)
 		}

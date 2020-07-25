@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Headless and selector-less service.
+# Endpoints are added dynamically by turn-web-aggregator node-watcher container sidecar.
+# Web aggregator container looks up all available TURN nodes using headless service DNS SRV query.
 apiVersion: v1
 kind: Service
 metadata:
@@ -20,8 +23,7 @@ spec:
   clusterIP: None
   type: ClusterIP
   ports:
-    - name: rest
-      port: 80
-      targetPort: 8088
-  selector:
-    app: turn
+    - name: turn
+      port: 3478
+      targetPort: 3478
+  selector: {}

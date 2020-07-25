@@ -29,15 +29,61 @@ spec:
       labels:
         app: turn-web-aggregator
     spec:
+      serviceAccount: turn
       terminationGracePeriodSeconds: 10
       containers:
+        ###
+        # HTTP api for serving aggregated json RTC configs.
+        ###
         - name: web
-          image: gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web-aggregator:latest
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest
           env:
+            # Run the web service in aggregator mode, serving addresses to all TURN nodes in json response.
             - name: DISCOVERY_DNS_NAME
-              value: turn-discovery.pod-broker-system.svc.cluster.local
+              value: "turn-discovery.pod-broker-system.svc.cluster.local"
+            - name: DISCOVERY_PORT_NAME
+              value: "turn"
+            # Use broker cookie secret for shared secret
+            - name: TURN_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: pod-broker
+                  key: COOKIE_SECRET
+            # TURN realm from pod broker domain config map value
+            - name: TURN_REALM
+              valueFrom:
+                configMapKeyRef:
+                  name: pod-broker-config
+                  key: POD_BROKER_PARAM_Domain
+            - name: "PORT"
+              value: "8080"
+            # This is the port that will be written in the JSON response and must match what the coturn service is listening on.
+            - name: TURN_PORT
+              value: "3478"
+            # Name of the auth header to get user name from
             - name: AUTH_HEADER_NAME
-              value: x-goog-authenticated-user-email
+              value: "x-goog-authenticated-user-email"
+          readinessProbe:
+            tcpSocket:
+              port: 8080
           ports:
             - name: rest
               containerPort: 8080
+        ###
+        # TURN node watcher sidecar
+        # Updates Endpoints object with node external IP for DNS discovery.
+        ###
+        - name: node-watcher
+          image: gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest
+          command: ["/node_watcher.sh"]
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: DISCOVERY_SVC_NAME
+              value: "turn-discovery"
+            - name: SVC_PORT
+              value: "3478"
+            - name: SVC_PORT_NAME
+              value: "turn"
