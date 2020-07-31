@@ -31,6 +31,10 @@ variable name {
   default = "broker"
 }
 
+variable network_policy {
+  default = true
+}
+
 # Default node pool counts per zone
 variable default_pool_machine_type {
   default = "n1-standard-4"
