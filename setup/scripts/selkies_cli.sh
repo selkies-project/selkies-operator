@@ -23,7 +23,7 @@ APP=${APP,,}
 
 [[ "${ACTION}" != "list" && -z "${APP}" ]] && echo "ERROR: missing app name for action: ${ACTION}" && exit 1
 
-ACCOUNT=$(gcloud config get-value account)
+ACCOUNT=${ACCOUNT:-$(gcloud config get-value account)}
 [[ -z "${ACCOUNT}" ]] && echo "ERROR: Failed to get gcloud account, did you run 'gcloud auth login'?" && exit 1
 
 case $ACTION in

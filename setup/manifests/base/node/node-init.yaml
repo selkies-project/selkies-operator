@@ -86,38 +86,12 @@ spec:
           operator: "Exists"
       volumes:
         ###
-        # Local docker socket for pulling images
-        ###
-        - name: docker
-          hostPath:
-            path: /var/run/docker.sock
-            type: File
-        ###
         # Root filesystem from host
         ###
         - name: hostfs
           hostPath:
             path: /
       initContainers:
-        ###
-        # Pull images
-        # This helps to speed up container startup with large images.
-        ###
-        - name: pull-images
-          image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
-          command: ["/usr/local/bin/image-puller"]
-          env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-          volumeMounts:
-            - name: docker
-              mountPath: /var/run/docker.sock
         ###
         # node init, set inotify limits, update node taint and label.
         ###
@@ -186,8 +160,7 @@ spec:
               chmod +x /tmp/init.sh
 
               while true; do
-                # Run init script in chroot
-                /tmp/init.sh
+                /tmp/init.sh | grep -qv "not labeled" || true
                 sleep 10
               done
           env:
