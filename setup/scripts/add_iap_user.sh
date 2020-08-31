@@ -29,19 +29,44 @@ SCRIPT_DIR=$(dirname $(readlink -f $0 2>/dev/null) 2>/dev/null || echo "${PWD}/$
 # Get project from terraform outputs
 PROJECT=${GOOGLE_CLOUD_PROJECT:-$PROJECT};
 
-TMP=$(mktemp -p /tmp -t policy.json.XXXXXXX)
-gcloud projects get-iam-policy ${PROJECT} --format=json > ${TMP}
-if [[ -z "$(jq '.bindings[] | select(.role=="roles/iap.httpsResourceAccessor")' ${TMP})" ]]; then
-    # Create new binding.
-    echo "INFO: Adding IAM policy binding"
-    gcloud projects add-iam-policy-binding ${PROJECT} \
-        --member="${MEMBER_TYPE}:${MEMBER}" \
-        --role='roles/iap.httpsResourceAccessor' >/dev/null
-else
-    # Append to existing binding.
-    echo "INFO: Updating IAM policy binding"
-    gcloud projects get-iam-policy ${PROJECT} --format=json | \
-        jq '(.bindings[] | select(.role=="roles/iap.httpsResourceAccessor").members) += ["'${MEMBER_TYPE}':'${MEMBER}'"]' > ${TMP}
-    gcloud projects set-iam-policy --format=json ${PROJECT} ${TMP} > /dev/null
-fi
-rm -f ${TMP}
+TMPDIR=$(mktemp -d)
+CLOUDBUILD="${TMPDIR}/cloudbuild.yaml"
+
+cat - > $CLOUDBUILD <<'EOF'
+timeout: 300s
+substitutions:
+  _MEMBER_TYPE:
+  _MEMBER:
+tags:
+  - add-iap-user
+steps:
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: "add-iap-user"
+    entrypoint: "bash"
+    args:
+      - "-exc"
+      - |
+        curl -sfL https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o /usr/bin/jq
+        chmod +x /usr/bin/jq
+
+        echo "${_MEMBER_TYPE},${_MEMBER},${PROJECT_ID}"
+        TMP=$(mktemp -p /tmp -t policy.json.XXXXXXX)
+        gcloud projects get-iam-policy ${PROJECT_ID} --format=json > $${TMP}
+
+        if [[ -z "$(jq '.bindings[] | select(.role=="roles/iap.httpsResourceAccessor")' $${TMP})" ]]; then
+            # Create new binding.
+            echo "INFO: Adding IAM policy binding"
+            gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+                --member="${_MEMBER_TYPE}:${_MEMBER}" \
+                --role='roles/iap.httpsResourceAccessor' >/dev/null
+        else
+            # Append to existing binding.
+            echo "INFO: Updating IAM policy binding"
+            gcloud projects get-iam-policy ${PROJECT_ID} --format=json | \
+                jq '(.bindings[] | select(.role=="roles/iap.httpsResourceAccessor").members) += ["'${_MEMBER_TYPE}':'${_MEMBER}'"]' > $${TMP}
+            gcloud projects set-iam-policy --format=json ${PROJECT_ID} $${TMP} > /dev/null
+        fi
+        rm -f $${TMP}
+EOF
+
+gcloud builds submit --config $CLOUDBUILD --project ${PROJECT} --substitutions=_MEMBER_TYPE="${MEMBER_TYPE?}",_MEMBER="${MEMBER?}"
