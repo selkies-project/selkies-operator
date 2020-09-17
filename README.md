@@ -1,6 +1,6 @@
-# Kubernetes App Launcher
+# Selkies - Stateful Workload Operator
 
-Operator for orchestrating per-user stateful workloads.
+Selkies is a platform built on GKE to orchestrate per-user stateful workloads.
 
 ## Limitations
 
@@ -13,8 +13,8 @@ The steps below will create the infrastructure for the app launcher. You should 
 1. Clone the source repository:
 
 ```bash
-git clone https://github.com/GoogleCloudPlatform/solutions-k8s-stateful-workload-operator.git -b v1.0.0 && \
-  cd solutions-k8s-stateful-workload-operator
+git clone https://github.com/GoogleCloudPlatform/selkies.git -b v1.0.0 && \
+  cd selkies
 ```
 
 2. Set the project, replace `YOUR_PROJECT` with your project ID:
