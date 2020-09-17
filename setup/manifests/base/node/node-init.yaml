@@ -91,6 +91,10 @@ spec:
         - name: hostfs
           hostPath:
             path: /
+
+      # Use host network to avoid wating for cni to initialize.
+      hostNetwork: true
+
       initContainers:
         ###
         # node init, set inotify limits, update node taint and label.
