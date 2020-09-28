@@ -21,7 +21,7 @@ variable name {
   default = "broker"
 }
 
-# Tier 1 node pool parameters
+# Tier 1 COS node pool parameters
 variable tier1_pool_enabled {
   default = true
 }
@@ -44,9 +44,32 @@ variable tier1_pool_disk_size_gb {
   default = 200
 }
 
+# Tier 1 Ubuntu node pool parameters
+variable tier1_ubuntu_pool_enabled {
+  default = false
+}
+variable tier1_ubuntu_pool_machine_type {
+  default = "n1-standard-4"
+}
+variable tier1_ubuntu_pool_initial_node_count {
+  default = 1
+}
+variable tier1_ubuntu_pool_min_node_count {
+  default = 0
+}
+variable tier1_ubuntu_pool_max_node_count {
+  default = 10
+}
+variable tier1_ubuntu_pool_preemptive_nodes {
+  default = false
+}
+variable tier1_ubuntu_pool_disk_size_gb {
+  default = 200
+}
+
 # Tier 2 node pool parameters
 variable tier2_pool_enabled {
-  default = true
+  default = false
 }
 variable tier2_pool_machine_type {
   default = "n1-highcpu-32"
