@@ -90,6 +90,12 @@ log_cyan "Generating manifest kustomizations..."
 ./make_generated_manifests.sh
 cat generated/kustomization.yaml
 
+# If the image cache loader daemonset is present, patch the image puller to wait for it.
+if [[ -n "$(kubectl get ds -n kube-system -l app=pod-broker-image-loader -o name)" ]]; then
+    log_cyan "Adding patch to image puller to wait for image cache."
+    (cd base/pod-broker/image-puller && kustomize edit add patch patch-wait-for-image-cache.yaml)
+fi
+
 # Apply the manifests
 log_cyan "Applying manifests..."
 kustomize build generated/ | sed -e 's/${PROJECT_ID}/'${PROJECT_ID}'/g' | \
