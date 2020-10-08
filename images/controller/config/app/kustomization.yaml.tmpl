@@ -61,9 +61,9 @@ images:
   {{- range .AppSpec.Images }}
   - name: {{ .OldRepo }}
     newName: {{ .NewRepo }}
-    newTag: {{ .NewTag }}
+    newTag: {{ .NewTag | quote }}
     {{- if .Digest }}
-    digest: {{ .Digest }}
+    digest: {{ .Digest | quote }}
     {{- end }}
   {{- end }}
 {{- end}}

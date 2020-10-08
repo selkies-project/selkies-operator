@@ -143,7 +143,8 @@ func main() {
 							}
 
 							if !jobFound {
-								if err := makeImagePullJob(imageWithDigest, nodeName, namespace, templatePath); err != nil {
+								tag := getTagFromImage(image)
+								if err := makeImagePullJob(imageWithDigest, tag, nodeName, namespace, templatePath); err != nil {
 									log.Printf("failed to make job: %v", err)
 								}
 							}
@@ -276,10 +277,19 @@ func getImageDigest(image, accessToken string) (string, error) {
 	return respImage, nil
 }
 
+// Extract tag from image repo:tag format, else return empty string.
+func getTagFromImage(image string) string {
+	if len(regexp.MustCompile(broker.GCRImageWithTagPattern).FindAllString(image, -1)) > 0 {
+		return strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), ":")[1]
+	} else {
+		return ""
+	}
+}
+
 // Check if job is currently running.
 // If running, return (non-fatal) error.
 // If not running, apply job to given namespace.
-func makeImagePullJob(image, nodeName, namespace, templatePath string) error {
+func makeImagePullJob(image, tag, nodeName, namespace, templatePath string) error {
 
 	imageToks := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@sha256:")
 	imageBase := path.Base(imageToks[0])
@@ -297,12 +307,14 @@ func makeImagePullJob(image, nodeName, namespace, templatePath string) error {
 		NameSuffix string
 		NodeName   string
 		Image      string
+		Tag        string
 	}
 
 	data := templateData{
 		NameSuffix: nameSuffix,
 		NodeName:   nodeName,
 		Image:      image,
+		Tag:        tag,
 	}
 
 	destDir := path.Join("/run/image-puller", nameSuffix)
