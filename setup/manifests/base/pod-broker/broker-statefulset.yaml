@@ -55,7 +55,7 @@ spec:
       #
       retries:
         attempts: 1
-        perTryTimeout: 250ms
+        perTryTimeout: 2s
         retryOn: gateway-error,connect-failure,refused-stream
     - match:
         - uri:
@@ -81,7 +81,7 @@ spec:
       #
       retries:
         attempts: 1
-        perTryTimeout: 250ms
+        perTryTimeout: 2s
         retryOn: gateway-error,connect-failure,refused-stream
 ---
 apiVersion: v1
@@ -145,13 +145,13 @@ spec:
     app: pod-broker
   ports:
     - port: 8080
-      name: pod-broker
+      name: http-broker
       targetPort: 8080
     - port: 8081
-      name: app-publish
+      name: http-publish
       targetPort: 8081
     - port: 80
-      name: web
+      name: http-web
       targetPort: 80
   sessionAffinity: ClientIP
   sessionAffinityConfig:

@@ -58,13 +58,17 @@ spec:
               echo "Pulling image: ${IMAGE}"
               gcloud -q auth configure-docker
               docker pull ${IMAGE}
-              echo "Tagging image ${IMAGE} with latest"
-              STRIPTAG=${IMAGE//:*/}
-              STRIPSHA=${STRIPTAG//@*/}
-              docker tag ${IMAGE} ${STRIPSHA}:latest
+              if [[ -n "${TAG}" ]]; then
+                echo "Tagging image ${IMAGE} with ${TAG}"
+                STRIPTAG=${IMAGE//:*/}
+                STRIPSHA=${STRIPTAG//@*/}
+                docker tag ${IMAGE} ${STRIPSHA}:${TAG}
+              fi
           env:
             - name: IMAGE
-              value: "{{.Image}}"
+              value: {{.Image|quote}}
+            - name: TAG
+              value: {{.Tag|quote}}
           volumeMounts:
             - name: docker
               mountPath: /var/run/docker.sock
