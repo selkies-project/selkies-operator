@@ -47,6 +47,9 @@ variable gpu_cos_pool_preemptive_nodes {
 variable gpu_cos_pool_disk_size_gb {
   default = 200
 }
+variable gpu_cos_pool_disk_type {
+  default = "pd-ssd"
+}
 
 # GPU Ubuntu node pool parameters
 variable gpu_ubuntu_pool_enabled {

@@ -28,7 +28,7 @@ resource "google_container_node_pool" "tier2" {
     service_account = data.google_service_account.broker_cluster.email
 
     disk_size_gb = var.tier2_pool_disk_size_gb
-    disk_type    = "pd-ssd"
+    disk_type    = var.tier2_pool_disk_type
 
     image_type = "COS"
 

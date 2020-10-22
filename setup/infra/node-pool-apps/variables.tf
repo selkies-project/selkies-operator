@@ -43,6 +43,9 @@ variable tier1_pool_preemptive_nodes {
 variable tier1_pool_disk_size_gb {
   default = 200
 }
+variable tier1_pool_disk_type {
+  default = "pd-ssd"
+}
 
 # Tier 1 Ubuntu node pool parameters
 variable tier1_ubuntu_pool_enabled {
@@ -66,6 +69,9 @@ variable tier1_ubuntu_pool_preemptive_nodes {
 variable tier1_ubuntu_pool_disk_size_gb {
   default = 200
 }
+variable tier1_ubuntu_pool_disk_type {
+  default = "pd-ssd"
+}
 
 # Tier 2 node pool parameters
 variable tier2_pool_enabled {
@@ -88,4 +94,7 @@ variable tier2_pool_preemptive_nodes {
 }
 variable tier2_pool_disk_size_gb {
   default = 200
+}
+variable tier2_pool_disk_type {
+  default = "pd-ssd"
 }

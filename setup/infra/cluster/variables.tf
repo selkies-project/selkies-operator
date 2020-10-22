@@ -54,6 +54,9 @@ variable default_pool_preemptive_nodes {
 variable default_pool_disk_size_gb {
   default = 200
 }
+variable default_pool_disk_type {
+  default = "pd-standard"
+}
 
 # TURN node pool counts per zone
 variable turn_pool_machine_type {
@@ -73,4 +76,7 @@ variable turn_pool_preemptive_nodes {
 }
 variable turn_pool_disk_size_gb {
   default = 200
+}
+variable turn_pool_disk_type {
+  default = "pd-standard"
 }

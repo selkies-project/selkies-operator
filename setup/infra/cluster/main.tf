@@ -44,7 +44,7 @@ module "broker" {
       max_count          = var.default_pool_max_node_count
       local_ssd_count    = 0
       disk_size_gb       = var.default_pool_disk_size_gb
-      disk_type          = "pd-standard"
+      disk_type          = var.default_pool_disk_type
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true
@@ -60,7 +60,7 @@ module "broker" {
       max_count          = var.turn_pool_max_node_count
       local_ssd_count    = 0
       disk_size_gb       = var.turn_pool_disk_size_gb
-      disk_type          = "pd-standard"
+      disk_type          = var.turn_pool_disk_type
       image_type         = "COS"
       auto_repair        = true
       auto_upgrade       = true

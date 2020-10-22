@@ -28,7 +28,7 @@ resource "google_container_node_pool" "tier1-ubuntu" {
     service_account = data.google_service_account.broker_cluster.email
 
     disk_size_gb = var.tier1_ubuntu_pool_disk_size_gb
-    disk_type    = "pd-ssd"
+    disk_type    = var.tier1_ubuntu_pool_disk_type
 
     image_type = "UBUNTU"
 
