@@ -15,8 +15,8 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: pd-ssd
+  name: pd-standard
 provisioner: kubernetes.io/gce-pd
 parameters:
-  type: pd-ssd
+  type: pd-standard
 allowVolumeExpansion: true

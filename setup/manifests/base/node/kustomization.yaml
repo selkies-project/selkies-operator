@@ -19,3 +19,5 @@ resources:
   - node-init.yaml
   # Storage class to use SSD persistent disks.
   - pd-ssd-storage-class.yaml
+  # Storage class to use standard persistent disks with volume expansion enabled.
+  - pd-standard-storage-class.yaml
