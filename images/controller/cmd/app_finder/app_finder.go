@@ -17,10 +17,13 @@
 package main
 
 import (
+	"bufio"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	broker "gcp.solutions/kube-app-launcher/pkg"
@@ -47,7 +50,7 @@ func main() {
 		registeredApps := broker.NewRegisteredAppManifest()
 
 		// Fetch all configmaps in single call
-		bundleConfigMaps, err := broker.GetConfigMaps(namespace)
+		nsConfigMaps, err := broker.GetConfigMaps(namespace)
 		if err != nil {
 			log.Printf("failed to fetch broker appconfig map bundles: %v", err)
 		}
@@ -60,29 +63,60 @@ func main() {
 		registeredApps.NetworkPolicyData = networkPolicyData
 
 		for _, appConfig := range appConfigs {
-			cmName := appConfig.Spec.Bundle.ConfigMapRef.Name
+			bundleCMName := appConfig.Spec.Bundle.ConfigMapRef.Name
+			authzCMName := appConfig.Spec.Authorization.ConfigMapRef.Name
 			appName := appConfig.Metadata.Name
+			destDir := path.Join(broker.BundleSourceBaseDir, appName)
 
-			var cm broker.ConfigMapObject
-			found := false
-			for _, cm = range bundleConfigMaps {
-				if cm.Metadata.Name == cmName {
-					found = true
-					break
+			// Find and save configmap data for required bundle and optional authz
+			foundBundle := false
+			foundAuthzCM := false
+			for _, cm := range nsConfigMaps {
+				// Match on bundle configmap name
+				if cm.Metadata.Name == bundleCMName {
+					if err := cm.SaveDataToDirectory(destDir); err != nil {
+						log.Printf("failed to save bundle ConfigMap '%s' to %s: %v", cm.Metadata.Name, destDir, err)
+					} else {
+						foundBundle = true
+					}
+				}
+
+				// Match on authz configmap name
+				if cm.Metadata.Name == authzCMName {
+					if err := cm.SaveDataToDirectory(destDir); err != nil {
+						log.Printf("failed to save authorization ConfigMap '%s' to %s: %v", cm.Metadata.Name, destDir, err)
+					} else {
+						foundAuthzCM = true
+
+						// Extract authorization members and append them to the appConfig.Spec.AuthorizedUsers array.
+						for _, data := range cm.Data {
+							scanner := bufio.NewScanner(strings.NewReader(data))
+							for scanner.Scan() {
+								userPat := scanner.Text()
+								// Skip comment lines.
+								if !strings.HasPrefix(userPat, "#") {
+									_, err := regexp.Compile(userPat)
+									if err != nil {
+										log.Printf("WARN: invalid authorized user pattern found in ConfigMap %s: '%s', skipped.", authzCMName, userPat)
+									} else {
+										appConfig.Spec.AuthorizedUsers = append(appConfig.Spec.AuthorizedUsers, userPat)
+									}
+								}
+							}
+						}
+					}
 				}
 			}
-			if !found {
-				log.Printf("ConfigMap %s not found for app %s", cmName, appName)
+
+			if !foundBundle {
+				log.Printf("Bundle manifests ConfigMap %s not found for app %s", bundleCMName, appName)
 			} else {
-				// Save ConfigMap data to shared build source directory.
-				destDir := path.Join(broker.BundleSourceBaseDir, appName)
-				if err := cm.SaveDataToDirectory(destDir); err != nil {
-					log.Printf("failed to save ConfigMap bundle '%s' to %s: %v", cm.Metadata.Name, destDir, err)
-				} else {
-					// App is valid and bundle is ready, add to registered apps.
-					if !appConfig.Spec.Disabled {
-						registeredApps.Add(appConfig.Spec)
-					}
+				if len(authzCMName) > 0 && !foundAuthzCM {
+					log.Printf("Failed to find authorization ConfigMap bundle %s for app %s", authzCMName, appName)
+				}
+				// App is valid and bundle is ready, add to registered apps.
+				if !appConfig.Spec.Disabled {
+					registeredApps.Add(appConfig.Spec)
 				}
 			}
 		}

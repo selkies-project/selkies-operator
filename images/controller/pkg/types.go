@@ -105,6 +105,10 @@ type BundleSpec struct {
 	ConfigMapRef ConfigMapRef `yaml:"configMapRef" json:"configMapRef"`
 }
 
+type AuthZUsersSpec struct {
+	ConfigMapRef ConfigMapRef `yaml:"configMapRef" json:"configMapRef"`
+}
+
 type AppConfigParam struct {
 	Name        string `yaml:"name" json:"name"`
 	DisplayName string `yaml:"displayName" json:"displayName"`
@@ -152,6 +156,7 @@ type AppConfigSpec struct {
 	ShutdownHooks   []ShutdownHookSpec      `yaml:"shutdownHooks" json:"shutdownHooks"`
 	Editors         []string                `yaml:"editors" json:"editors"`
 	AuthorizedUsers []string                `yaml:"authorizedUsers" json:"authorizedUsers"`
+	Authorization   AuthZUsersSpec          `yaml:"authorization" json:"authorization"`
 	DisableOptions  bool                    `yaml:"disableOptions" json:"disableOptions"`
 }
 

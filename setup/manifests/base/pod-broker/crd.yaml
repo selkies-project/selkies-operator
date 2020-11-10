@@ -77,6 +77,18 @@ spec:
               type: array
               items:
                 type: string
+            authorization:
+              type: object
+              required:
+                - configMapRef
+              properties:
+                configMapRef:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
             bundle:
               type: object
               required:
