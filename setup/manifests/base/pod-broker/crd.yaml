@@ -101,6 +101,18 @@ spec:
                   properties:
                     name:
                       type: string
+            userBundle:
+              type: object
+              required:
+                - configMapRef
+              properties:
+                configMapRef:
+                  type: object
+                  required:
+                    - name
+                  properties:
+                    name:
+                      type: string
             serviceName:
               type: string
             defaultRepo:

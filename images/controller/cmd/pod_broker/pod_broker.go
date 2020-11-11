@@ -318,7 +318,7 @@ func main() {
 			User:      user,
 			Timestamp: ts,
 		}
-		srcDirUser := broker.BrokerCommonBuildSouceBaseDirUser
+		srcDirUser := path.Join(broker.UserBundleSourceBaseDir, appName)
 		destDirUser := path.Join(broker.BuildSourceBaseDirNS, user)
 
 		// Handler requests for per-app user configs
@@ -513,6 +513,13 @@ func main() {
 			return
 		}
 
+		// Build user namespace template.
+		if err := broker.BuildDeploy(broker.BrokerCommonBuildSouceBaseDirUser, srcDirUser, destDirUser, userNSData); err != nil {
+			log.Printf("%v", err)
+			writeResponse(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+
 		if shutdown {
 			if _, err := os.Stat(destDir); os.IsNotExist(err) {
 				writeResponse(w, http.StatusBadRequest, "shutdown")
@@ -577,14 +584,6 @@ func main() {
 		}
 
 		if create {
-
-			// Build user namespace template.
-			if err := broker.BuildDeploy(broker.BrokerCommonBuildSouceBaseDirUser, srcDirUser, destDirUser, userNSData); err != nil {
-				log.Printf("%v", err)
-				writeResponse(w, http.StatusInternalServerError, "internal server error")
-				return
-			}
-
 			log.Printf("creating pod for user: %s: %s", user, fullName)
 			cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kustomize build %s | kubectl apply -f -", destDirUser, destDir))
 			cmd.Dir = destDir

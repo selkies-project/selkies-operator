@@ -23,9 +23,9 @@ const brokerAppUserConfigKind = "BrokerAppUserConfig"
 const BrokerCommonBuildSouceBaseDirUser = "/opt/broker/buildsrc/user"
 const BrokerCommonBuildSouceBaseDirApp = "/opt/broker/buildsrc/app"
 const BundleSourceBaseDir = "/var/run/buildsrc/apps"
+const UserBundleSourceBaseDir = "/var/run/buildsrc/user"
 const BuildSourceBaseDir = "/var/run/build"
 const BuildSourceBaseDirNS = "/var/run/buildns"
-const BuildSourceExtrasDir = "/opt/broker/buildsrc/extra"
 const RegisteredAppsManifestJSONFile = "/var/run/buildsrc/apps.json"
 const AppUserConfigBaseDir = "/var/run/userconfig"
 const AppUserConfigJSONFile = "app-user-config.json"
@@ -72,6 +72,8 @@ type UserPodData struct {
 	JSONPatchesService        []string
 	JSONPatchesVirtualService []string
 	JSONPatchesDeploy         []string
+	JSONPatchesNamespace      []string
+	JSONPatchesServiceAccount []string
 	UserParams                map[string]string
 	AppParams                 map[string]string
 	SysParams                 map[string]string
@@ -106,6 +108,10 @@ type BundleSpec struct {
 }
 
 type AuthZUsersSpec struct {
+	ConfigMapRef ConfigMapRef `yaml:"configMapRef" json:"configMapRef"`
+}
+
+type UserBundleSpec struct {
 	ConfigMapRef ConfigMapRef `yaml:"configMapRef" json:"configMapRef"`
 }
 
@@ -158,6 +164,7 @@ type AppConfigSpec struct {
 	AuthorizedUsers []string                `yaml:"authorizedUsers" json:"authorizedUsers"`
 	Authorization   AuthZUsersSpec          `yaml:"authorization" json:"authorization"`
 	DisableOptions  bool                    `yaml:"disableOptions" json:"disableOptions"`
+	UserBundle      UserBundleSpec          `yaml:"userBundle" json:"userBundle"`
 }
 
 type AppConfigObject struct {

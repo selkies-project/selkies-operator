@@ -62,45 +62,56 @@ func main() {
 		}
 		registeredApps.NetworkPolicyData = networkPolicyData
 
+		// Temp directory where updated files are staged.
+		tmpDir := path.Dir(broker.BundleSourceBaseDir)
+
 		for _, appConfig := range appConfigs {
 			bundleCMName := appConfig.Spec.Bundle.ConfigMapRef.Name
+			userBundleCMName := appConfig.Spec.UserBundle.ConfigMapRef.Name
 			authzCMName := appConfig.Spec.Authorization.ConfigMapRef.Name
+
 			appName := appConfig.Metadata.Name
-			destDir := path.Join(broker.BundleSourceBaseDir, appName)
+			bundleDestDir := path.Join(broker.BundleSourceBaseDir, appName)
+			userBundleDestDir := path.Join(broker.UserBundleSourceBaseDir, appName)
 
 			// Find and save configmap data for required bundle and optional authz
 			foundBundle := false
+			foundUserBundle := false
 			foundAuthzCM := false
 			for _, cm := range nsConfigMaps {
 				// Match on bundle configmap name
 				if cm.Metadata.Name == bundleCMName {
-					if err := cm.SaveDataToDirectory(destDir); err != nil {
-						log.Printf("failed to save bundle ConfigMap '%s' to %s: %v", cm.Metadata.Name, destDir, err)
+					if err := cm.SaveDataToDirectory(bundleDestDir, tmpDir); err != nil {
+						log.Printf("failed to save bundle ConfigMap '%s' to %s: %v", cm.Metadata.Name, bundleDestDir, err)
 					} else {
 						foundBundle = true
 					}
 				}
 
+				// Match on user bundle configmap name
+				if cm.Metadata.Name == userBundleCMName {
+					if err := cm.SaveDataToDirectory(userBundleDestDir, tmpDir); err != nil {
+						log.Printf("failed to save user bundle ConfigMap '%s' to %s: %v", cm.Metadata.Name, userBundleDestDir, err)
+					} else {
+						foundUserBundle = true
+					}
+				}
+
 				// Match on authz configmap name
 				if cm.Metadata.Name == authzCMName {
-					if err := cm.SaveDataToDirectory(destDir); err != nil {
-						log.Printf("failed to save authorization ConfigMap '%s' to %s: %v", cm.Metadata.Name, destDir, err)
-					} else {
-						foundAuthzCM = true
-
-						// Extract authorization members and append them to the appConfig.Spec.AuthorizedUsers array.
-						for _, data := range cm.Data {
-							scanner := bufio.NewScanner(strings.NewReader(data))
-							for scanner.Scan() {
-								userPat := scanner.Text()
-								// Skip comment lines.
-								if !strings.HasPrefix(userPat, "#") {
-									_, err := regexp.Compile(userPat)
-									if err != nil {
-										log.Printf("WARN: invalid authorized user pattern found in ConfigMap %s: '%s', skipped.", authzCMName, userPat)
-									} else {
-										appConfig.Spec.AuthorizedUsers = append(appConfig.Spec.AuthorizedUsers, userPat)
-									}
+					foundAuthzCM = true
+					// Extract authorization members and append them to the appConfig.Spec.AuthorizedUsers array.
+					for _, data := range cm.Data {
+						scanner := bufio.NewScanner(strings.NewReader(data))
+						for scanner.Scan() {
+							userPat := scanner.Text()
+							// Skip comment lines.
+							if !strings.HasPrefix(userPat, "#") {
+								_, err := regexp.Compile(userPat)
+								if err != nil {
+									log.Printf("WARN: invalid authorized user pattern found in ConfigMap %s: '%s', skipped.", authzCMName, userPat)
+								} else {
+									appConfig.Spec.AuthorizedUsers = append(appConfig.Spec.AuthorizedUsers, userPat)
 								}
 							}
 						}
@@ -110,6 +121,8 @@ func main() {
 
 			if !foundBundle {
 				log.Printf("Bundle manifests ConfigMap %s not found for app %s", bundleCMName, appName)
+			} else if len(userBundleCMName) > 0 && !foundUserBundle {
+				log.Printf("User bundle manifests ConfigMap %s not found for app %s", userBundleCMName, appName)
 			} else {
 				if len(authzCMName) > 0 && !foundAuthzCM {
 					log.Printf("Failed to find authorization ConfigMap bundle %s for app %s", authzCMName, appName)

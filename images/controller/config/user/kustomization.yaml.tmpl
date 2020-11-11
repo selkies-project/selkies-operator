@@ -20,6 +20,29 @@ commonLabels:
 commonAnnotations:
   app.broker/user: {{.User}}
 resources:
-  - namespace.yaml
-  - network-policy.yaml
-  - service-account.yaml
+{{- range .Resources }}
+- {{ . }}
+{{- end }}
+{{- if .Patches }}
+patches:
+{{- range .Patches }}
+- {{ . }}
+{{- end }}
+{{- end }}
+{{- if or .JSONPatchesNamespace .JSONPatchesServiceAccount }}
+patchesJson6902:
+{{- range .JSONPatchesNamespace }}
+- target:
+    version: v1
+    kind: Namespace
+    name: {{$.Namespace}}
+  path: {{ . }}
+{{- end }}
+{{- range .JSONPatchesServiceAccount }}
+- target:
+    version: v1
+    kind: ServiceAccount
+    name: {{$.Namespace}}
+  path: {{ . }}
+{{- end }}
+{{- end }}

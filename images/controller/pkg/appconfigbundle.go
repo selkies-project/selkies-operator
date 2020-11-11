@@ -26,13 +26,13 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func (cm *ConfigMapObject) SaveDataToDirectory(destDir string) error {
+func (cm *ConfigMapObject) SaveDataToDirectory(destDir string, tmpDir string) error {
 	// Copy the data to a temp directory, then move it to the destination.
 	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
 		return err
 	}
 
-	tmpDir, err := ioutil.TempDir(BundleSourceBaseDir, "bundle")
+	tmpDir, err := ioutil.TempDir(tmpDir, "bundle")
 	if err != nil {
 		return err
 	}

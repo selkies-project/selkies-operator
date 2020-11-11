@@ -26,11 +26,14 @@ resources:
 {{- range .Resources }}
 - {{ . }}
 {{- end }}
+{{- if .Patches }}
 patches:
 {{- range .Patches }}
 - {{ . }}
 {{- end }}
+{{- end }}
 
+{{- if or .JSONPatchesService .JSONPatchesVirtualService .JSONPatchesDeploy  }}
 patchesJson6902:
 {{- range .JSONPatchesService }}
 - target:
@@ -54,6 +57,7 @@ patchesJson6902:
     kind: StatefulSet
     name: {{$.ServiceName}}
   path: {{ . }}
+{{- end }}
 {{- end }}
 
 {{- if .AppSpec.Images }}

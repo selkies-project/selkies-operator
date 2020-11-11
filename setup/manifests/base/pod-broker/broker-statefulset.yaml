@@ -183,6 +183,11 @@ spec:
         - name: build
           emptyDir: {}
         ###
+        # temp volume for building user namespace manifests
+        ###
+        - name: buildns
+          emptyDir: {}
+        ###
         # temp volume for storing app configs and manifest bundles.
         ###
         - name: buildsrc
@@ -227,6 +232,8 @@ spec:
           volumeMounts:
             - name: build
               mountPath: /var/run/build
+            - name: buildns
+              mountPath: /var/run/buildns
             - name: buildsrc
               mountPath: /var/run/buildsrc
             - name: userconfig

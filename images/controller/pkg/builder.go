@@ -65,6 +65,12 @@ func BuildDeploy(brokerCommonBaseDir, srcDir, destDir string, data *UserPodData)
 	// Files prefixed with "jsonpatch-deploy-" will be added to the list of kustomize patchesJson6902 patches for the statefulset.
 	var jsonPatchDeployFiles []string
 
+	// Files prefixed with "jsonpatch-ns-" will e added to the list of kustomize patchesJson6902 patches for the user namespace.
+	var jsonPatchNamespaceFiles []string
+
+	// Files prefixed with "jsonpatch-sa-" will e added to the list of kustomize patchesJson6902 patches for the user service account.
+	var jsonPatchServiceAccountFiles []string
+
 	var foundFiles []string
 	for _, searchPath := range searchPaths {
 		foundFiles, err = filepath.Glob(path.Join(searchPath, "*.tmpl"))
@@ -108,6 +114,18 @@ func BuildDeploy(brokerCommonBaseDir, srcDir, destDir string, data *UserPodData)
 			return fmt.Errorf("bad glob pattern for jsonPatchDeployFiles: %v", err)
 		}
 		jsonPatchDeployFiles = append(jsonPatchDeployFiles, foundFiles...)
+
+		foundFiles, err = filepath.Glob(path.Join(searchPath, "jsonpatch-ns-*"))
+		if err != nil {
+			return fmt.Errorf("bad glob pattern for jsonPatchNamespaceFiles: %v", err)
+		}
+		jsonPatchNamespaceFiles = append(jsonPatchNamespaceFiles, foundFiles...)
+
+		foundFiles, err = filepath.Glob(path.Join(searchPath, "jsonpatch-sa-*"))
+		if err != nil {
+			return fmt.Errorf("bad glob pattern for jsonPatchServiceAccountFiles: %v", err)
+		}
+		jsonPatchServiceAccountFiles = append(jsonPatchServiceAccountFiles, foundFiles...)
 	}
 
 	// Add resource files to UserPodData
@@ -133,6 +151,16 @@ func BuildDeploy(brokerCommonBaseDir, srcDir, destDir string, data *UserPodData)
 	// Add deploy jsonpatch files to UserPodData
 	for _, patch := range jsonPatchDeployFiles {
 		data.JSONPatchesDeploy = append(data.JSONPatchesDeploy, strings.ReplaceAll(path.Base(patch), ".tmpl", ""))
+	}
+
+	// Add namespace jsonpatch files to UserPodData
+	for _, patch := range jsonPatchNamespaceFiles {
+		data.JSONPatchesNamespace = append(data.JSONPatchesNamespace, strings.ReplaceAll(path.Base(patch), ".tmpl", ""))
+	}
+
+	// Add service account jsonpatch files to UserPodData
+	for _, patch := range jsonPatchServiceAccountFiles {
+		data.JSONPatchesServiceAccount = append(data.JSONPatchesServiceAccount, strings.ReplaceAll(path.Base(patch), ".tmpl", ""))
 	}
 
 	// Copy build files
