@@ -27,9 +27,13 @@ CLUSTER_NAME=${INFRA_NAME}-${CLUSTER_LOCATION}
 
 export CYAN='\033[1;36m'
 export GREEN='\033[1;32m'
+export RED='\033[1;31m'
 export NC='\033[0m' # No Color
 function log_cyan() { echo -e "${CYAN}$@${NC}"; }
 function log_green() { echo -e "${GREEN}$@${NC}"; }
+function log_red() { echo -e "${RED}$@${NC}"; }
+
+export ISTIOCTL=/opt/istio-${LATEST_ISTIO}/bin/istioctl
 
 # Get cluster credentials
 log_cyan "Obtaining cluster credentials..."
@@ -65,25 +69,14 @@ log_cyan "Installing AutoNEG controller..."
 kubectl kustomize base/autoneg-system | sed 's/${PROJECT_ID}/'${PROJECT_ID}'/g' | \
     kubectl apply -f -
 
-# Install istio operator
-log_cyan "Installing Istio operator..."
-kubectl apply -k /opt/istio-operator/deploy/
-
-# Create istio control plane
-log_cyan "Creating Istio control plane..."
-kubectl apply -f base/istio/istiocontrolplane.yaml
- 
-# Wait for operator to create istio control plane objects
-# Objects created async by the operator may not exist yet.
-# Manual wait for object creation until this is merged: https://github.com/kubernetes/kubernetes/pull/83335
-log_cyan "Waiting for namespace 'istio-system'"
-until [[ -n $(kubectl get namespace istio-system -oname 2>/dev/null) ]]; do sleep 2; done
-log_cyan "Namespace 'istio-system' is ready"
-
-log_cyan "Waiting for istio controlplane crds"
-until [[ -n $(kubectl get crd gateways.networking.istio.io -oname 2>/dev/null) ]]; do sleep 2; done
-until [[ -n $(kubectl get crd virtualservices.networking.istio.io -oname 2>/dev/null) ]]; do sleep 2; done
-log_cyan "Istio control plane crds are ready"
+# Check installed istio version, default is latest.
+ISTIO_VERSION=$(${ISTIOCTL} version -o json | grep -v "no running Istio" | jq -r '.meshVersion[0].Info.version // "'${LATEST_ISTIO}'"')
+ISTIO_LATEST_INSTALLER="./install_istio_${LATEST_ISTIO_MAJOR}.sh"
+case "$ISTIO_VERSION" in
+    1.4*) log_cyan "Installing istio 1.4" && ./install_istio_1.4.sh ;;
+    1.7*) log_cyan "Installing isio 1.7" && ./install_istio_1.7.sh ;;
+    * ) log_red "Unsupported istio version found: ${ISTIO_VERSION}, attempting latest installer." && ${ISTIO_LATEST_INSTALLER} ;;
+esac
 
 # Create generated manifests
 log_cyan "Generating manifest kustomizations..."

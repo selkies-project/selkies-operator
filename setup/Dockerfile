@@ -24,6 +24,9 @@ ARG KUSTOMIZE_VERSION=3.5.3
 ARG ISTIO_OPERATOR_VERSION=1.4.7
 ARG CNRM_VERSION=1.9.0
 
+ENV LATEST_ISTIO=1.7.3
+ENV LATEST_ISTIO_MAJOR=1.7
+
 # Install terraform
 RUN wget --timeout 2 --tries 5 https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
     unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
@@ -50,3 +53,6 @@ RUN mkdir -p /opt/cnrm && cd /opt/cnrm && \
 # Download the istio operator release
 RUN mkdir -p /opt/istio-operator && cd /opt/istio-operator && \
     wget --timeout 2 --tries 5 -qO- https://github.com/istio/operator/archive/${ISTIO_OPERATOR_VERSION}.tar.gz | tar --strip-components=1 -zxf - 
+
+# Download latest istio releases
+RUN cd /opt && curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${LATEST_ISTIO} TARGET_ARCH=x86_64 sh -

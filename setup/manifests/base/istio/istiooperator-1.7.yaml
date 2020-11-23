@@ -1,0 +1,79 @@
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: install.istio.io/v1alpha2
+kind: IstioOperator
+metadata:
+  namespace: istio-operator
+  name: broker-istiocontrolplane
+spec:
+  # Profiles: https://istio.io/docs/setup/additional-setup/config-profiles/
+  profile: default
+
+  components:
+    policy:
+      enabled: false
+    
+    telemetry:
+      enabled: false
+
+    pilot:
+      k8s:
+        hpaSpec:
+          # Increasing the min replica count helps with node upgrades.
+          maxReplicas: 5
+          minReplicas: 2
+    
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+        k8s:
+          hpaSpec:
+            # Increasing the min replica count helps with node upgrades.
+            maxReplicas: 5
+            minReplicas: 2
+          overlays:
+            - kind: Deployment
+              name: istio-ingressgateway
+              patches:
+                # Enable NEG support to work with GCLB and IAP
+                - path: spec.template.spec.readinessGates
+                  value:
+                    - conditionType: "cloud.google.com/load-balancer-neg-ready"
+
+            - kind: Service
+              name: istio-ingressgateway
+              patches:
+                # Add annotation to service to use NEG and IAP
+                # Full metadata replacement is a workaround for: https://github.com/istio/istio/issues/19463
+                - path: metadata
+                  value:
+                    name: istio-ingressgateway
+                    namespace: istio-system
+                    labels:
+                      app: istio-ingressgateway
+                      istio: ingressgateway
+                      release: istio
+                    annotations:
+                      cloud.google.com/neg: '{"exposed_ports": {"80":{}}}'
+                      anthos.cft.dev/autoneg: '{"name":"istio-ingressgateway", "max_rate_per_endpoint":100}'
+
+                # Change type from LoadBalancer to NodePort
+                # This is to support GCLB and IAP
+                - path: spec.type
+                  value: NodePort
+
+                # Clear the externalTrafficPolicy for GCLB + NEG support.
+                - path: spec.externalTrafficPolicy
+                  value: ""
