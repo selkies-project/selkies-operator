@@ -95,6 +95,8 @@ func main() {
 		log.Fatal("Missing POD_BROKER_PARAM_AuthHeader env.")
 	}
 
+	usernameHeader, _ := sysParams["UsernameHeader"]
+
 	// Authorized user image repo pattern regexp.
 	allowedRepoPatternParam, ok := sysParams["AuthorizedUserRepoPattern"]
 	if !ok {
@@ -134,6 +136,8 @@ func main() {
 			// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
 			userToks := strings.Split(user, ":")
 			user = userToks[len(userToks)-1]
+
+			username := broker.GetUsernameFromHeaderOrDefault(r, usernameHeader, user)
 
 			// Return list of apps
 			appList := broker.AppListResponse{
@@ -177,7 +181,7 @@ func main() {
 							log.Printf("failed to parse authorizedUser as regexp: '%s', skipping app.", u)
 							break
 						}
-						if re.MatchString(user) {
+						if re.MatchString(user) || re.MatchString(username) {
 							found = true
 							break
 						}
@@ -241,6 +245,8 @@ func main() {
 		userToks := strings.Split(user, ":")
 		user = userToks[len(userToks)-1]
 
+		username := broker.GetUsernameFromHeaderOrDefault(r, usernameHeader, user)
+
 		// App is editable if user is in the list of editors.
 		editable := false
 		for _, appEditor := range app.Editors {
@@ -249,7 +255,7 @@ func main() {
 				log.Printf("failed to parse app editor as regexp: '%s'.", appEditor)
 				continue
 			}
-			if re.MatchString(user) {
+			if re.MatchString(user) || re.MatchString(username) {
 				editable = true
 				break
 			}
@@ -264,7 +270,7 @@ func main() {
 					log.Printf("failed to parse authorizedUser as regexp: '%s', skipping app.", u)
 					break
 				}
-				if re.MatchString(user) {
+				if re.MatchString(user) || re.MatchString(username) {
 					found = true
 					break
 				}
@@ -485,6 +491,7 @@ func main() {
 			NodeTier:                  nodeTierSpec,
 			Domain:                    domain,
 			User:                      user,
+			Username:                  username,
 			CookieValue:               cookieValue,
 			ID:                        id,
 			FullName:                  fullName,

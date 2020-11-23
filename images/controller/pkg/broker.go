@@ -246,3 +246,13 @@ func GetUserFromCookieOrAuthHeader(r *http.Request, cookieName, authHeaderName s
 
 	return res
 }
+
+func GetUsernameFromHeaderOrDefault(r *http.Request, usernameHeader, defaultUsername string) string {
+	res := r.Header.Get(usernameHeader)
+
+	if len(res) == 0 {
+		res = defaultUsername
+	}
+
+	return res
+}

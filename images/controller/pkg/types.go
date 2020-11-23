@@ -63,6 +63,7 @@ type UserPodData struct {
 	NodeTier                  NodeTierSpec
 	Domain                    string
 	User                      string
+	Username                  string
 	CookieValue               string
 	ID                        string
 	FullName                  string
