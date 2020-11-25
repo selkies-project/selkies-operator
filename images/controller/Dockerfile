@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.13-alpine as build
-RUN apk add -u git
+FROM golang:1.15-alpine as build
+RUN apk add --no-cache -u git
 ENV GO111MODULE=on
-WORKDIR /go/src/gcp.solutions/kube-app-launcher
-COPY . ./
+WORKDIR /go/src/selkies.io/controller
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
 RUN go build cmd/app_finder/app_finder.go
 RUN go build cmd/app_publisher/app_publisher.go
 RUN go build cmd/image_finder/image_finder.go
 RUN go build cmd/image_puller/image_puller.go
 RUN go build cmd/pod_broker/pod_broker.go
+RUN go build cmd/reservation_broker/reservation_broker.go
 
 FROM gcr.io/k8s-skaffold/skaffold:v1.10.1 as skaffold
 FROM gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
@@ -33,11 +37,12 @@ COPY --from=skaffold /usr/local/bin/kustomize /usr/local/bin/kustomize
 COPY --from=skaffold /usr/local/bin/kubectl /usr/local/bin/kubectl
 
 # Copy build from previous layer
-COPY --from=build /go/src/gcp.solutions/kube-app-launcher/app_finder /usr/local/bin/app-finder
-COPY --from=build /go/src/gcp.solutions/kube-app-launcher/app_publisher /usr/local/bin/app-publisher
-COPY --from=build /go/src/gcp.solutions/kube-app-launcher/image_finder /usr/local/bin/image-finder
-COPY --from=build /go/src/gcp.solutions/kube-app-launcher/image_puller /usr/local/bin/image-puller
-COPY --from=build /go/src/gcp.solutions/kube-app-launcher/pod_broker /usr/local/bin/pod-broker
+COPY --from=build /go/src/selkies.io/controller/app_finder /usr/local/bin/app-finder
+COPY --from=build /go/src/selkies.io/controller/app_publisher /usr/local/bin/app-publisher
+COPY --from=build /go/src/selkies.io/controller/image_finder /usr/local/bin/image-finder
+COPY --from=build /go/src/selkies.io/controller/image_puller /usr/local/bin/image-puller
+COPY --from=build /go/src/selkies.io/controller/pod_broker /usr/local/bin/pod-broker
+COPY --from=build /go/src/selkies.io/controller/reservation_broker /usr/local/bin/reservation-broker
 
 # Copy build assets
 WORKDIR /opt/broker/buildsrc/

@@ -15,7 +15,10 @@
  */
 
 var brokerURL = window.location.origin + window.location.pathname + "broker/";
+var reservationBrokerURL = window.location.origin + window.location.pathname + "reservation-broker/";
+
 var podBroker = new PodBroker(brokerURL);
+var reservationPodBroker = new PodBroker(reservationBrokerURL);
 
 function getStorageItem(appName, key, defaultValue) {
     return window.localStorage.getItem(appName + "." + key) || defaultValue;
@@ -25,9 +28,21 @@ function setStorageItem(appName, key, value) {
     window.localStorage.setItem(appName + "." + key, value);
 }
 
+function getParameterByName(name, url = window.location.href) {
+    name = name.replace(/[\[\]]/g, '\\$&');
+    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
+
 class BrokerApp {
-    constructor(name, displayName, description, icon, launchURL, defaultRepo, defaultTag, params, defaultNodeTiers, disableOptions) {
+    constructor(name, type, displayName, description, icon, launchURL, defaultRepo, defaultTag, params, defaultNodeTiers, disableOptions) {
+        this.broker = null;
+
         this.name = name;
+        this.type = type;
         this.displayName = displayName;
         this.description = description;
         this.icon = icon;
@@ -79,7 +94,7 @@ class BrokerApp {
             // Build launch params.
             this.waitLaunch = true;
             var launchParams = this.getLaunchParams();
-            podBroker.start_app(this.name, launchParams, () => {
+            this.broker.start_app(this.name, launchParams, () => {
                 this.update(true);
             });
         }
@@ -88,7 +103,7 @@ class BrokerApp {
     shutdown() {
         if (this.status === "stopped") return;
         this.status = "terminating";
-        podBroker.shutdown_app(this.name, () => {
+        this.broker.shutdown_app(this.name, () => {
             this.status = "terminating";
             setTimeout(() => {
                 this.update(true);
@@ -97,7 +112,7 @@ class BrokerApp {
     }
 
     update(loop) {
-        podBroker.get_status(this.name, (data) => {
+        this.broker.get_status(this.name, (data) => {
             switch (data.status) {
                 case "ready":
                     this.status = "running";
@@ -169,7 +184,7 @@ class BrokerApp {
             "params": {},
         }
         Object.keys(this.paramValues).forEach(key => data.params[key] = this.paramValues[key].toString());
-        podBroker.set_config(this.name, data, (resp) => {
+        this.broker.set_config(this.name, data, (resp) => {
             if (resp.code !== 200) {
                 this.saveStatus = "failed";
                 this.saveError = resp.status;
@@ -183,8 +198,9 @@ class BrokerApp {
     }
 
     fetchConfig() {
+        if (this.type !== "statefulset") return;
         this.saveStatus = "idle";
-        podBroker.get_config(this.name, (data) => {
+        this.broker.get_config(this.name, (data) => {
             this.imageRepo = data.imageRepo;
             this.imageTag = data.imageTag;
             this.imageTags = data.tags;
@@ -194,8 +210,12 @@ class BrokerApp {
     }
 }
 
+var ScaleLoader = VueSpinner.ScaleLoader;
 var vue_app = new Vue({
     el: '#app',
+    components: {
+        ScaleLoader
+    },
     vuetify: new Vuetify(),
     created() {
         this.$vuetify.theme.dark = true
@@ -205,6 +225,7 @@ var vue_app = new Vue({
             brokerName: "App Launcher",
             brokerRegion: "",
             darkTheme: false,
+            quickLaunchEnabled: false,
 
             // array of BrokerApp objects.
             apps: [],
@@ -212,6 +233,30 @@ var vue_app = new Vue({
             launchDisabled: (app) => {
                 var appReady = (['stopped', 'ready'].indexOf(app.status) < 0);
             },
+
+            getQuickLaunchApp: () => {
+                return getParameterByName("launch");
+            },
+
+            checkQuickLaunch: () => {
+                var curr_app = this.getQuickLaunchApp();
+                if (curr_app === null) return;
+
+                var found = false;
+                this.apps.forEach((app) => {
+                    if (app.name === curr_app) {
+                        this.quickLaunchEnabled = true;
+                        found = true;
+                        console.log("launching app: " + curr_app);
+                        app.launch();
+                    }
+                });
+
+                if (found === false) {
+                    this.quickLaunchEnabled = false;
+                    console.log("WARN: quick launch app not found: " + curr_app);
+                }
+            }
         }
     },
 
@@ -247,6 +292,7 @@ var fetchApps = () => {
         data.apps.forEach((item) => {
             var app = new BrokerApp(
                 item.name,
+                item.type,
                 item.displayName,
                 item.description,
                 item.icon,
@@ -257,13 +303,22 @@ var fetchApps = () => {
                 item.nodeTiers,
                 item.disableOptions
             );
+            // Set broker based on app type.
+            app.broker = (item.type === "deployment") ? reservationPodBroker : podBroker;
+
             vue_app.apps.push(app);
             app.update(true);
 
             // Fetch user app config
             app.fetchConfig();
         });
-    });
+
+        // Check to see if launch app was passed in route.
+        vue_app.checkQuickLaunch();
+    });    
 }
+
+// If launch app was provided via route, skip the app list and show loading.
+vue_app.quickLaunchEnabled = (vue_app.getQuickLaunchApp() !== null);
 
 fetchApps();

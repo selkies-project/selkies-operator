@@ -20,12 +20,24 @@ const apiVersion = "gcp.solutions/v1"
 const brokerAppConfigKind = "BrokerAppUserConfig"
 const brokerAppUserConfigKind = "BrokerAppUserConfig"
 
-const BrokerCommonBuildSouceBaseDirUser = "/opt/broker/buildsrc/user"
-const BrokerCommonBuildSouceBaseDirApp = "/opt/broker/buildsrc/app"
+type AppType string
+
+const AppTypeStatefulSet AppType = "statefulset"
+const AppTypeDeployment AppType = "deployment"
+const AppTypeAll AppType = "all"
+
+const DefaultDeploymentReplicas = 2
+
+const BrokerCommonBuildSourceBaseDirStatefulSetUser = "/opt/broker/buildsrc/statefulset/user"
+const BrokerCommonBuildSourceBaseDirStatefulSetApp = "/opt/broker/buildsrc/statefulset/app"
+const BrokerCommonBuildSourceBaseDirDeploymentUser = "/opt/broker/buildsrc/deployment/user"
+const BrokerCommonBuildSourceBaseDirDeploymentApp = "/opt/broker/buildsrc/deployment/app"
+const BrokerCommonBuildSourceBaseDirApp = "/opt/broker/buildsrc/deployment/app"
 const BundleSourceBaseDir = "/var/run/buildsrc/apps"
 const UserBundleSourceBaseDir = "/var/run/buildsrc/user"
 const BuildSourceBaseDir = "/var/run/build"
 const BuildSourceBaseDirNS = "/var/run/buildns"
+const BuildSourceBaseDirUser = "/var/run/buildusr"
 const RegisteredAppsManifestJSONFile = "/var/run/buildsrc/apps.json"
 const AppUserConfigBaseDir = "/var/run/userconfig"
 const AppUserConfigJSONFile = "app-user-config.json"
@@ -75,6 +87,7 @@ type UserPodData struct {
 	JSONPatchesDeploy         []string
 	JSONPatchesNamespace      []string
 	JSONPatchesServiceAccount []string
+	JSONPatchesNetworkPolicy  []string
 	UserParams                map[string]string
 	AppParams                 map[string]string
 	SysParams                 map[string]string
@@ -109,11 +122,11 @@ type BundleSpec struct {
 }
 
 type AuthZUsersSpec struct {
-	ConfigMapRef ConfigMapRef `yaml:"configMapRef" json:"configMapRef"`
+	BundleSpec
 }
 
 type UserBundleSpec struct {
-	ConfigMapRef ConfigMapRef `yaml:"configMapRef" json:"configMapRef"`
+	BundleSpec
 }
 
 type AppConfigParam struct {
@@ -142,7 +155,13 @@ type ShutdownHookSpec struct {
 	Command   string `yaml:"command" json:"command"`
 }
 
+type DeploymentTypeSpec struct {
+	Replicas *int   `yaml:"replicas" json:"replicas"`
+	Selector string `yaml:"selector" json:"selector"`
+}
+
 type AppConfigSpec struct {
+	Type            AppType                 `yaml:"type" json:"type"`
 	Name            string                  `yaml:"name" json:"name"`
 	DisplayName     string                  `yaml:"displayName" json:"displayName"`
 	Description     string                  `yaml:"description" json:"description"`
@@ -150,6 +169,7 @@ type AppConfigSpec struct {
 	LaunchURL       string                  `yaml:"launchURL,omitempty" json:"launchURL,omitempty"`
 	Disabled        bool                    `yaml:"disabled" json:"disabled"`
 	Version         string                  `yaml:"version" json:"version"`
+	Deployment      DeploymentTypeSpec      `yaml:"deployment" json:"deployment"`
 	Bundle          BundleSpec              `yaml:"bundle" json:"bundle"`
 	DefaultRepo     string                  `yaml:"defaultRepo" json:"defaultRepo"`
 	DefaultTag      string                  `yaml:"defaultTag" json:"defaultTag"`
@@ -165,7 +185,7 @@ type AppConfigSpec struct {
 	AuthorizedUsers []string                `yaml:"authorizedUsers" json:"authorizedUsers"`
 	Authorization   AuthZUsersSpec          `yaml:"authorization" json:"authorization"`
 	DisableOptions  bool                    `yaml:"disableOptions" json:"disableOptions"`
-	UserBundle      UserBundleSpec          `yaml:"userBundle" json:"userBundle"`
+	UserBundles     []UserBundleSpec        `yaml:"userBundles" json:"userBundles"`
 }
 
 type AppConfigObject struct {
@@ -204,6 +224,7 @@ type AppListResponse struct {
 
 type AppDataResponse struct {
 	Name           string           `json:"name"`
+	Type           AppType          `json:"type"`
 	DisplayName    string           `json:"displayName"`
 	Description    string           `json:"description"`
 	Icon           string           `json:"icon"`

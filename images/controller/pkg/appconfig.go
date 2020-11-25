@@ -46,5 +46,33 @@ func FetchBrokerAppConfigs(namespace string) ([]AppConfigObject, error) {
 
 	var items appConfigItems
 	err = json.Unmarshal(output, &items)
+
+	// Set default values
+	for i := range items.Items {
+		// Default app type to StatefulSet
+		if items.Items[i].Spec.Type == "" {
+			items.Items[i].Spec.Type = AppTypeStatefulSet
+		}
+
+		// Default userBundles to empty list if not provided.
+		if items.Items[i].Spec.UserBundles == nil {
+			items.Items[i].Spec.UserBundles = make([]UserBundleSpec, 0)
+		}
+
+		if items.Items[i].Spec.Type == AppTypeDeployment {
+			// Default deployment selector to match app name.
+			if len(items.Items[i].Spec.Deployment.Selector) == 0 {
+				items.Items[i].Spec.Deployment.Selector = fmt.Sprintf("app=%s", items.Items[i].Spec.Name)
+			}
+
+			if items.Items[i].Spec.Deployment.Replicas == nil {
+				// Default number of deployment replicas.
+				// This value is a pointer so that it can accept 0 as a valid value.
+				defaultReplicas := DefaultDeploymentReplicas
+				items.Items[i].Spec.Deployment.Replicas = &defaultReplicas
+			}
+		}
+	}
+
 	return items.Items, err
 }

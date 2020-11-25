@@ -26,28 +26,18 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func (cm *ConfigMapObject) SaveDataToDirectory(destDir string, tmpDir string) error {
-	// Copy the data to a temp directory, then move it to the destination.
+func (cm *ConfigMapObject) SaveDataToDirectory(destDir string) error {
 	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
 		return err
 	}
 
-	tmpDir, err := ioutil.TempDir(tmpDir, "bundle")
-	if err != nil {
-		return err
-	}
-	// Ensure temp dir is cleaned up
-	defer os.RemoveAll(tmpDir)
-
 	for fileName, data := range cm.Data {
-		destFile := path.Join(tmpDir, fileName)
+		destFile := path.Join(destDir, fileName)
 		if err := ioutil.WriteFile(destFile, []byte(data), 0644); err != nil {
 			return err
 		}
 	}
-
-	os.RemoveAll(destDir)
-	return os.Rename(tmpDir, destDir)
+	return nil
 }
 
 func GetConfigMaps(namespace string) ([]ConfigMapObject, error) {

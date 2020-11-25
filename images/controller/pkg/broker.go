@@ -174,9 +174,10 @@ func GetEgressNetworkPolicyData(podBrokerNamespace string) (NetworkPolicyTemplat
 
 	// Lookup external TURN IPs. Fetch all service host and ports using SRV record of headless discovery service.
 	// NOTE: The SRV lookup returns resolvable aliases to the endpoints, so do another lookup should return the IP.
-	_, srvs, err := net.LookupSRV("turn", "tcp", fmt.Sprintf("turn-discovery.%s.svc.cluster.local", podBrokerNamespace))
+	srv := fmt.Sprintf("turn-discovery.%s.svc.cluster.local", podBrokerNamespace)
+	_, srvs, err := net.LookupSRV("turn", "tcp", srv)
 	if err != nil {
-		return resp, fmt.Errorf("ERROR: failed to lookup TURN discovery SRV.")
+		return resp, fmt.Errorf("ERROR: failed to lookup TURN discovery SRV '%s', are you running in-cluster?", srv)
 	}
 	for _, srv := range srvs {
 		addrs, err := net.LookupHost(srv.Target)

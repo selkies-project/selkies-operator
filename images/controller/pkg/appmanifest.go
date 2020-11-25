@@ -40,7 +40,7 @@ func NewRegisteredAppManifest() RegisteredAppsManifest {
 	}
 }
 
-func NewRegisteredAppManifestFromJSON(srcFile string) (RegisteredAppsManifest, error) {
+func NewRegisteredAppManifestFromJSON(srcFile string, appType AppType) (RegisteredAppsManifest, error) {
 	var manifest RegisteredAppsManifest
 
 	data, err := ioutil.ReadFile(srcFile)
@@ -49,5 +49,14 @@ func NewRegisteredAppManifestFromJSON(srcFile string) (RegisteredAppsManifest, e
 	}
 
 	err = json.Unmarshal(data, &manifest)
+
+	apps := make(map[string]AppConfigSpec, 0)
+	for k, v := range manifest.Apps {
+		if v.Type == appType || appType == AppTypeAll {
+			apps[k] = v
+		}
+	}
+	manifest.Apps = apps
+
 	return manifest, err
 }

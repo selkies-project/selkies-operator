@@ -167,6 +167,7 @@ COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/ku
   # TODO: need to remove this commonLabel as it causes issues with headless services (turn-discovery).
   # Simply removing it breaks the ability to apply this change as an update operation because the labeled fields are immutable.
   kustomize edit add label "app.kubernetes.io/name":"${INFRA_NAME}"
+  kustomize edit add base "../base/custom-metrics/"
   kustomize edit add base "../base/ingress/"
   kustomize edit add base "../base/node/"
   kustomize edit add base "../base/pod-broker/"

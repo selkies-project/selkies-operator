@@ -28,8 +28,8 @@ import (
 	"strings"
 	"text/template"
 
-	broker "gcp.solutions/kube-app-launcher/pkg"
 	"github.com/Masterminds/sprig"
+	broker "selkies.io/controller/pkg"
 )
 
 type newAppData struct {
@@ -84,7 +84,7 @@ func main() {
 
 		// Discover apps from their config specs located on the filesystem.
 		// TODO: look into caching this, large number of apps and http requests can slow down the broker.
-		registeredApps, err := broker.NewRegisteredAppManifestFromJSON(broker.RegisteredAppsManifestJSONFile)
+		registeredApps, err := broker.NewRegisteredAppManifestFromJSON(broker.RegisteredAppsManifestJSONFile, broker.AppTypeStatefulSet)
 		if err != nil {
 			log.Printf("failed to parse registered app manifest: %v", err)
 			writeResponse(w, http.StatusInternalServerError, "internal server error")

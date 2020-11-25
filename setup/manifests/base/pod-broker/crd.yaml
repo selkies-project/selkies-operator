@@ -59,6 +59,9 @@ spec:
             - defaultRepo
             - defaultTag
           properties:
+            type:
+              type: string
+              enum: [statefulset, deployment]
             version:
               type: string
             name:
@@ -101,18 +104,28 @@ spec:
                   properties:
                     name:
                       type: string
-            userBundle:
+            userBundles:
+              type: array
+              items:  
+                type: object
+                required:
+                  - configMapRef
+                properties:
+                  configMapRef:
+                    type: object
+                    required:
+                      - name
+                    properties:
+                      name:
+                        type: string
+            deployment:
               type: object
-              required:
-                - configMapRef
               properties:
-                configMapRef:
-                  type: object
-                  required:
-                    - name
-                  properties:
-                    name:
-                      type: string
+                replicas:
+                  type: integer
+                  minimum: 0
+                selector:
+                  type: string
             serviceName:
               type: string
             defaultRepo:

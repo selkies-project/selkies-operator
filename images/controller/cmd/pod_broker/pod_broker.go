@@ -32,7 +32,7 @@ import (
 	"strings"
 	"time"
 
-	broker "gcp.solutions/kube-app-launcher/pkg"
+	broker "selkies.io/controller/pkg"
 )
 
 // Cookie max-age in seconds, 5 days.
@@ -112,7 +112,7 @@ func main() {
 
 		// Discover apps from their config specs located on the filesystem.
 		// TODO: look into caching this, large number of apps and http requests can slow down the broker.
-		registeredApps, err := broker.NewRegisteredAppManifestFromJSON(broker.RegisteredAppsManifestJSONFile)
+		registeredApps, err := broker.NewRegisteredAppManifestFromJSON(broker.RegisteredAppsManifestJSONFile, broker.AppTypeAll)
 		if err != nil {
 			log.Printf("failed to parse registered app manifest: %v", err)
 			writeResponse(w, http.StatusInternalServerError, "internal server error")
@@ -194,6 +194,7 @@ func main() {
 
 				appData := broker.AppDataResponse{
 					Name:           app.Name,
+					Type:           app.Type,
 					DisplayName:    app.DisplayName,
 					Description:    app.Description,
 					Icon:           app.Icon,
@@ -219,6 +220,12 @@ func main() {
 		if !ok {
 			log.Printf("app not found: %s", reqApp)
 			writeResponse(w, http.StatusNotFound, "app not found")
+			return
+		}
+
+		if app.Type != broker.AppTypeStatefulSet {
+			w.Header().Set("Location", fmt.Sprintf("/reservation-broker/%s/", app.Name))
+			writeResponse(w, http.StatusFound, "app is reservation type")
 			return
 		}
 
@@ -424,7 +431,7 @@ func main() {
 				}
 
 				// Build user namespace template.
-				if err := broker.BuildDeploy(broker.BrokerCommonBuildSouceBaseDirUser, srcDirUser, destDirUser, userNSData); err != nil {
+				if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirStatefulSetUser, srcDirUser, destDirUser, userNSData); err != nil {
 					log.Printf("%v", err)
 					writeResponse(w, http.StatusInternalServerError, "internal server error")
 					return
@@ -514,14 +521,14 @@ func main() {
 
 		// Build user application bundle.
 		srcDirApp := path.Join(broker.BundleSourceBaseDir, app.Name)
-		if err := broker.BuildDeploy(broker.BrokerCommonBuildSouceBaseDirApp, srcDirApp, destDir, data); err != nil {
+		if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirStatefulSetApp, srcDirApp, destDir, data); err != nil {
 			log.Printf("%v", err)
 			writeResponse(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
 
 		// Build user namespace template.
-		if err := broker.BuildDeploy(broker.BrokerCommonBuildSouceBaseDirUser, srcDirUser, destDirUser, userNSData); err != nil {
+		if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirStatefulSetUser, srcDirUser, destDirUser, userNSData); err != nil {
 			log.Printf("%v", err)
 			writeResponse(w, http.StatusInternalServerError, "internal server error")
 			return

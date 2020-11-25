@@ -23,7 +23,7 @@ import (
 	"path"
 	"time"
 
-	broker "gcp.solutions/kube-app-launcher/pkg"
+	broker "selkies.io/controller/pkg"
 )
 
 func main() {

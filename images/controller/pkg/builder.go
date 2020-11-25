@@ -17,10 +17,14 @@
 package pod_broker
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -40,6 +44,7 @@ func BuildDeploy(brokerCommonBaseDir, srcDir, destDir string, data *UserPodData)
 	searchPaths := []string{
 		srcDir,
 		path.Join(srcDir, "*"),
+		path.Join(srcDir, "*", "*"),
 		brokerCommonBaseDir,
 		path.Join(brokerCommonBaseDir, "*"),
 	}
@@ -191,4 +196,55 @@ func TemplateFile(templatePath, destDir string, data *UserPodData) error {
 		return err
 	}
 	return t.Execute(dest, data)
+}
+
+func ChecksumDeploy(srcDir string) (string, error) {
+	res := ""
+
+	fileMap, err := MD5All(srcDir)
+	if err != nil {
+		return res, err
+	}
+
+	keys := make([]string, 0)
+	for k, _ := range fileMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	hasher := md5.New()
+	for _, k := range keys {
+		data := fileMap[k]
+		hasher.Write(data[:])
+	}
+
+	res = hex.EncodeToString(hasher.Sum(nil))
+
+	return res, nil
+}
+
+// MD5All reads all the files in the file tree rooted at root and returns a map
+// from file path to the MD5 sum of the file's contents.  If the directory walk
+// fails or any read operation fails, MD5All returns an error.
+// https://stackoverflow.com/a/50134601
+func MD5All(root string) (map[string][md5.Size]byte, error) {
+	m := make(map[string][md5.Size]byte)
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		m[path] = md5.Sum(data)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }

@@ -17,15 +17,18 @@
 set -e
 set -o pipefail
 
-port_forward_pid=$!
+port_forward1_pid=$!
 function cleanup() {
     echo "stopping port-forward"
-    kill -9 $port_forward_pid
+    kill -9 $port_forward1_pid
+    kill -9 $port_forward2_pid
     echo "done"
 }
 trap cleanup EXIT
-kubectl port-forward pod-broker-0 --address 0.0.0.0 8080:8080 &
-port_forward_pid=$!
+kubectl port-forward -n pod-broker-system pod-broker-0 --address 0.0.0.0 8080:8080 &
+port_forward1_pid=$!
+kubectl port-forward -n pod-broker-system pod-broker-0 --address 0.0.0.0 8082:8082 &
+port_forward2_pid=$!
 
 cat - | node <<'EOF'
 var express = require('express');
@@ -34,13 +37,25 @@ var app = express();
 app.use('/', express.static('src'))
 app.use(
     '/broker',
-    proxy({
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        pathRewrite: {
-            '^/broker': '/'
-        },
-    })
+    proxy.createProxyMiddleware(
+        {
+            target: 'http://localhost:8080',
+            changeOrigin: true,
+            pathRewrite: {
+                '^/broker': '/'
+            },
+        })
+);
+app.use(
+    '/reservation-broker',
+    proxy.createProxyMiddleware(
+        {
+            target: 'http://localhost:8082',
+            changeOrigin: true,
+            pathRewrite: {
+                '^/reservation-broker': '/'
+            },
+        })
 );
 var devHost = process.env['CODE_SERVER_WEB_PREVIEW_3000'] ? "https://" + process.env['CODE_SERVER_WEB_PREVIEW_3000'] : "http://localhost:3000";
 console.log("dev server listening at: " + devHost);

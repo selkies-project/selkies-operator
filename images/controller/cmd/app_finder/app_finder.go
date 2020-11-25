@@ -18,6 +18,8 @@ package main
 
 import (
 	"bufio"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -26,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	broker "gcp.solutions/kube-app-launcher/pkg"
+	broker "selkies.io/controller/pkg"
 )
 
 func main() {
@@ -38,6 +40,16 @@ func main() {
 	if len(namespace) == 0 {
 		log.Fatal("Missing NAMESPACE env.")
 	}
+
+	// Allow for single run
+	singleIteration := false
+	if os.Getenv("SINGLE_ITERATION") == "true" {
+		singleIteration = true
+	}
+
+	// Map of cached app manifest checksums
+	bundleManifestChecksums := make(map[string]string, 0)
+	userBundleManifestChecksums := make(map[string]string, 0)
 
 	for {
 		// Fetch all user app configs
@@ -62,38 +74,47 @@ func main() {
 		}
 		registeredApps.NetworkPolicyData = networkPolicyData
 
-		// Temp directory where updated files are staged.
-		tmpDir := path.Dir(broker.BundleSourceBaseDir)
+		// Base dir for temp directory where updated files are staged.
+		tmpDirBase := path.Dir(broker.BundleSourceBaseDir)
 
 		for _, appConfig := range appConfigs {
 			bundleCMName := appConfig.Spec.Bundle.ConfigMapRef.Name
-			userBundleCMName := appConfig.Spec.UserBundle.ConfigMapRef.Name
 			authzCMName := appConfig.Spec.Authorization.ConfigMapRef.Name
 
 			appName := appConfig.Metadata.Name
 			bundleDestDir := path.Join(broker.BundleSourceBaseDir, appName)
 			userBundleDestDir := path.Join(broker.UserBundleSourceBaseDir, appName)
+			foundUserBundleCount := 0
 
 			// Find and save configmap data for required bundle and optional authz
 			foundBundle := false
-			foundUserBundle := false
+			foundAllUserBundles := false
 			foundAuthzCM := false
 			for _, cm := range nsConfigMaps {
 				// Match on bundle configmap name
 				if cm.Metadata.Name == bundleCMName {
-					if err := cm.SaveDataToDirectory(bundleDestDir, tmpDir); err != nil {
-						log.Printf("failed to save bundle ConfigMap '%s' to %s: %v", cm.Metadata.Name, bundleDestDir, err)
+					// Update working mainfests if bundle has changed.
+					cacheKey := fmt.Sprintf("%s-%s", appName, cm.Metadata.Name)
+					if err := copyConfigMapDataIfChanged(cm, tmpDirBase, bundleDestDir, cacheKey, bundleManifestChecksums); err != nil {
+						log.Printf("%v", err)
 					} else {
 						foundBundle = true
 					}
 				}
 
-				// Match on user bundle configmap name
-				if cm.Metadata.Name == userBundleCMName {
-					if err := cm.SaveDataToDirectory(userBundleDestDir, tmpDir); err != nil {
-						log.Printf("failed to save user bundle ConfigMap '%s' to %s: %v", cm.Metadata.Name, userBundleDestDir, err)
-					} else {
-						foundUserBundle = true
+				// Match on a user bundle configmap name
+				for i, userBundle := range appConfig.Spec.UserBundles {
+					userBundleCMName := userBundle.ConfigMapRef.Name
+
+					// Match on user bundle configmap name
+					if cm.Metadata.Name == userBundleCMName {
+						destDir := path.Join(userBundleDestDir, fmt.Sprintf("%d", i))
+						cacheKey := fmt.Sprintf("%s-%s", appName, cm.Metadata.Name)
+						if err := copyConfigMapDataIfChanged(cm, tmpDirBase, destDir, cacheKey, userBundleManifestChecksums); err != nil {
+							log.Printf("%v", err)
+						} else {
+							foundUserBundleCount++
+						}
 					}
 				}
 
@@ -119,10 +140,14 @@ func main() {
 				}
 			}
 
+			if foundUserBundleCount == len(appConfig.Spec.UserBundles) {
+				foundAllUserBundles = true
+			}
+
 			if !foundBundle {
 				log.Printf("Bundle manifests ConfigMap %s not found for app %s", bundleCMName, appName)
-			} else if len(userBundleCMName) > 0 && !foundUserBundle {
-				log.Printf("User bundle manifests ConfigMap %s not found for app %s", userBundleCMName, appName)
+			} else if len(appConfig.Spec.UserBundles) > 0 && !foundAllUserBundles {
+				log.Printf("Failed to find all spec.userBundles for app %s", appName)
 			} else {
 				if len(authzCMName) > 0 && !foundAuthzCM {
 					log.Printf("Failed to find authorization ConfigMap bundle %s for app %s", authzCMName, appName)
@@ -148,6 +173,7 @@ func main() {
 				}
 			}
 			if !found {
+				log.Printf("removing build source: %s", dirName)
 				os.RemoveAll(dirName)
 			}
 		}
@@ -157,6 +183,40 @@ func main() {
 			log.Printf("failed to write registered app manifest: %s: %v", broker.RegisteredAppsManifestJSONFile, err)
 		}
 
+		if singleIteration {
+			break
+		}
 		time.Sleep(5 * time.Second)
 	}
+}
+
+// Helper function to only update the working manifest if the configmap content has changed.
+func copyConfigMapDataIfChanged(cm broker.ConfigMapObject, tmpDirBase, destDir, cacheKey string, checksums map[string]string) error {
+	tmpDir, err := ioutil.TempDir(tmpDirBase, "bundle")
+	if err != nil {
+		return fmt.Errorf("failed to create staging dir at base: %s: %v", tmpDirBase, err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	if err := cm.SaveDataToDirectory(tmpDir); err != nil {
+		return fmt.Errorf("failed to save bundle ConfigMap '%s' to %s: %v", cm.Metadata.Name, tmpDir, err)
+	}
+
+	// Compute and cache checksum to know if we need to update the working mainfests.
+	prevChecksum := checksums[cacheKey]
+	if checksums[cacheKey], err = broker.ChecksumDeploy(tmpDir); err != nil {
+		return fmt.Errorf("failed to checksum build output directory: %v", err)
+	}
+	if prevChecksum != checksums[cacheKey] {
+		log.Printf("%s manifest checksum: %s", cacheKey, checksums[cacheKey])
+		if err := os.MkdirAll(path.Dir(destDir), os.ModePerm); err != nil {
+			return err
+		}
+		os.RemoveAll(destDir)
+		if err := os.Rename(tmpDir, destDir); err != nil {
+			return fmt.Errorf("failed to move manifest bundle ConfigMap data to %s: %v", destDir, err)
+		}
+	}
+
+	return nil
 }

@@ -17,6 +17,8 @@
 package pod_broker
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -234,6 +236,12 @@ func GetInstanceRegion() (string, error) {
 }
 
 func GetProjectID() (string, error) {
+	if projectID := os.Getenv("PROJECT_ID"); len(projectID) > 0 {
+		return projectID, nil
+	}
+	if projectID := os.Getenv("GOOGLE_PROJECT"); len(projectID) > 0 {
+		return projectID, nil
+	}
 	return metadata.ProjectID()
 }
 
@@ -295,4 +303,22 @@ func GetJobs(namespace, selector string) ([]GetJobSpec, error) {
 	}
 
 	return jsonResp.Items, nil
+}
+
+func ListPods(namespace, selector string) ([]string, error) {
+	resp := make([]string, 0)
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get pod -n %s -l \"%s\" -o name --sort-by=.metadata.creationTimestamp 1>&2", namespace, selector))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return resp, fmt.Errorf("failed to get pods: %s, %v", string(stdoutStderr), err)
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(stdoutStderr))
+	for scanner.Scan() {
+		line := scanner.Text()
+		podName := strings.Split(line, "/")[1]
+		resp = append(resp, podName)
+	}
+
+	return resp, nil
 }

@@ -30,8 +30,8 @@ import (
 	"text/template"
 	"time"
 
-	broker "gcp.solutions/kube-app-launcher/pkg"
 	"github.com/Masterminds/sprig"
+	broker "selkies.io/controller/pkg"
 )
 
 const loopInterval = 2

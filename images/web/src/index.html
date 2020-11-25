@@ -21,13 +21,30 @@
     html {
       font-family: Roboto, Arial, sans;
     }
+
+    .loading {
+      position: absolute;
+      top: 50%;
+      width: 100%;
+      text-align: center;
+      color: #E0E0E0;
+    }
+
+    .loading-text {
+      margin-top: 1em;
+    }
   </style>
   <title>App Launcher</title>
 </head>
 
 <body>
   <div id="app">
-    <v-app>
+    <v-app v-if="quickLaunchEnabled">
+        <div class="loading">
+        <scale-loader size="200px" :loading="true" color="#E0E0E0"></scale-loader>
+      </div>
+    </v-app>
+    <v-app v-else>
       <v-app-bar app>
         <v-toolbar-title>{{ brokerName }}</v-toolbar-title>
         <v-spacer></v-spacer>
@@ -62,7 +79,7 @@
               </div>
               <v-btn text v-on:click="app.launch()" :disabled="launchDisabled(app)">Launch</v-btn>
               <v-btn text v-on:click="app.shutdown()">Shutdown</v-btn>
-              <v-menu v-if="!app.disableOptions" bottom right :close-on-content-click="false" :nudge-width="500"
+              <v-menu v-if="!app.disableOptions && app.type == 'statefulset'" bottom right :close-on-content-click="false" :nudge-width="500"
                 offset-x>
                 <template v-slot:activator="{ on }">
                   <v-btn v-btn icon v-on="on">
@@ -129,6 +146,7 @@
 <script src="pod_broker.js?ts=1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.9/vue.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vuetify/2.1.12/vuetify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue-spinner@1.0.3/dist/vue-spinner.min.js"></script>
 <script src="app.js?ts=1"></script>
 
 </html>
