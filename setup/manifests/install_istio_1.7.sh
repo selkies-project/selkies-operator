@@ -30,5 +30,5 @@ log_cyan "Installing Istio control plane..."
 ${ISTIOCTL} install -f base/istio/istiooperator-1.7.yaml \
     --skip-confirmation \
     --readiness-timeout 5m0s $@
-kubectl label ns istio-system install.operator.istio.io/owner-kind=IstioControlPlane
+kubectl label ns istio-system install.operator.istio.io/owner-kind=IstioControlPlane --overwrite=true
 log_cyan "Istio control plane is ready"
