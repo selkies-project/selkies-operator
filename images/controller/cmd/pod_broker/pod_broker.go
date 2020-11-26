@@ -542,7 +542,7 @@ func main() {
 			}
 
 			log.Printf("shutting down %s pod for user: %s", appName, user)
-			cmd := exec.Command("sh", "-o", "pipefail", "-c", "kustomize build | kubectl delete --wait=false -f -")
+			cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kubectl delete all -n %s -l \"app.kubernetes.io/instance=%s\" --wait=false", namespace, fullName))
 			cmd.Dir = destDir
 			stdoutStderr, err := cmd.CombinedOutput()
 			if err != nil {
