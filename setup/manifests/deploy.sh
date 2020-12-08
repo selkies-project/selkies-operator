@@ -78,6 +78,11 @@ case "$ISTIO_VERSION" in
     * ) log_red "Unsupported istio version found: ${ISTIO_VERSION}, attempting latest installer." && ${ISTIO_LATEST_INSTALLER} ;;
 esac
 
+# force repair of autoneg annotations.
+log_cyan "Repairing neg-status and autoneg-status annotations on istio-ingressgateway service to force update"
+kubectl annotate service istio-ingressgateway -n istio-system cloud.google.com/neg-status-
+kubectl annotate service istio-ingressgateway -n istio-system anthos.cft.dev/autoneg-status-
+
 # Create generated manifests
 log_cyan "Generating manifest kustomizations..."
 ./make_generated_manifests.sh
