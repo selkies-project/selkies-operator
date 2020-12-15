@@ -34,6 +34,7 @@ function log_green() { echo -e "${GREEN}$@${NC}"; }
 function log_red() { echo -e "${RED}$@${NC}"; }
 
 export ISTIOCTL=/opt/istio-${LATEST_ISTIO}/bin/istioctl
+export ISTIOCTL_COMPAT=/opt/istio-${ISTIO_COMPAT}/bin/istioctl
 
 # Get cluster credentials
 log_cyan "Obtaining cluster credentials..."
@@ -70,7 +71,7 @@ kubectl kustomize base/autoneg-system | sed 's/${PROJECT_ID}/'${PROJECT_ID}'/g' 
     kubectl apply -f -
 
 # Check installed istio version, default is latest.
-ISTIO_VERSION=$(${ISTIOCTL} version -o json | grep -v "no running Istio" | jq -r '.meshVersion[0].Info.version // "'${LATEST_ISTIO}'"')
+ISTIO_VERSION=$(${ISTIOCTL_COMPAT} version -o json | grep -v "no running Istio" | jq -r '.meshVersion[0].Info.version // "'${LATEST_ISTIO}'"')
 ISTIO_LATEST_INSTALLER="./install_istio_${LATEST_ISTIO_MAJOR}.sh"
 case "$ISTIO_VERSION" in
     1.4*) log_cyan "Installing istio 1.4" && ./install_istio_1.4.sh ;;

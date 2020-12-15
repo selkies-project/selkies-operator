@@ -24,6 +24,10 @@ ARG KUSTOMIZE_VERSION=3.5.3
 ARG ISTIO_OPERATOR_VERSION=1.4.7
 ARG CNRM_VERSION=1.9.0
 
+# istoctl capable of detecting version 1.4+
+ENV ISTIO_COMPAT=1.7.3
+
+# istioctl and istio bundle to be installed if 1.4 not found.
 ENV LATEST_ISTIO=1.7.3
 ENV LATEST_ISTIO_MAJOR=1.7
 
@@ -53,6 +57,10 @@ RUN mkdir -p /opt/cnrm && cd /opt/cnrm && \
 # Download the istio operator release
 RUN mkdir -p /opt/istio-operator && cd /opt/istio-operator && \
     wget --timeout 2 --tries 5 -qO- https://github.com/istio/operator/archive/${ISTIO_OPERATOR_VERSION}.tar.gz | tar --strip-components=1 -zxf - 
+
+# Download compat istio release
+RUN mkdir -p /opt/istio-${ISTIO_COMPAT}/bin && cd /opt/istio-${ISTIO_COMPAT}/bin && \
+    curl -L https://github.com/istio/istio/releases/download/${ISTIO_COMPAT}/istioctl-${ISTIO_COMPAT}-linux-amd64.tar.gz | tar zxvf - istioctl > istioctl && chmod +x istioctl
 
 # Download latest istio releases
 RUN cd /opt && curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${LATEST_ISTIO} TARGET_ARCH=x86_64 sh -
