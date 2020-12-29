@@ -41,6 +41,7 @@ const BuildSourceBaseDirUser = "/var/run/buildusr"
 const RegisteredAppsManifestJSONFile = "/var/run/buildsrc/apps.json"
 const AppUserConfigBaseDir = "/var/run/userconfig"
 const AppUserConfigJSONFile = "app-user-config.json"
+const JSONPatchObjectTypes = "jsonpatch-deploy-last-applied-resources.yaml"
 
 type KubeObjectBase struct {
 	ApiVersion string `yaml:"apiVersion" json:"apiVersion"`
@@ -220,6 +221,7 @@ type AppListResponse struct {
 	BrokerTheme  string            `json:"brokerTheme"`
 	BrokerRegion string            `json:"brokerRegion"`
 	Apps         []AppDataResponse `json:"apps"`
+	User         string            `json:"user"`
 }
 
 type AppDataResponse struct {
@@ -239,13 +241,15 @@ type AppDataResponse struct {
 }
 
 type StatusResponse struct {
-	Code       int                `json:"code"`
-	Status     string             `json:"status"`
-	Nodes      []string           `json:"nodes,omitempty"`
-	Containers map[string]string  `json:"containers,omitempty"`
-	Images     map[string]string  `json:"images,omitempty"`
-	PodIPs     []string           `json:"pod_ips,omitempty"`
-	PodStatus  *PodStatusResponse `json:"pod_status,omitempty"`
+	Code          int                `json:"code"`
+	Status        string             `json:"status"`
+	Nodes         []string           `json:"nodes,omitempty"`
+	Containers    map[string]string  `json:"containers,omitempty"`
+	Images        map[string]string  `json:"images,omitempty"`
+	PodIPs        []string           `json:"pod_ips,omitempty"`
+	PodStatus     *PodStatusResponse `json:"pod_status,omitempty"`
+	SessionKeys   []string           `json:"session_keys"`
+	BrokerObjects []string           `json:"broker_objects"`
 }
 
 type PodStatusResponse struct {
@@ -260,6 +264,12 @@ type ImageListManifestResponse struct {
 	Tag             []string `json:"tag"`
 	TimeCreatedMs   string   `json:"timeCreatedMs"`
 	TimeUploaadedMs string   `json:"timeUploadedMs"`
+}
+
+type ReservationMetadataSpec struct {
+	IP         string `json:"ip"`
+	SessionKey string `json:"session_key"`
+	User       string `json:"user"`
 }
 
 /*

@@ -17,13 +17,17 @@
 package pod_broker
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -221,6 +225,55 @@ func ChecksumDeploy(srcDir string) (string, error) {
 	res = hex.EncodeToString(hasher.Sum(nil))
 
 	return res, nil
+}
+
+// Uses kustomize to build the bundle and returns the list of object types found.
+func GetObjectTypes(srcDir string) ([]string, error) {
+	resp := make([]string, 0)
+
+	cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s", srcDir))
+	cmd.Dir = srcDir
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return resp, fmt.Errorf("error running kustomize build on directory %s: %v\n%s", srcDir, err, stdoutStderr)
+	}
+
+	kindMap := make(map[string]int, 0)
+	scanner := bufio.NewScanner(bytes.NewReader(stdoutStderr))
+	kindPat := regexp.MustCompile(`^kind: (?P<kind>.*)`)
+	for scanner.Scan() {
+		line := scanner.Text()
+		match := kindPat.FindStringSubmatch(line)
+		if len(match) > 1 {
+			kind := match[1]
+			kindMap[kind] += 1
+		}
+	}
+
+	for k := range kindMap {
+		resp = append(resp, k)
+	}
+	sort.Strings(resp)
+
+	return resp, nil
+}
+
+func GenerateObjectTypePatch(srcDir string) error {
+	destFile := path.Join(srcDir, JSONPatchObjectTypes)
+	if _, err := os.Stat(destFile); os.IsNotExist(err) {
+		return fmt.Errorf("dest template file not found: %s", destFile)
+	}
+	foundTypes, err := GetObjectTypes(srcDir)
+	if err != nil {
+		return err
+	}
+	objects := strings.Join(foundTypes, ",")
+
+	data := fmt.Sprintf(`- op: add
+  path: "/spec/template/metadata/annotations/app.broker~1last-applied-object-types"
+  value: %s
+`, objects)
+	return ioutil.WriteFile(destFile, []byte(data), 0644)
 }
 
 // MD5All reads all the files in the file tree rooted at root and returns a map

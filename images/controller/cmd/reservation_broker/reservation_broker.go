@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -46,15 +47,40 @@ type Server struct {
 	Port       string
 }
 
+type BrokerPod struct {
+	Name        string   `json:"name"`
+	IP          string   `json:"ip"`
+	SessionKey  string   `json:"session_key"`
+	UserObjects []string `json:"user_objects"`
+}
+
 type AppContext struct {
 	sync.RWMutex
 	AuthHeaderName    string
 	UsernameHeader    string
 	CookieSecret      string
 	PodData           broker.UserPodData
-	AvailablePods     []string
-	ReservedPods      map[string]string
+	AvailablePods     []BrokerPod
+	ReservedPods      map[string]BrokerPod
 	PodWatcherRunning bool
+}
+
+type GetPodsSpec struct {
+	Items []struct {
+		Metadata struct {
+			Name              string            `json:"name"`
+			Namespace         string            `json:"namespace"`
+			CreationTimestamp string            `json:"creationTimestamp"`
+			DeletionTimestamp *string           `json:"deletionTimestamp"`
+			Annotations       map[string]string `json:"annotations"`
+			Labels            map[string]string `json:"labels"`
+		} `json:"metadata"`
+		Status struct {
+			PodIPs []struct {
+				IP string `json:"ip"`
+			} `json:"podIPs"`
+		} `json:"status"`
+	} `json:"items"`
 }
 
 func main() {
@@ -214,8 +240,8 @@ func main() {
 						UsernameHeader:    usernameHeader,
 						CookieSecret:      cookieSecret,
 						PodData:           *data,
-						AvailablePods:     make([]string, 0),
-						ReservedPods:      make(map[string]string),
+						AvailablePods:     make([]BrokerPod, 0),
+						ReservedPods:      make(map[string]BrokerPod),
 						PodWatcherRunning: false,
 					}
 					appContexts[app.Name] = appCtx
@@ -303,6 +329,27 @@ func main() {
 	server.InitDispatch()
 	log.Printf("Initializing request routes...\n")
 
+	server.Urls["metadata"] = func(w http.ResponseWriter, r *http.Request) {
+		srcIP := strings.Split(r.RemoteAddr, ":")[0]
+		// Check reserved pods to match requestor IP.
+		for _, appCtx := range appContexts {
+			for user, pod := range appCtx.ReservedPods {
+				if pod.IP == srcIP {
+					metadata := broker.ReservationMetadataSpec{
+						IP:         pod.IP,
+						SessionKey: pod.SessionKey,
+						User:       user,
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					json.NewEncoder(w).Encode(metadata)
+					return
+				}
+			}
+		}
+		writeResponse(w, http.StatusNotFound, fmt.Sprintf("reservation metadata not found for IP: %s", srcIP))
+	}
+
 	server.Start()
 }
 
@@ -386,39 +433,33 @@ TODO: convert this to use the K8S watch API.
 func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 	appCtx.PodWatcherRunning = true
 
-	type podMetadata struct {
-		Name        string            `json:"name"`
-		Namespace   string            `json:"namespace"`
-		Annotations map[string]string `json:"annotations"`
-		Labels      map[string]string `json:"labels"`
-	}
-
-	type podSpec struct {
-		Metadata podMetadata `json:"metadata"`
-	}
-
-	type getPodsSpec struct {
-		Items []podSpec `json:"items"`
-	}
-
 	// Get current pod reservations, those not managed by Deployment, reserved for users.
 	selector := fmt.Sprintf("%s, app.kubernetes.io/managed-by notin (pod-broker)", app.Deployment.Selector)
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get pod -n %s -l \"%s\" -o json 1>&2", app.Name, selector))
-	stdoutStderr, err := cmd.CombinedOutput()
+	podResp, err := listBrokerPods(app.Name, selector)
 	if err != nil {
-		log.Printf("failed to list initial reserved pods: %s, %v", string(stdoutStderr), err)
+		log.Printf("failed to list initial reserved pods: %v", err)
 	} else {
-		var podResp getPodsSpec
-		if err := json.Unmarshal(stdoutStderr, &podResp); err != nil {
-			log.Printf("failed to parse pod spec in initial pod list: %v", err)
-		}
-
 		appCtx.Lock()
 		for _, pod := range podResp.Items {
+			if pod.Metadata.DeletionTimestamp != nil {
+				// Skip terminating pods
+				continue
+			}
 			podName := pod.Metadata.Name
+			podIP := pod.Status.PodIPs[0].IP
 			if podUser, ok := pod.Metadata.Annotations["app.broker/user"]; ok {
+				sessionKey, ok := pod.Metadata.Annotations["app.broker/session-key"]
+				userObjects, ok := pod.Metadata.Annotations["app.broker/last-applied-object-types"]
+				if !ok {
+					log.Printf("Warning: missing app.broker/session-key on existing reservation: %s", podName)
+				}
 				log.Printf("Found existing reservation: %s: %s", podName, podUser)
-				appCtx.ReservedPods[podUser] = podName
+				appCtx.ReservedPods[podUser] = BrokerPod{
+					Name:        podName,
+					IP:          podIP,
+					SessionKey:  sessionKey,
+					UserObjects: strings.Split(userObjects, ","),
+				}
 			}
 		}
 		appCtx.Unlock()
@@ -435,7 +476,7 @@ func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 
 			// Find available pods, those currently managed by Deployment.
 			selector := fmt.Sprintf("%s,app.kubernetes.io/managed-by=pod-broker", app.Deployment.Selector)
-			podNames, err := broker.ListPods(app.Name, selector)
+			podResp, err := listBrokerPods(app.Name, selector)
 			if err != nil {
 				log.Printf("failed to list pods for app: %s: %v", app.Name, err)
 				time.Sleep(2 * time.Second)
@@ -443,8 +484,25 @@ func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 				continue
 			}
 
-			// Update the list of available pods
-			appCtx.AvailablePods = podNames
+			// Sort by creation time, descending order.
+			sort.Slice(podResp.Items, func(i, j int) bool {
+				return podResp.Items[i].Metadata.CreationTimestamp < podResp.Items[j].Metadata.CreationTimestamp
+			})
+
+			appCtx.AvailablePods = make([]BrokerPod, 0)
+			for _, pod := range podResp.Items {
+				if len(pod.Status.PodIPs) == 0 {
+					continue
+				}
+				if pod.Metadata.DeletionTimestamp != nil {
+					// Skip terminating pods
+					continue
+				}
+				appCtx.AvailablePods = append(appCtx.AvailablePods, BrokerPod{
+					Name: pod.Metadata.Name,
+					IP:   pod.Status.PodIPs[0].IP,
+				})
+			}
 			appCtx.Unlock()
 
 			time.Sleep(2 * time.Second)
@@ -453,7 +511,7 @@ func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 	}()
 }
 
-func updatePodForUser(app broker.AppConfigSpec, user, pod string) error {
+func updatePodForUser(app broker.AppConfigSpec, user, sessionKey, pod string, objectTypes []string) error {
 	// Remove label from the pod that releases it from the K8S Deployment controller.
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl label pod -n %s %s app.kubernetes.io/managed-by=reservation-broker --overwrite=true 1>&2", app.Name, pod))
 	stdoutStderr, err := cmd.CombinedOutput()
@@ -461,8 +519,22 @@ func updatePodForUser(app broker.AppConfigSpec, user, pod string) error {
 		return fmt.Errorf("%s\n%v", stdoutStderr, err)
 	}
 
-	// Add annotation
+	// Add broker user annotation
 	cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl annotate pod --overwrite=true -n %s %s 'app.broker/user=%s' 1>&2", app.Name, pod, user))
+	stdoutStderr, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s\n%v", stdoutStderr, err)
+	}
+
+	// Add session key annotation
+	cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl annotate pod --overwrite=true -n %s %s 'app.broker/session-key=%s' 1>&2", app.Name, pod, sessionKey))
+	stdoutStderr, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s\n%v", stdoutStderr, err)
+	}
+
+	// Add annotation with found object types
+	cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl annotate pod --overwrite=true -n %s %s 'app.broker/last-applied-object-types=%s' 1>&2", app.Name, pod, strings.Join(objectTypes, ",")))
 	stdoutStderr, err = cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s\n%v", stdoutStderr, err)
@@ -525,7 +597,7 @@ func createApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 	defer appCtx.Unlock()
 
 	if pod, ok := appCtx.ReservedPods[user]; ok {
-		msg = fmt.Sprintf("pod for %s: %s", user, pod)
+		msg = fmt.Sprintf("pod for %s: %s", user, pod.Name)
 		return statusCode, msg
 	}
 
@@ -535,23 +607,38 @@ func createApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 		return statusCode, msg
 	}
 
+	// Generate session key
+	sessionKey := broker.MakeSessionKey()
+
 	// Assign user a pod and remove it from the list
 	pod := appCtx.AvailablePods[0]
 	appCtx.AvailablePods = appCtx.AvailablePods[1:]
-	appCtx.ReservedPods[user] = pod
-
-	// Update the pod for the user
-	if err := updatePodForUser(app, user, pod); err != nil {
-		log.Printf("failed to update pod for user %s: %s: %v", user, pod, err)
-		statusCode = http.StatusInternalServerError
-		msg = "error creating app"
-		return statusCode, msg
-	}
+	pod.SessionKey = sessionKey
 
 	// Build the per-user manifest templates
 	destDir, err := buildUserBundle(app, appCtx, user, username, pod)
 	if err != nil {
 		log.Printf("failed to build user bundle for %s/%s: %v", app.Name, user, err)
+		statusCode = http.StatusInternalServerError
+		msg = "error creating app"
+		return statusCode, msg
+	}
+
+	// Determine the unique kinds of objects being applied and add them to a json patch that will add the list to an annotation.
+	// This is done because 'kubectl delete all' does not capture things like CRDs or VirtualService so object can get orphaned.
+	// See also: https://github.com/kubernetes/kubectl/issues/151
+	userObjects, err := broker.GetObjectTypes(destDir)
+	if err != nil {
+		log.Printf("failed to determine object types in bundle: %v", err)
+		statusCode = http.StatusInternalServerError
+		msg = "error creating app"
+		return statusCode, msg
+	}
+	pod.UserObjects = userObjects
+
+	// Update the pod for the user
+	if err := updatePodForUser(app, user, pod.SessionKey, pod.Name, pod.UserObjects); err != nil {
+		log.Printf("failed to update pod for user %s: %s: %v", user, pod.Name, err)
 		statusCode = http.StatusInternalServerError
 		msg = "error creating app"
 		return statusCode, msg
@@ -568,16 +655,19 @@ func createApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 		return statusCode, msg
 	}
 
-	log.Printf("assigned pod %s to user: %s", pod, user)
+	log.Printf("assigned pod %s to user: %s", pod.Name, user)
 
-	msg = fmt.Sprintf("assigned pod: %s", pod)
+	// Reserve pod for user in map
+	appCtx.ReservedPods[user] = pod
+
+	msg = fmt.Sprintf("assigned pod: %s", pod.Name)
 	return statusCode, msg
 }
 
 /*
 Builds templates for user specific manifest.
 */
-func buildUserBundle(app broker.AppConfigSpec, appCtx *AppContext, user, username, pod string) (string, error) {
+func buildUserBundle(app broker.AppConfigSpec, appCtx *AppContext, user, username string, pod BrokerPod) (string, error) {
 
 	data := appCtx.PodData
 	data.User = user
@@ -592,8 +682,11 @@ func buildUserBundle(app broker.AppConfigSpec, appCtx *AppContext, user, usernam
 	data.JSONPatchesVirtualService = make([]string, 0)
 	data.JSONPatchesDeploy = make([]string, 0)
 
+	// Add sessionKey as app param.
+	data.AppParams["sessionKey"] = pod.SessionKey
+
 	srcDirUser := path.Join(broker.UserBundleSourceBaseDir, app.Name)
-	destDirUser := path.Join(broker.BuildSourceBaseDirUser, user)
+	destDirUser := path.Join(broker.BuildSourceBaseDirUser, user, app.Name)
 	if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirDeploymentUser, srcDirUser, destDirUser, &data); err != nil {
 		return "", err
 	}
@@ -616,46 +709,58 @@ func deleteApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 
 	defer appCtx.Unlock()
 
-	if pod, ok := appCtx.ReservedPods[user]; ok {
+	if bPod, ok := appCtx.ReservedPods[user]; ok {
+		podName := bPod.Name
 		// Remove instance label from the pod.
 		// This is done so that subsequest GET requests don't return the terminating pod.
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl label pod -n %s %s app.kubernetes.io/instance- 1>&2", app.Name, pod))
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl label pod -n %s %s app.kubernetes.io/instance- 1>&2", app.Name, podName))
 		stdoutStderr, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Printf("warning: failed to remove instance label from pod: %s: %s\n%v", pod, stdoutStderr, err)
+			log.Printf("warning: failed to remove instance label from pod: %s: %s\n%v", podName, stdoutStderr, err)
 		}
 
 		// Delete the pod from K8S
-		log.Printf("deleting pod for user %s: %s", user, pod)
+		log.Printf("deleting pod for user %s: %s", user, podName)
 
-		cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl delete pod -n %s %s --wait=false 1>&2", app.Name, pod))
+		cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl delete pod -n %s %s --wait=false 1>&2", app.Name, podName))
 		stdoutStderr, err = cmd.CombinedOutput()
 		if err != nil {
-			log.Printf("failed to delete pod for user %s: %s: %s\n%v", user, pod, stdoutStderr, err)
+			log.Printf("failed to delete pod for user %s: %s: %s\n%v", user, podName, stdoutStderr, err)
 			statusCode = http.StatusInternalServerError
 			msg = "error deleting app"
 			return statusCode, msg
 		}
 
-		// Build the per-user manifests so we know what to delete
-		destDir, err := buildUserBundle(app, appCtx, user, username, pod)
-		if err != nil {
-			log.Printf("failed to build user bundle for %s/%s: %v", app.Name, user, err)
-			statusCode = http.StatusInternalServerError
-			msg = "error deleting app"
-			return statusCode, msg
-		}
-
-		// Delete the per-user manifests
-		cmd = exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s | kubectl delete -f -", destDir))
-		cmd.Dir = destDir
-		stdoutStderr, err = cmd.CombinedOutput()
-		if err != nil {
-			log.Printf("error deleting per-user manifests for %s: %v\n%s", user, err, stdoutStderr)
-			statusCode = http.StatusInternalServerError
-			msg = "error deleting app"
-			return statusCode, msg
+		// Delete the per-user resources
+		if len(bPod.UserObjects) > 0 {
+			objectTypes := strings.Join(bPod.UserObjects, ",")
+			fullName := fmt.Sprintf("%s-%s", app.Name, broker.MakePodID(user))
+			cmdStr := fmt.Sprintf("kubectl delete %s -n %s -l \"app.kubernetes.io/instance=%s\" --wait=false", objectTypes, app.Name, fullName)
+			cmd = exec.Command("sh", "-o", "pipefail", "-c", cmdStr)
+			stdoutStderr, err = cmd.CombinedOutput()
+			if err != nil {
+				log.Printf("error deleting per-user resources for %s: %v\n%s", user, err, stdoutStderr)
+				statusCode = http.StatusInternalServerError
+				msg = "error deleting app"
+				return statusCode, msg
+			}
 		}
 	}
 	return statusCode, msg
+}
+
+func listBrokerPods(namespace, selector string) (GetPodsSpec, error) {
+	var resp GetPodsSpec
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get pod -n %s -l \"%s\" -o json 1>&2", namespace, selector))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return resp, fmt.Errorf("failed to list pods: %s, %v", string(stdoutStderr), err)
+	}
+
+	var podResp GetPodsSpec
+	if err := json.Unmarshal(stdoutStderr, &podResp); err != nil {
+		return resp, fmt.Errorf("failed to parse pod spec in initial pod list: %v", err)
+	}
+	return podResp, nil
 }

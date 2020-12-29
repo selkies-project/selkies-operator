@@ -145,6 +145,7 @@ func main() {
 				BrokerTheme:  brokerTheme,
 				BrokerRegion: brokerRegion,
 				Apps:         make([]broker.AppDataResponse, 0),
+				User:         user,
 			}
 
 			for _, app := range registeredApps.Apps {
@@ -334,7 +335,36 @@ func main() {
 		srcDirUser := path.Join(broker.UserBundleSourceBaseDir, appName)
 		destDirUser := path.Join(broker.BuildSourceBaseDirNS, user)
 
-		// Handler requests for per-app user configs
+		// Handle requests for per-app metadata requests
+		if regexp.MustCompile(fmt.Sprintf(".*%s/metadata/?$", appName)).MatchString(r.URL.Path) {
+			// Fetch pod status
+			status, err := broker.GetPodStatus(namespace, fmt.Sprintf("app.kubernetes.io/instance=%s,app=%s", fullName, app.ServiceName))
+			if err != nil {
+				log.Printf("failed to get pod status: %v", err)
+				writeResponse(w, http.StatusInternalServerError, "internal server error")
+				return
+			}
+
+			ip := ""
+			sessionKey := ""
+			if len(status.PodIPs) > 0 {
+				ip = status.PodIPs[0]
+			}
+			if len(status.SessionKeys) > 0 {
+				sessionKey = status.SessionKeys[0]
+			}
+			metadata := broker.ReservationMetadataSpec{
+				IP:         ip,
+				SessionKey: sessionKey,
+				User:       user,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(metadata)
+			return
+		}
+
+		// Handle requests for per-app user configs
 		if regexp.MustCompile(fmt.Sprintf(".*%s/config/?$", appName)).MatchString(r.URL.Path) {
 			if getStatus {
 				statusCode := http.StatusOK
@@ -486,6 +516,11 @@ func main() {
 			appParams[param.Name] = param.Default
 		}
 
+		// Generate session key. Add to AppParams
+		if _, ok := appParams["sessionKey"]; !ok {
+			appParams["sessionKey"] = broker.MakeSessionKey()
+		}
+
 		data := &broker.UserPodData{
 			Namespace:                 namespace,
 			ProjectID:                 projectID,
@@ -527,6 +562,13 @@ func main() {
 			return
 		}
 
+		// Build patch that adds list of applied objects to the statefulset.
+		if err := broker.GenerateObjectTypePatch(destDir); err != nil {
+			log.Printf("%v", err)
+			writeResponse(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+
 		// Build user namespace template.
 		if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirStatefulSetUser, srcDirUser, destDirUser, userNSData); err != nil {
 			log.Printf("%v", err)
@@ -548,14 +590,25 @@ func main() {
 				}
 			}
 
-			log.Printf("shutting down %s pod for user: %s", appName, user)
-			cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kubectl delete all -n %s -l \"app.kubernetes.io/instance=%s\" --wait=false", namespace, fullName))
-			cmd.Dir = destDir
-			stdoutStderr, err := cmd.CombinedOutput()
+			// Fetch pod status to retrieve the list of object types.
+			status, err := broker.GetPodStatus(namespace, fmt.Sprintf("app.kubernetes.io/instance=%s,app=%s", fullName, app.ServiceName))
 			if err != nil {
-				log.Printf("error calling kubectl for %s: %v\n%s", user, err, stdoutStderr)
+				log.Printf("failed to get pod status: %v", err)
 				writeResponse(w, http.StatusInternalServerError, "internal server error")
 				return
+			}
+
+			if len(status.BrokerObjects) > 0 {
+				log.Printf("shutting down %s pod for user: %s", appName, user)
+				objectTypes := strings.Join(status.BrokerObjects, ",")
+				cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kubectl delete %s -n %s -l \"app.kubernetes.io/instance=%s\" --wait=false", objectTypes, namespace, fullName))
+				cmd.Dir = destDir
+				stdoutStderr, err := cmd.CombinedOutput()
+				if err != nil {
+					log.Printf("error calling kubectl for %s: %v\n%s", user, err, stdoutStderr)
+					writeResponse(w, http.StatusInternalServerError, "internal server error")
+					return
+				}
 			}
 
 			// Delete the cookie by setting max-age to -1

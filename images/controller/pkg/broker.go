@@ -28,41 +28,45 @@ import (
 	"strings"
 )
 
+const sessionKeyCharset = "abcdefghijklmnopqrstuvwxyz"
+
 func MakePodID(user string) string {
 	h := sha1.New()
 	io.WriteString(h, user)
 	return fmt.Sprintf("%x", h.Sum(nil))[:10]
 }
 
+func MakeSessionKey() string {
+	return fmt.Sprintf("%s-%s-%s",
+		StringWithCharset(3, sessionKeyCharset),
+		StringWithCharset(4, sessionKeyCharset),
+		StringWithCharset(3, sessionKeyCharset))
+}
+
 func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 	var resp StatusResponse
 	var err error
 
-	type podStatusCondition struct {
-		Type   string `json:"type"`
-		Status string `json:"status"`
-	}
-
-	type containerStatusSpec struct {
-		ContainerID string `json:"containerID"`
-		Image       string `json:"image"`
-		Name        string `json:"name"`
-	}
-
-	type podStatusSpec struct {
-		PodIP             string                `json:"podIP"`
-		Conditions        []podStatusCondition  `json:"conditions"`
-		ContainerStatuses []containerStatusSpec `json:"containerStatuses"`
-	}
-
-	type podSpec struct {
-		Metadata map[string]interface{} `json:"metadata"`
-		Spec     map[string]interface{} `json:"spec"`
-		Status   podStatusSpec          `json:"status"`
-	}
-
 	type getPodsSpec struct {
-		Items []podSpec `json:"items"`
+		Items []struct {
+			Metadata struct {
+				DeletionTimestamp *string           `json:"deletionTimestamp"`
+				Annotations       map[string]string `json:"annotations"`
+			} `json:"metadata"`
+			Spec   map[string]interface{} `json:"spec"`
+			Status struct {
+				PodIP      string `json:"podIP"`
+				Conditions []struct {
+					Type   string `json:"type"`
+					Status string `json:"status"`
+				} `json:"conditions"`
+				ContainerStatuses []struct {
+					ContainerID string `json:"containerID"`
+					Image       string `json:"image"`
+					Name        string `json:"name"`
+				} `json:"containerStatuses"`
+			} `json:"status"`
+		} `json:"items"`
 	}
 
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get pod -n %s -l %s -o json 1>&2", namespace, selector))
@@ -80,15 +84,25 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 	resp.Nodes = make([]string, 0)
 	resp.Containers = make(map[string]string, 0)
 	resp.Images = make(map[string]string, 0)
+	resp.SessionKeys = make([]string, 0)
+	resp.BrokerObjects = make([]string, 0)
 
 	podStatus := PodStatusResponse{}
 
 	for _, item := range podResp.Items {
 		// Status is terminating if metadata.deletionTimestamp is set.
 		// https://github.com/kubernetes/kubernetes/issues/22839
-		if item.Metadata["deletionTimestamp"] != nil {
+		if item.Metadata.DeletionTimestamp != nil {
 			resp.Status = "terminating"
 			return resp, err
+		}
+
+		if sessionKey, ok := item.Metadata.Annotations["app.broker/session-key"]; ok {
+			resp.SessionKeys = append(resp.SessionKeys, sessionKey)
+		}
+
+		if brokerObjects, ok := item.Metadata.Annotations["app.broker/last-applied-object-types"]; ok {
+			resp.BrokerObjects = strings.Split(brokerObjects, ",")
 		}
 
 		for _, cond := range item.Status.Conditions {
@@ -237,6 +251,14 @@ func GetUserFromCookieOrAuthHeader(r *http.Request, cookieName, authHeaderName s
 			toks := strings.Split(cookie.Value, "#")
 			if len(toks) == 2 {
 				res = toks[0]
+			}
+		} else {
+			// search for user in query parameters.
+			if keys, ok := r.URL.Query()[cookieName]; ok && len(keys[0]) > 0 {
+				toks := strings.Split(keys[0], "#")
+				if len(toks) == 2 {
+					res = toks[0]
+				}
 			}
 		}
 	}

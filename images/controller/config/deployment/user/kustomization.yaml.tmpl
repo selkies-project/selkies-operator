@@ -47,7 +47,7 @@ patchesJson6902:
     group: networking.istio.io
     version: v1alpha3
     kind: VirtualService
-    name: {{$.App}}
+    name: {{$.ServiceName}}
   path: {{ . }}
 {{- end }}
 {{- end }}

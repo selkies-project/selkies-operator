@@ -14,9 +14,9 @@
 -->
 
 <head>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@mdi/font@5.x/css/materialdesignicons.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" />
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/vuetify/2.1.12/vuetify.min.css" rel="stylesheet" />
+  <link href="vendor/vuetify.min.css" rel="stylesheet" />
   <style>
     html {
       font-family: Roboto, Arial, sans;
@@ -83,7 +83,7 @@
                 offset-x>
                 <template v-slot:activator="{ on }">
                   <v-btn v-btn icon v-on="on">
-                    <v-icon>more_vert</v-icon>
+                    <v-icon>mdi-dots-vertical</v-icon>
                   </v-btn>
                 </template>
                 <v-list class="pa-4">
@@ -125,10 +125,10 @@
 
                   <v-btn text v-on:click="app.saveConfig()">Save</v-btn>
                   <v-btn icon v-on:click="app.fetchConfig()">
-                    <v-icon>refresh</v-icon>
+                    <v-icon>mdi-refresh</v-icon>
                   </v-btn>
                   <v-btn v-btn icon>
-                    <v-icon>help</v-icon>
+                    <v-icon>mdi-help</v-icon>
                   </v-btn>
                 </v-item-group>
                 <v-textarea v-if="['failed'].indexOf(app.saveStatus) > -1" solo name="errors" readonly
@@ -144,9 +144,9 @@
 </body>
 
 <script src="pod_broker.js?ts=1"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.9/vue.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/vuetify/2.1.12/vuetify.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/vue-spinner@1.0.3/dist/vue-spinner.min.js"></script>
+<script src="vendor/vue.min.js"></script>
+<script src="vendor/vuetify.min.js"></script>
+<script src="vendor/vue-spinner.min.js"></script>
 <script src="app.js?ts=1"></script>
 
 </html>

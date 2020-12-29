@@ -23,12 +23,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	metadata "cloud.google.com/go/compute/metadata"
 )
@@ -321,4 +323,14 @@ func ListPods(namespace, selector string) ([]string, error) {
 	}
 
 	return resp, nil
+}
+
+var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+func StringWithCharset(length int, charset string) string {
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }
