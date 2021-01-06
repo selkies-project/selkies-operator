@@ -46,13 +46,28 @@ steps:
   ###
   # Builds the image used to run the deployment
   ###
-  - name: "gcr.io/kaniko-project/executor:v0.19.0"
-    id: "build-installer-image"
-    args:
-      - --destination=gcr.io/${PROJECT_ID}/${_NAME}-installer:latest
-      - --cache=true
-      - --cache-ttl=24h
+  - name: 'gcr.io/cloud-builders/docker'
+    id: installer-image-pull
+    entrypoint: 'bash'
+    args: ["-c", "if [[ '${_USE_CACHE}' == 'true' ]]; then (docker pull gcr.io/${PROJECT_ID}/${_NAME}-installer:latest || exit 0); fi"]
     waitFor: ["-"]
+  - name: 'gcr.io/cloud-builders/docker'
+    id: build-installer-image
+    args: [
+              'build',
+              '-t', 'gcr.io/${PROJECT_ID}/${_NAME}-installer:latest',
+              '.'
+          ]
+    waitFor:
+      - installer-image-pull
+  - name: 'gcr.io/cloud-builders/docker'
+    id: push-installer-image
+    args: [
+              'push',
+              'gcr.io/${PROJECT_ID}/${_NAME}-installer:latest',
+          ]
+    waitFor:
+      - build-installer-image
   ###
   # base infrasturcture
   ###
