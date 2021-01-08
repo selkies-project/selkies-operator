@@ -18,7 +18,7 @@ substitutions:
   _NAME: broker
   _REGION: us-west1
 tags:
-  - kube-app-launcher-cluster
+  - kube-app-launcher-private-cluster
   - kube-app-launcher-setup
 steps:
   ###
