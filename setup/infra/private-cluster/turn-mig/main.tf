@@ -33,7 +33,7 @@ resource "google_compute_instance_template" "default" {
 
   scheduling {
     automatic_restart   = false
-    on_host_maintenance = "MIGRATE"
+    on_host_maintenance = var.preemptible ? "TERMINATE" : "MIGRATE"
     preemptible         = var.preemptible
   }
 
