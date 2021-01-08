@@ -29,7 +29,7 @@ spec:
       labels:
         app: turn-web-aggregator
     spec:
-      serviceAccount: turn
+      serviceAccount: pod-broker
       terminationGracePeriodSeconds: 10
       containers:
         ###
@@ -77,6 +77,12 @@ spec:
           image: gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest
           command: ["/node_watcher.sh"]
           env:
+            # Add the node name as an ENV var.
+            # Used to determine if node is part of a private cluster by checking the value of the cloud.google.com/gke-private-cluster custom node label.
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: NAMESPACE
               valueFrom:
                 fieldRef:

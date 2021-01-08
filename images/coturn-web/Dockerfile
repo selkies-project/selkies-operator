@@ -21,7 +21,7 @@ FROM gcr.io/k8s-skaffold/skaffold:v1.10.1 as skaffold
 FROM alpine:3.9
 
 # Install tools
-RUN apk add -u bash jq bind-tools
+RUN apk add -u bash jq bind-tools curl
 
 # Copy build from previous layer
 COPY --from=build /go/src/coturn-web/coturn-web /usr/local/bin/coturn-web

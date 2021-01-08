@@ -12,17 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-- op: add
-  path: /spec/template/spec/containers/0/livenessProbe
-  value:
-    httpGet:
-      scheme: HTTPS
-      path: /deny-immutable-field-updates
-      port: 443
-      httpHeaders:
-        - name: Content-Type
-          value: application/json
-    initialDelaySeconds: 90
-    periodSeconds: 5
-    successThreshold: 1
-    timeoutSeconds: 1
+timeout: 10800s
+substitutions:
+  _ACTION: apply
+  _NAME: broker
+  _REGION: us-west1
+tags:
+  - kube-app-launcher-cluster
+  - kube-app-launcher-setup
+steps:
+  ###
+  # Apply terraform to create cluster
+  ###
+  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
+    id: "terraform-apply"
+    entrypoint: "/workspace/deploy.sh"
+    env:
+      - TF_VAR_project_id=${PROJECT_ID}
+      - TF_VAR_name=${_NAME}
+      - TF_VAR_region=${_REGION}
+      - TERRAFORM_WORKSPACE_NAME=${_REGION}
+      - ACTION=${_ACTION}

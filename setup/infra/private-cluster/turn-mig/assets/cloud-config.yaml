@@ -1,0 +1,75 @@
+#cloud-config
+
+write_files:
+- path: /var/lib/docker/daemon.json
+  permissions: 0644
+  owner: root
+  content: |
+    {
+      "live-restore": true,
+      "storage-driver": "overlay2",
+      "log-opts": {
+        "max-size": "1024m"
+      }
+    }
+# coturn systemd unit
+- path: /etc/systemd/system/coturn.service
+  permissions: 0644
+  owner: root
+  content: |
+    [Unit]
+    Description=COTURN server
+    After=docker.service
+    Requires=docker.service
+    [Service]
+    TimeoutStartSec=0
+    Restart=always
+    Environment="HOME=/home/cloudservice"
+    ExecStartPre=/usr/bin/docker-credential-gcr configure-docker
+    ExecStartPre=-/usr/bin/docker kill %n
+    ExecStartPre=-/usr/bin/docker rm %n
+    ExecStartPre=/usr/bin/docker pull ${element(split(",", custom_var), 3)}
+    ExecStart=/usr/bin/docker run --rm --name %n \
+      --log-driver=gcplogs --log-opt gcp-log-cmd=true \
+      --net=host \
+      --env TURN_SHARED_SECRET="${element(split(",", custom_var), 0)}" \
+      --env TURN_REALM="${element(split(",", custom_var), 1)}" \
+      --env TURN_PORT="3478" \
+      --env TURN_MIN_PORT="25000" \
+      --env TURN_MAX_PORT="25100" \
+      ${element(split(",", custom_var), 3)}
+    [Install]
+    WantedBy=multi-user.target
+# coturn-web systemd unit
+- path: /etc/systemd/system/coturn_web.service
+  permissions: 0644
+  owner: root
+  content: |
+    [Unit]
+    Description=COTURN web service
+    After=docker.service
+    Requires=docker.service
+    [Service]
+    TimeoutStartSec=0
+    Restart=always
+    Environment="HOME=/home/cloudservice"
+    ExecStartPre=/usr/bin/docker-credential-gcr configure-docker
+    ExecStartPre=-/usr/bin/docker kill %n
+    ExecStartPre=-/usr/bin/docker rm %n
+    ExecStartPre=/usr/bin/docker pull ${element(split(",", custom_var), 3)}
+    ExecStart=/usr/bin/docker run --rm --name %n \
+      --log-driver=gcplogs --log-opt gcp-log-cmd=true \
+      --net=host \
+      --env TURN_SHARED_SECRET="${element(split(",", custom_var), 0)}" \
+      --env TURN_REALM="${element(split(",", custom_var), 1)}" \
+      --env PORT="8088" \
+      --env TURN_PORT="3478" \
+      --env AUTH_HEADER_NAME="${element(split(",", custom_var), 2)}" \
+      ${element(split(",", custom_var), 4)}
+    [Install]
+    WantedBy=multi-user.target
+runcmd:
+- docker-credential-gcr configure-docker
+- iptables -I INPUT 1 -p tcp -m tcp --dport 22 -m state --state NEW,ESTABLISHED -j ACCEPT
+- systemctl daemon-reload
+- systemctl enable coturn.service && systemctl start coturn.service && systemctl enable coturn_web.service && systemctl start coturn_web.service

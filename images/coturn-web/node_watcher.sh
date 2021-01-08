@@ -45,12 +45,25 @@ echo "INFO: Starting TURN node watcher"
 
 while true; do
     # Save all node IPs to JSON file.
-    kubectl get node -l "cloud.google.com/gke-nodepool=turn" -o json | jq -c -r '[.items[].status.addresses[] | select(.type == "ExternalIP") | {ip: .address}]' \
-        > /tmp/node_ips.json
+    PRIVATE_CLUSTER=$(kubectl get node $NODE_NAME -o jsonpath='{.metadata.labels.cloud\.google\.com/gke-private-cluster}')
+    if [[ "${PRIVATE_CLUSTER}" == "true" ]]; then
+        TOKEN=$(curl -s -H "Metadata-Flavor: Google" "http://metadata/computeMetadata/v1/instance/service-accounts/default/token" | jq -r '.access_token')
+        ZONE=$(curl -s -H "Metadata-Flavor: Google" "http://metadata/computeMetadata/v1/instance/zone")
+        curl -s -H "Authorization: Bearer $TOKEN" -H "Metadata-Flavor: Google" "https://compute.googleapis.com/compute/v1/${ZONE}/instances" | \
+        jq -c -r '[.items[] | select(.tags.items | index("gke-turn")) | .networkInterfaces[] | .accessConfigs[] | {ip: .natIP}]' \
+            > /tmp/node_ips.json 
+    else
+        kubectl get node -l "cloud.google.com/gke-nodepool=turn" -o json | jq -c -r '[.items[].status.addresses[] | select(.type == "ExternalIP") | {ip: .address}]' \
+            > /tmp/node_ips.json
+    fi
     
-    # Inject IPs into template and apply to cluster.
-    cat /tmp/endpoints-template.json | jq --slurpfile nodeIPs /tmp/node_ips.json '.subsets[].addresses=$nodeIPs[]' | \
-        kubectl apply -f - > /dev/null
+    if [[ $(jq '.|length' /tmp/node_ips.json) -eq 0 ]]; then
+        echo "WARN: No nodes found"
+    else
+        # Inject IPs into template and apply to cluster.
+        cat /tmp/endpoints-template.json | jq --slurpfile nodeIPs /tmp/node_ips.json '.subsets[].addresses=$nodeIPs[]' | \
+            kubectl apply --overwrite=true -f - |  > /dev/null
+    fi
 
     sleep 10
 done

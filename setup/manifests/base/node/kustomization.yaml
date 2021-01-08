@@ -21,3 +21,6 @@ resources:
   - pd-ssd-storage-class.yaml
   # Storage class to use standard persistent disks with volume expansion enabled.
   - pd-standard-storage-class.yaml
+  # Node termination handler (for preemptible nodes)
+  - node-termination-handler-ds.yaml
+  - node-termination-handler-rbac.yaml
