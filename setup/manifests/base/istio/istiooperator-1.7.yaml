@@ -34,6 +34,10 @@ spec:
           # Increasing the min replica count helps with node upgrades.
           maxReplicas: 5
           minReplicas: 2
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
     
     ingressGateways:
       - name: istio-ingressgateway

@@ -35,6 +35,7 @@ module "broker" {
   enable_private_endpoint   = false
   enable_private_nodes      = true
   default_max_pods_per_node = var.max_pods_per_node
+  gce_pd_csi_driver         = true
 
   // Enable network metering to track per-user traffic.
   // https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-usage-metering#enable-network-egress-metering
