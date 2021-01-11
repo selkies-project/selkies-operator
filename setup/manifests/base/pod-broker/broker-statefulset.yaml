@@ -268,6 +268,10 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 8080
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
         ###
         # reservation-broker
         ###
@@ -302,6 +306,10 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 8082
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
         ###
         # App config finder sidecar
         ###
@@ -321,7 +329,10 @@ spec:
               mountPath: /var/run/buildsrc
             - name: userconfig
               mountPath: /var/run/userconfig
-
+          resources:
+            requests:
+              cpu: 200m
+              memory: 64Mi
         ###
         # Image finding sidecar
         ###
@@ -339,6 +350,10 @@ spec:
               mountPath: /var/run/build
             - name: userconfig
               mountPath: /var/run/userconfig
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
 
         ###
         # App publisher sidecar
@@ -366,6 +381,10 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 8080
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
 
         ###
         # pod-broker web
@@ -377,3 +396,7 @@ spec:
           readinessProbe:
             httpGet:
               port: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi

@@ -69,6 +69,10 @@ spec:
           ports:
             - name: rest
               containerPort: 8080
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
         ###
         # TURN node watcher sidecar
         # Updates Endpoints object with node external IP for DNS discovery.
@@ -93,3 +97,7 @@ spec:
               value: "3478"
             - name: SVC_PORT_NAME
               value: "turn"
+          resources:
+            requests:
+              cpu: 60m
+              memory: 64Mi
