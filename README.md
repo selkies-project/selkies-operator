@@ -1,5 +1,7 @@
 # Selkies - Stateful Workload Operator
 
+[![Discord](https://img.shields.io/discord/798699922223398942?logo=discord)](https://discord.gg/wDNGDeSW5F)
+
 Selkies is a platform built on GKE to orchestrate per-user stateful workloads.
 
 ## Limitations
