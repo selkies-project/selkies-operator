@@ -15,7 +15,7 @@ The steps below will create the infrastructure for the app launcher. You should 
 1. Clone the source repository:
 
 ```bash
-git clone https://github.com/GoogleCloudPlatform/selkies.git -b v1.0.0 && \
+git clone https://github.com/selkies-project/selkies.git -b v1.0.0 && \
   cd selkies
 ```
 
