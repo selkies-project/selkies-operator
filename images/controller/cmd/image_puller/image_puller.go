@@ -238,34 +238,30 @@ func makeImageName(repo, tag string) string {
 func getImageDigest(image, accessToken string) (string, error) {
 	respImage := ""
 
-	imageTags, err := broker.ListGCRImageTags(image, accessToken)
-	if err != nil {
-		return respImage, err
-	}
-
 	if len(regexp.MustCompile(broker.GCRImageWithTagPattern).FindAllString(image, -1)) > 0 {
 		// Find image digest from tag.
 		imageToks := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), ":")
 		imageRepo := imageToks[0]
 		imageTag := imageToks[1]
 
-		for digest, meta := range imageTags.Manifest {
-			for _, tag := range meta.Tag {
-				if tag == imageTag {
-					respImage = fmt.Sprintf("gcr.io/%s@%s", imageRepo, digest)
-					break
-				}
-			}
-			if len(respImage) > 0 {
-				break
-			}
+		digest, err := broker.GetGCRDigestFromTag(imageRepo, imageTag, accessToken)
+		if err != nil {
+			return respImage, err
 		}
+
+		respImage = fmt.Sprintf("gcr.io/%s@%s", imageRepo, digest)
 	}
 
 	if len(regexp.MustCompile(broker.GCRImageWithDigestPattern).FindAllString(image, -1)) > 0 {
 		// Verify image digest is in list response.
-		imageDigest := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@")[1]
-		if _, ok := imageTags.Manifest[imageDigest]; ok {
+		imageToks := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@")
+		imageRepo := imageToks[0]
+		imageDigest := imageToks[1]
+		digest, err := broker.GetGCRDigestFromTag(imageRepo, imageDigest, accessToken)
+		if err != nil {
+			return respImage, err
+		}
+		if imageDigest == digest {
 			respImage = image
 		}
 	}
