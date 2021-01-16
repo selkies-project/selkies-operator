@@ -177,7 +177,7 @@ func GetGCRDigestFromTag(repo, tag string, authToken string) (string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("HEAD", url, nil)
 	req.Header.Set("User-Agent", "Selkies_Controller/1.0")
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	resp, err := client.Do(req)
 	if err != nil {
