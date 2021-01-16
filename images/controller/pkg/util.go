@@ -80,7 +80,7 @@ func GetServiceAccountFromMetadataServer() (string, error) {
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Add("Metadata-Flavor", "Google")
+	req.Header.Set("Metadata-Flavor", "Google")
 	resp, err := client.Do(req)
 	if err != nil {
 		return sa, err
@@ -105,7 +105,7 @@ func GetServiceAccountTokenFromMetadataServer(sa string) (string, error) {
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Add("Metadata-Flavor", "Google")
+	req.Header.Set("Metadata-Flavor", "Google")
 	resp, err := client.Do(req)
 	if err != nil {
 		return sa, err
@@ -148,7 +148,8 @@ func ListGCRImageTags(image string, authToken string) (ImageListResponse, error)
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	req.Header.Set("User-Agent", "Selkies_Controller/1.0")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	resp, err := client.Do(req)
 	if err != nil {
 		return listResp, err
@@ -168,6 +169,28 @@ func ListGCRImageTags(image string, authToken string) (ImageListResponse, error)
 	}
 
 	return listResp, nil
+}
+
+func GetGCRDigestFromTag(repo, tag string, authToken string) (string, error) {
+	url := fmt.Sprintf("https://gcr.io/v2/%s/manifests/%s", repo, tag)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("HEAD", url, nil)
+	req.Header.Set("User-Agent", "Selkies_Controller/1.0")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("error fetching HEAD request, status code: %v", resp.StatusCode)
+	}
+
+	digest := resp.Header.Get("docker-content-digest")
+
+	return digest, nil
 }
 
 func ListGCRImageTagsInternalMetadataToken(image string) (ImageListResponse, error) {
