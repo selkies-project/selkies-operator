@@ -17,7 +17,9 @@
 package main
 
 import (
+	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -30,15 +32,23 @@ import (
 	"text/template"
 	"time"
 
+	"cloud.google.com/go/pubsub"
 	"github.com/Masterminds/sprig"
 	broker "selkies.io/controller/pkg"
 )
 
-const loopInterval = 2
+// pubsub message receive context timeout in seconds
+const pubsubRecvTimeout = 2
+
+// job cleanup loop interval in seconds
+const jobCleanupInterval = 10
+
+// new image check interval in seconds
+const newImagePullInterval = 5
 
 func main() {
 
-	log.Printf("Starting image puller")
+	log.Printf("starting image puller")
 
 	// Set from downward API.
 	namespace := os.Getenv("NAMESPACE")
@@ -57,12 +67,6 @@ func main() {
 		templatePath = "/run/image-puller/template/image-pull-job.yaml.tmpl"
 	}
 
-	// optional polling mode.
-	loop := false
-	if os.Getenv("IMAGE_PULL_LOOP") == "true" {
-		loop = true
-	}
-
 	// configure docker with gcloud credentials
 	cmd := exec.Command("gcloud", "auth", "configure-docker", "-q")
 	stdoutStderr, err := cmd.CombinedOutput()
@@ -70,23 +74,123 @@ func main() {
 		log.Fatalf("failed to configure docker with gcloud: %s, %v", string(stdoutStderr), err)
 	}
 
-	// Obtain SA email
+	// Obtain Service Account email
 	saEmail, err := broker.GetServiceAccountFromMetadataServer()
 	if err != nil {
 		log.Fatalf("failed to get service account email: %v", err)
 	}
 
-	var wg sync.WaitGroup
+	project, err := broker.GetProjectID()
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	topicName := os.Getenv("TOPIC_NAME")
+	if len(topicName) == 0 {
+		topicName = "gcr"
+	}
+
+	// Subscribe to GCR pub/sub topic
+	subName := fmt.Sprintf("pod-broker-image-puller-%s", nodeName)
+	sub, err := broker.GetPubSubSubscription(subName, topicName, project, saEmail)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Go routine to process all messages from subscription
+	go func() {
+		log.Printf("starting GCR pubsub worker")
+		for {
+			recvCtx, cancelRecv := context.WithTimeout(context.Background(), pubsubRecvTimeout*time.Second)
+			defer cancelRecv()
+
+			if err := sub.Receive(recvCtx, func(ctx context.Context, m *pubsub.Message) {
+				var message broker.GCRPubSubMessage
+				if err := json.Unmarshal(m.Data, &message); err != nil {
+					log.Printf("error decoding GCR message: %v", err)
+					return
+				}
+
+				if len(message.Tag) > 0 {
+					// Fetch list of current images we care about.
+					images, err := findImageTags(namespace)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					imageWithTag := message.Tag
+					foundMatchingImage := false
+					for _, image := range images {
+						if image == imageWithTag {
+							foundMatchingImage = true
+							break
+						}
+					}
+					if foundMatchingImage {
+						log.Printf("processing GCR image: %s", message.Tag)
+
+						imageWithDigest := message.Digest
+						imageToks := strings.Split(imageWithTag, ":")
+						imageTag := imageToks[1]
+
+						if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
+							log.Printf("%v", err)
+							return
+						}
+					} else {
+						fmt.Printf("skipping image pull because image is not used by any apps: %s", imageWithTag)
+					}
+				} else {
+					fmt.Printf("skipping gcr message because message is missing image tag: %s", message.Digest)
+				}
+			}); err != nil {
+				fmt.Printf("error receiving message: %v", sub)
+			}
+		}
+	}()
+
+	// Go routine to cleanup completed jobs.
+	go func() {
+		log.Printf("starting job cleanup worker")
+		for {
+			currJobs, err := broker.GetJobs(namespace, "app=image-pull")
+			if err != nil {
+				log.Fatalf("failed to get current jobs: %v", err)
+			}
+
+			// Delete completed jobs.
+			for _, job := range currJobs {
+				if metaValue, ok := job.Metadata["annotations"]; ok {
+					annotations := metaValue.(map[string]interface{})
+					if imagePullAnnotation, ok := annotations["pod.broker/image-pull"]; ok {
+						if strings.Split(imagePullAnnotation.(string), ",")[0] == nodeName {
+							// Found job for node.
+							jobName := job.Metadata["name"].(string)
+							if job.Status.Succeeded > 0 {
+								log.Printf("deleting completed job: %s", jobName)
+								cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl delete job -n %s %s 1>&2", namespace, jobName))
+								stdoutStderr, err := cmd.CombinedOutput()
+								if err != nil {
+									log.Printf("error calling kubectl to delete job: %v\n%s", err, string(stdoutStderr))
+								}
+							}
+						}
+					} else {
+						log.Printf("missing pod.broker/image-pull annotation on job")
+					}
+				}
+			}
+			time.Sleep(jobCleanupInterval * time.Second)
+		}
+	}()
+
+	// Go routine to fetch new images
+	log.Printf("starting new image puller worker")
 	for {
+		// Perform one-time list of all image tags then exit.
 		token, err := broker.GetServiceAccountTokenFromMetadataServer(saEmail)
 		if err != nil {
 			log.Fatalf("failed to get service account token: %v", err)
-			if loop {
-				time.Sleep(loopInterval * time.Second)
-			} else {
-				break
-			}
 		}
 
 		images, err := findImageTags(namespace)
@@ -99,15 +203,10 @@ func main() {
 			log.Fatal(err)
 		}
 
-		currJobs, err := broker.GetJobs(namespace, "app=image-pull")
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		// Process images in parallel
+		var wg sync.WaitGroup
 		wg.Add(len(images))
 		for _, image := range images {
-
 			go func(image, token string) {
 				// Fetch image details for images in the form of: "gcr.io.*:tag"
 				if image[:6] == "gcr.io" {
@@ -124,33 +223,12 @@ func main() {
 						}
 
 						if !imageOnNode {
-							// Check to see if job is active.
-							jobFound := false
-							for _, job := range currJobs {
-								if metaValue, ok := job.Metadata["annotations"]; ok {
-									annotations := metaValue.(map[string]interface{})
-									if imagePullAnnotation, ok := annotations["pod.broker/image-pull"]; ok {
-										if imagePullAnnotation.(string) == fmt.Sprintf("%s,%s", nodeName, imageWithDigest) {
-											// Found a job with matching image digest.
-											jobFound = true
-										}
-									} else {
-										log.Printf("missing pod.broker/image-pull annotation on job")
-									}
-								} else {
-									log.Printf("failed to get job annotations")
-								}
-							}
-
-							if !jobFound {
-								tag := getTagFromImage(image)
-								if err := makeImagePullJob(imageWithDigest, tag, nodeName, namespace, templatePath); err != nil {
-									log.Printf("failed to make job: %v", err)
-								}
+							imageTag := getTagFromImage(image)
+							if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
+								log.Printf("%v", err)
 							}
 						}
 					}
-
 				} else {
 					// Non-gcr image
 					log.Printf("skipping pull of non-gcr image: %s", image)
@@ -158,38 +236,44 @@ func main() {
 				wg.Done()
 			}(image, token)
 		}
-
 		wg.Wait()
 
-		// Delete completed jobs.
-		for _, job := range currJobs {
-			if metaValue, ok := job.Metadata["annotations"]; ok {
-				annotations := metaValue.(map[string]interface{})
-				if imagePullAnnotation, ok := annotations["pod.broker/image-pull"]; ok {
-					if strings.Split(imagePullAnnotation.(string), ",")[0] == nodeName {
-						// Found job for node.
-						jobName := job.Metadata["name"].(string)
-						if job.Status.Succeeded > 0 {
-							log.Printf("deleting completed job: %s", jobName)
-							cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl delete job -n %s %s 1>&2", namespace, jobName))
-							stdoutStderr, err := cmd.CombinedOutput()
-							if err != nil {
-								log.Printf("error calling kubectl to delete job: %v\n%s", err, string(stdoutStderr))
-							}
-						}
-					}
-				} else {
-					log.Printf("missing pod.broker/image-pull annotation on job")
-				}
-			}
-		}
+		time.Sleep(newImagePullInterval * time.Second)
+	}
+}
 
-		if loop {
-			time.Sleep(loopInterval * time.Second)
+// Creates Job to pull image if one is not already running.
+func pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath string) error {
+	// Check to see if job is active.
+	currJobs, err := broker.GetJobs(namespace, "app=image-pull")
+	if err != nil {
+		return err
+	}
+
+	jobFound := false
+	for _, job := range currJobs {
+		if metaValue, ok := job.Metadata["annotations"]; ok {
+			annotations := metaValue.(map[string]interface{})
+			if imagePullAnnotation, ok := annotations["pod.broker/image-pull"]; ok {
+				if imagePullAnnotation.(string) == fmt.Sprintf("%s,%s", nodeName, imageWithDigest) {
+					// Found a job with matching image digest.
+					jobFound = true
+				}
+			} else {
+				return fmt.Errorf("missing pod.broker/image-pull annotation on job")
+			}
 		} else {
-			break
+			return fmt.Errorf("failed to get job annotations")
 		}
 	}
+
+	if !jobFound {
+		log.Printf("creating image pull job for %s", imageWithDigest)
+		if err := makeImagePullJob(imageWithDigest, imageTag, nodeName, namespace, templatePath); err != nil {
+			return fmt.Errorf("failed to make job: %v", err)
+		}
+	}
+	return nil
 }
 
 // Returns de-duplicated list of image tags from:
@@ -277,9 +361,8 @@ func getImageDigest(image, accessToken string) (string, error) {
 func getTagFromImage(image string) string {
 	if len(regexp.MustCompile(broker.GCRImageWithTagPattern).FindAllString(image, -1)) > 0 {
 		return strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), ":")[1]
-	} else {
-		return ""
 	}
+	return ""
 }
 
 // Check if job is currently running.

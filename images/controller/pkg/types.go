@@ -361,3 +361,9 @@ type GetJobSpec struct {
 	Metadata map[string]interface{} `json:"metadata"`
 	Status   JobStatusSpec          `json:"status"`
 }
+
+type GCRPubSubMessage struct {
+	Action string `json:"action"`
+	Digest string `json:"digest"`
+	Tag    string `json:"tag"`
+}

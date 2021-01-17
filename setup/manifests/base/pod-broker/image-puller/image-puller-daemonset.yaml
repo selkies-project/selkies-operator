@@ -75,8 +75,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            - name: IMAGE_PULL_LOOP
-              value: "true"
           volumeMounts:
             - name: docker
               mountPath: /var/run/docker.sock
