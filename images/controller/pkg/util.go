@@ -19,10 +19,12 @@ package pod_broker
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -33,6 +35,9 @@ import (
 	"time"
 
 	metadata "cloud.google.com/go/compute/metadata"
+	"cloud.google.com/go/pubsub"
+	oauth2 "golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
 )
 
 const GCRImageWithTagPattern = `gcr.io.*:.*$`
@@ -346,6 +351,46 @@ func ListPods(namespace, selector string) ([]string, error) {
 	}
 
 	return resp, nil
+}
+
+func GetPubSubSubscription(subName, topicName, project, saEmail string) (*pubsub.Subscription, error) {
+	var sub *pubsub.Subscription
+
+	var opts []option.ClientOption
+	opts = append(opts, option.WithTokenSource(oauth2.ComputeTokenSource(saEmail)))
+
+	ctx := context.Background()
+	client, err := pubsub.NewClient(ctx, project, opts...)
+	if err != nil {
+		return sub, fmt.Errorf("failed to create pubsub client: %v", err)
+	}
+
+	// Verify topic exists
+	topic := client.Topic(topicName)
+	ok, err := topic.Exists(ctx)
+	if err != nil {
+		return sub, fmt.Errorf("fmt.Errorfailed to check if topic exists: %v", err)
+	}
+	if !ok {
+		return sub, fmt.Errorf("topic does not exist: %s", topicName)
+	}
+
+	// Check for existing subscription for this node, create one if needed.
+	sub = client.Subscription(subName)
+	ok, err = sub.Exists(ctx)
+	if err != nil {
+		return sub, fmt.Errorf("failed to check if subscription exists: %v", err)
+	}
+	if !ok {
+		log.Printf("creating subscription: %s", subName)
+		var err error
+		sub, err = client.CreateSubscription(ctx, subName, pubsub.SubscriptionConfig{Topic: topic})
+		if err != nil {
+			return sub, fmt.Errorf("failed to create pubsub subscription: %v", err)
+		}
+	}
+
+	return sub, nil
 }
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))

@@ -54,19 +54,19 @@ resource "google_project_iam_member" "cluster_service_account-iap-user" {
 
 resource "google_project_iam_member" "cluster_service_account-gke-admin" {
   project = google_project_iam_member.cluster_service_account-metric_writer.project
-  role = "roles/container.clusterAdmin"
+  role    = "roles/container.clusterAdmin"
   member  = "serviceAccount:${google_service_account.cluster_service_account.email}"
 }
 
 resource "google_project_iam_member" "cluster_service_account-storage-admin" {
   project = google_project_iam_member.cluster_service_account-metric_writer.project
-  role = "roles/storage.admin"
+  role    = "roles/storage.admin"
   member  = "serviceAccount:${google_service_account.cluster_service_account.email}"
 }
 
 resource "google_project_iam_member" "cluster_service_account-compute-viewer" {
   project = google_project_iam_member.cluster_service_account-metric_writer.project
-  role = "roles/compute.viewer"
+  role    = "roles/compute.viewer"
   member  = "serviceAccount:${google_service_account.cluster_service_account.email}"
 }
 
@@ -76,6 +76,14 @@ resource "google_project_iam_member" "cluster_service_account-compute-viewer" {
 resource "google_project_iam_member" "cluster_service_account-gcr" {
   project = var.project_id
   role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.cluster_service_account.email}"
+}
+
+# Grant access to modify pub/sub subscriptions
+# This permission is used by the image-puller service
+resource "google_project_iam_member" "cluster_service_account-pubsub" {
+  project = var.project_id
+  role    = "roles/pubsub.editor"
   member  = "serviceAccount:${google_service_account.cluster_service_account.email}"
 }
 
