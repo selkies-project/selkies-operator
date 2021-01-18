@@ -426,11 +426,13 @@ func main() {
 				// Verifiy image repo and tag exists if it was changed.
 				if inputConfigSpec.ImageRepo != userConfig.Spec.ImageRepo || inputConfigSpec.ImageTag != userConfig.Spec.ImageTag {
 					log.Printf("validating user image repo: %s:%s", inputConfigSpec.ImageRepo, inputConfigSpec.ImageTag)
-					if err := broker.ValidateImageRepo(inputConfigSpec.ImageRepo, inputConfigSpec.ImageTag, allowedRepoPattern); err != nil {
+					imageTags, err := broker.ValidateImageRepo(inputConfigSpec.ImageRepo, inputConfigSpec.ImageTag, allowedRepoPattern)
+					if err != nil {
 						log.Printf("user %s config image validation failed: %v", user, err)
 						writeResponse(w, http.StatusBadRequest, fmt.Sprintf("%v", err))
 						return
 					}
+					inputConfigSpec.Tags = imageTags
 				}
 
 				// Verify parameters are valid for this app.

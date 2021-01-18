@@ -151,25 +151,39 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 	return resp, err
 }
 
-func ValidateImageRepo(repo, tag string, authorizedImagePattern *regexp.Regexp) error {
+func ValidateImageRepo(repo, tag string, authorizedImagePattern *regexp.Regexp) ([]string, error) {
 	// Verifies that the image repo is in the correct format.
 	// Verifies pod broker has access to the repo.
 	// Verifies that node has access to the repo.
 
+	tags := []string{}
+
 	if !authorizedImagePattern.MatchString(repo) {
-		return fmt.Errorf("rejected image repository '%s' per broker config.", repo)
+		return tags, fmt.Errorf("rejected image repository '%s' per broker config.", repo)
 	}
 
 	listResp, err := ListGCRImageTagsInternalMetadataToken(repo)
 	if err != nil {
-		return fmt.Errorf("failed to check image repository: '%s'", repo)
+		return tags, fmt.Errorf("failed to check image repository: '%s', %v", repo, err)
 	}
+	tags = listResp.Tags
 
 	if len(listResp.Tags) == 0 {
-		return fmt.Errorf("invalid permissions or no tags found for image: '%s", repo)
+		return tags, fmt.Errorf("invalid permissions or no tags found for image: '%s", repo)
 	}
 
-	return nil
+	found := false
+	for _, t := range tags {
+		if t == tag {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return tags, fmt.Errorf("repo %s does not have tag: %s", repo, tag)
+	}
+
+	return listResp.Tags, nil
 }
 
 func MakeCookieValue(user, cookieSecret string) string {

@@ -40,6 +40,7 @@ import (
 	"google.golang.org/api/option"
 )
 
+const GCRImageWithoutTagPattern = `gcr.io.*$`
 const GCRImageWithTagPattern = `gcr.io.*:.*$`
 const GCRImageWithDigestPattern = `gcr.io.*@sha256.*$`
 
@@ -138,6 +139,9 @@ func ExtractGCRRepoFromImage(image string) string {
 	} else if len(regexp.MustCompile(GCRImageWithDigestPattern).FindAllString(image, -1)) > 0 {
 		// Extract just the repo/image format from the image, excluding the digest at the end.
 		gcrRepo = strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@")[0]
+	} else if len(regexp.MustCompile(GCRImageWithoutTagPattern).FindAllString(image, -1)) > 0 {
+		// Already have repo without tag.
+		gcrRepo = strings.ReplaceAll(image, "gcr.io/", "")
 	}
 	return gcrRepo
 }
