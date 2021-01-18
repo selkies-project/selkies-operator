@@ -31,7 +31,7 @@ import (
 )
 
 // Interval to re-check all configs, in seconds.
-const checkInterval = 60
+const checkInterval = 300
 
 // pubsub message receive context timeout in seconds
 const pubsubRecvTimeout = 2
