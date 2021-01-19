@@ -88,7 +88,7 @@ gcloud secrets create broker-cookie-secret --replication-policy=automatic --data
 1. Deploy the base infrastructure with Cloud Build:
 
 ```bash
-(cd setup && gcloud builds submit)
+(cd setup/infra && gcloud builds submit)
 ```
 
 2. Deploy the cluster for your desired region:

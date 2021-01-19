@@ -21,6 +21,19 @@ tags:
   - kube-app-launcher-setup
 steps:
   ###
+  # Create GCS bucket to store terraform state
+  ###
+  - name: "gcr.io/cloud-builders/gsutil"
+    id: "create-tf-state-bucket"
+    entrypoint: "/bin/bash"
+    args:
+      - "-xe"
+      - "-c"
+      - |
+        gsutil mb gs://${PROJECT_ID}-${_NAME}-tf-state || true
+    waitFor: ["-"]
+
+  ###
   # Apply terraform to create base infrastructure
   ###
   - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
