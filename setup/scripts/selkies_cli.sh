@@ -14,36 +14,63 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ACTION=$1
-APP=$2
-ENDPOINT=$3
-[[ $# -lt 1 ]] && echo "USAGE: $0 <start|stop|status|list> [<app name>]" && exit 1
-ACTION=${ACTION,,}
-APP=${APP,,}
+function usage() {
+    echo "USAGE: $0 <start|stop|status|list> [<app name>] [-u <user>] [--ctx <kube context>]" && exit 1
+}
+[[ $# -eq 0 ]] && usage && exit 1
+
+ACCOUNT=""
+CTX=""
+while (( "$#" )); do
+    case ${1,,} in
+        start|stop|status)
+            ACTION=${1,,}
+            shift
+            APP=${1,,}
+            ;;
+        list)
+            ACTION=$1
+            ;;
+        "-u")
+            shift
+            ACCOUNT=$1
+            ;;
+        "--ctx")
+            shift
+            CTX="--context $1"
+            ;;
+        *) log_red "ERROR: Invalid argument '$1', USAGE: pod-broker <build|push|deploy-REGION> [-p <project id>]" && return 1 ;;
+    esac
+    shift
+done
 
 [[ "${ACTION}" != "list" && -z "${APP}" ]] && echo "ERROR: missing app name for action: ${ACTION}" && exit 1
 
-ACCOUNT=${ACCOUNT:-$(gcloud config get-value account)}
-[[ -z "${ACCOUNT}" ]] && echo "ERROR: Failed to get gcloud account, did you run 'gcloud auth login'?" && exit 1
+if [[ -z "${ACCOUNT}" ]]; then
+    ACCOUNT=$(gcloud config get-value account)
+    [[ -z "${ACCOUNT}" ]] && echo "ERROR: Failed to get gcloud account, did you run 'gcloud auth login'?" && exit 1
+fi
+
+AUTH_HEADER=$(kubectl $CTX get cm -n pod-broker-system pod-broker-config -o jsonpath='{.data.POD_BROKER_PARAM_AuthHeader}')
 
 case $ACTION in
 "list")
-    kubectl exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
-        curl -s -H "x-goog-authenticated-user-email: ${ACCOUNT}" -XGET localhost:8080/ \
+    kubectl $CTX exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
+        curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XGET localhost:8080/ \
             | jq -r '.apps[].name'
     ;;
 "start")
-    kubectl exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
-        curl -s -H "x-goog-authenticated-user-email: ${ACCOUNT}" -XPOST localhost:8080/${APP}
+    kubectl $CTX exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
+        curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XPOST localhost:8080/${APP}
     ;;
 "stop")
-    kubectl exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
-        curl -s -H "x-goog-authenticated-user-email: ${ACCOUNT}" -XDELETE localhost:8080/${APP} \
+    kubectl $CTX exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
+        curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XDELETE localhost:8080/${APP} \
             | jq -r .
     ;;
 "status")
-    kubectl exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
-        curl -s -H "x-goog-authenticated-user-email: ${ACCOUNT}" -XGET localhost:8080/${APP} \
+    kubectl $CTX exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
+        curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XGET localhost:8080/${APP} \
             | jq -r .
     ;;
 esac
