@@ -30,6 +30,7 @@ module "broker" {
   service_account          = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
   remove_default_node_pool = true
   network_policy           = var.network_policy
+  gce_pd_csi_driver        = true
 
   # Zones must be compatible with the chosen accelerator_type in the gpu-* node pools.
   zones = length(var.zones) == 0 ? lookup(local.cluster_node_zones, var.region) : var.zones

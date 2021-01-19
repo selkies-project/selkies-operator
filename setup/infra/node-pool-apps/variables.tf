@@ -26,7 +26,7 @@ variable tier1_pool_enabled {
   default = true
 }
 variable tier1_pool_machine_type {
-  default = "n1-standard-4"
+  default = "e2-standard-4"
 }
 variable tier1_pool_initial_node_count {
   default = 1
@@ -41,10 +41,10 @@ variable tier1_pool_preemptive_nodes {
   default = false
 }
 variable tier1_pool_disk_size_gb {
-  default = 200
+  default = 100
 }
 variable tier1_pool_disk_type {
-  default = "pd-ssd"
+  default = "pd-balanced"
 }
 
 # Tier 1 Ubuntu node pool parameters
@@ -52,7 +52,7 @@ variable tier1_ubuntu_pool_enabled {
   default = false
 }
 variable tier1_ubuntu_pool_machine_type {
-  default = "n1-standard-4"
+  default = "e2-standard-4"
 }
 variable tier1_ubuntu_pool_initial_node_count {
   default = 1
@@ -67,10 +67,10 @@ variable tier1_ubuntu_pool_preemptive_nodes {
   default = false
 }
 variable tier1_ubuntu_pool_disk_size_gb {
-  default = 200
+  default = 100
 }
 variable tier1_ubuntu_pool_disk_type {
-  default = "pd-ssd"
+  default = "pd-balanced"
 }
 
 # Tier 2 node pool parameters
@@ -78,7 +78,7 @@ variable tier2_pool_enabled {
   default = false
 }
 variable tier2_pool_machine_type {
-  default = "n1-highcpu-32"
+  default = "e2-highcpu-32"
 }
 variable tier2_pool_initial_node_count {
   default = 0
@@ -93,8 +93,8 @@ variable tier2_pool_preemptive_nodes {
   default = false
 }
 variable tier2_pool_disk_size_gb {
-  default = 200
+  default = 100
 }
 variable tier2_pool_disk_type {
-  default = "pd-ssd"
+  default = "pd-balanced"
 }
