@@ -69,7 +69,7 @@ variable default_pool_disk_type {
 
 # TURN node pool counts per zone
 variable turn_pool_machine_type {
-  default = "e2-standard-2"
+  default = "e2-highcpu-2"
 }
 variable turn_pool_disk_size_gb {
   default = 10

@@ -43,3 +43,19 @@ resource "google_compute_firewall" "turn" {
   target_tags   = ["gke-turn"]
   source_ranges = ["0.0.0.0/0"]
 }
+
+resource "google_compute_firewall" "iap" {
+  name = "allow-ingress-from-iap"
+  network = replace(
+    google_compute_network.broker.self_link,
+    "https://www.googleapis.com/compute/v1/",
+    "",
+  )
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "3389"]
+  }
+
+  source_ranges = ["35.235.240.0/20"]
+}

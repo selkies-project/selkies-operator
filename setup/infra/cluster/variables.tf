@@ -37,7 +37,7 @@ variable network_policy {
 
 # Default node pool counts per zone
 variable default_pool_machine_type {
-  default = "n1-standard-4"
+  default = "e2-standard-4"
 }
 variable default_pool_initial_node_count {
   default = 2
@@ -52,7 +52,7 @@ variable default_pool_preemptive_nodes {
   default = false
 }
 variable default_pool_disk_size_gb {
-  default = 200
+  default = 100
 }
 variable default_pool_disk_type {
   default = "pd-standard"
@@ -60,7 +60,7 @@ variable default_pool_disk_type {
 
 # TURN node pool counts per zone
 variable turn_pool_machine_type {
-  default = "n1-standard-2"
+  default = "e2-highcpu-2"
 }
 variable turn_pool_initial_node_count {
   default = 1
@@ -75,7 +75,7 @@ variable turn_pool_preemptive_nodes {
   default = false
 }
 variable turn_pool_disk_size_gb {
-  default = 200
+  default = 50
 }
 variable turn_pool_disk_type {
   default = "pd-standard"
