@@ -23,7 +23,7 @@ options:
   machineType: N1_HIGHCPU_8
 
 tags:
-  - kube-app-launcher-images
+  - selkies-images
 ###
 # Images to be pushed
 ###

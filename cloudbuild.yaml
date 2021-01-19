@@ -31,7 +31,7 @@ substitutions:
   _ENABLE_UBUNTU_GPU: "false"
   _WAIT_FOR_IAP: "true"
 tags:
-  - kube-app-launcher-deploy
+  - selkies-deploy
 steps:
   ###
   # Cleanup any existing sub-jobs to prevent overlapping executions.
@@ -42,7 +42,7 @@ steps:
     args:
       - -c
       - |
-        gcloud builds list --ongoing --filter='tags[]~kube-app-launcher-setup' --format='value(id)' | \
+        gcloud builds list --ongoing --filter='tags[]~selkies-setup' --format='value(id)' | \
           xargs --no-run-if-empty gcloud builds cancel
   ###
   # Build images

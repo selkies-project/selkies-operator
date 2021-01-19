@@ -108,7 +108,7 @@ substitutions:
   _NODE_POOL:
 tags:
   - autoscaling-cronjob
-  - kube-app-launcher-setup
+  - selkies-setup
 steps:
   - name: "gcr.io/cloud-builders/gcloud"
     id: "verify-node-pool"
