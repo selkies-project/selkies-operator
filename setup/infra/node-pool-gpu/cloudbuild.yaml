@@ -20,8 +20,8 @@ substitutions:
   _COS: "true"
   _UBUNTU: "true"
 tags:
-  - kube-app-launcher-node-pool-gpu
-  - kube-app-launcher-setup
+  - selkies-node-pool-gpu
+  - selkies-setup
 steps:
   ###
   # Apply terraform to create cluster

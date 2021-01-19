@@ -18,8 +18,8 @@ substitutions:
   _NAME: broker
   _REGION: us-west1
 tags:
-  - kube-app-launcher-private-cluster
-  - kube-app-launcher-setup
+  - selkies-private-cluster
+  - selkies-setup
 steps:
   ###
   # Apply terraform to create cluster

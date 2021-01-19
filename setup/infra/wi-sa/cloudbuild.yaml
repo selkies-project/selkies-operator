@@ -17,8 +17,8 @@ substitutions:
   _ACTION: apply
   _NAME: broker
 tags:
-  - kube-app-launcher-wi-sa
-  - kube-app-launcher-setup
+  - selkies-wi-sa
+  - selkies-setup
 steps:
   ###
   # Apply terraform to create cluster

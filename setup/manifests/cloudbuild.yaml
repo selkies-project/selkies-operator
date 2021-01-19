@@ -17,8 +17,8 @@ substitutions:
   _INFRA_NAME: broker
   _REGION: us-west1
 tags:
-  - kube-app-launcher-setup
-  - kube-app-launcher-manifests
+  - selkies-setup
+  - selkies-manifests
 steps:
   ###
   # Waits for the cluster to become ready.
