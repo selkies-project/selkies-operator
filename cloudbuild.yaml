@@ -105,12 +105,13 @@ steps:
   ###
   - name: "gcr.io/cloud-builders/gcloud"
     id: "deploy-infra-base"
-    dir: "setup"
+    dir: "setup/infra"
     args:
       - "builds"
       - "submit"
       - "--substitutions=_NAME=${_NAME},_ACTION=${_ACTION}"
     waitFor:
+      - build-images
       - create-oauth-client
       - generate-broker-cookie-secret
   ###
