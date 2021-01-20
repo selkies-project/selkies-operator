@@ -63,9 +63,17 @@ func main() {
 
 	// Subscribe to GCR pub/sub topic
 	subName := fmt.Sprintf("pod-broker-image-finder-%s", region)
-	sub, err := broker.GetPubSubSubscription(subName, topicName, project, saEmail)
-	if err != nil {
-		log.Fatal(err)
+	var sub *pubsub.Subscription
+
+	// Poll until subscription is obtained
+	for {
+		sub, err = broker.GetPubSubSubscription(subName, topicName, project, saEmail)
+		if err != nil {
+			log.Printf("error getting subscription for topic %s: %v", topicName, err)
+		} else {
+			break
+		}
+		time.Sleep(2 * time.Minute)
 	}
 
 	// Go routine to process all messages from subscription
@@ -117,6 +125,7 @@ func main() {
 				} else {
 					fmt.Printf("skipping gcr message because message is missing image tag: %s", message.Digest)
 				}
+				m.Ack()
 			}); err != nil {
 				fmt.Printf("error receiving message: %v", sub)
 			}

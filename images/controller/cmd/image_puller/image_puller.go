@@ -92,9 +92,17 @@ func main() {
 
 	// Subscribe to GCR pub/sub topic
 	subName := fmt.Sprintf("pod-broker-image-puller-%s", nodeName)
-	sub, err := broker.GetPubSubSubscription(subName, topicName, project, saEmail)
-	if err != nil {
-		log.Fatal(err)
+	var sub *pubsub.Subscription
+
+	// Poll until subscription is obtained
+	for {
+		sub, err = broker.GetPubSubSubscription(subName, topicName, project, saEmail)
+		if err != nil {
+			log.Printf("error getting subscription for topic %s: %v", topicName, err)
+		} else {
+			break
+		}
+		time.Sleep(2 * time.Minute)
 	}
 
 	// Go routine to process all messages from subscription
