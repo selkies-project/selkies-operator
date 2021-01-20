@@ -331,10 +331,11 @@ func main() {
 
 	server.Urls["metadata"] = func(w http.ResponseWriter, r *http.Request) {
 		srcIP := strings.Split(r.RemoteAddr, ":")[0]
+		fwdIP := r.Header.Get("X-Forwarded-For")
 		// Check reserved pods to match requestor IP.
 		for _, appCtx := range appContexts {
 			for user, pod := range appCtx.ReservedPods {
-				if pod.IP == srcIP {
+				if srcIP == pod.IP || fwdIP == pod.IP {
 					metadata := broker.ReservationMetadataSpec{
 						IP:         pod.IP,
 						SessionKey: pod.SessionKey,
@@ -399,29 +400,89 @@ func registerAppHandler(s *Server, app broker.AppConfigSpec, appCtx *AppContext)
 	cookieName := fmt.Sprintf("broker_%s", appName)
 
 	s.Urls[app.Name] = func(w http.ResponseWriter, r *http.Request) {
-		// Get user from cookie or header
+		// Get user from cookie or header, or check to see if request is coming from a managed pod.
 		user := broker.GetUserFromCookieOrAuthHeader(r, cookieName, appCtx.AuthHeaderName)
+		var pod BrokerPod
+		foundAvailablePod := false
+		foundReservedPod := false
+		podUser := ""
 		if len(user) == 0 {
-			writeResponse(w, http.StatusBadRequest, fmt.Sprintf("Failed to get user from cookie or auth header"))
-			return
+			// Check to see if request is coming from managed pod.
+			srcIP := strings.Split(r.RemoteAddr, ":")[0]
+			fwdIP := r.Header.Get("X-Forwarded-For")
+			// Check available pods to match requestor IP.
+			for _, p := range appCtx.AvailablePods {
+				if srcIP == p.IP || fwdIP == p.IP {
+					pod = p
+					podUser = "none"
+					foundAvailablePod = true
+					break
+				}
+			}
+			// Check reserved pods to match requestor IP.
+			if !foundAvailablePod {
+				for u, p := range appCtx.ReservedPods {
+					if srcIP == p.IP || fwdIP == p.IP {
+						pod = p
+						podUser = u
+						foundReservedPod = true
+						break
+					}
+				}
+			}
+
+			if !foundAvailablePod && !foundReservedPod {
+				writeResponse(w, http.StatusUnauthorized, fmt.Sprintf("Failed to get user from cookie or auth header"))
+				return
+			}
+
 		}
-		// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
-		userToks := strings.Split(user, ":")
-		user = userToks[len(userToks)-1]
 
-		username := broker.GetUsernameFromHeaderOrDefault(r, appCtx.UsernameHeader, user)
+		if foundAvailablePod {
+			// Handle request from managed pod
+			switch r.Method {
+			case "POST":
+				writeResponse(w, http.StatusBadRequest, fmt.Sprintf("unsupported request method from source pod without reservation: %s", r.Method))
+			case "DELETE":
+				status, msg := deletePod(app, pod)
+				writeResponse(w, status, msg)
+			case "GET":
+				msg := "pod has not been reserved"
+				writeResponse(w, http.StatusNoContent, msg)
+			}
+		} else if foundReservedPod {
+			// Handle request from reserved pod
+			switch r.Method {
+			case "POST":
+				writeResponse(w, http.StatusBadRequest, fmt.Sprintf("unsupported request method from source pod with reservation: %s", r.Method))
+			case "DELETE":
+				status, msg := deleteApp(app, appCtx, user, podUser)
+				writeResponse(w, status, msg)
+			case "GET":
+				status, msg := getAppStatus(w, app, appCtx, user, podUser)
+				writeResponse(w, status, msg)
+			}
+		} else {
+			// Handle request from user
 
-		// Handle each verb
-		switch r.Method {
-		case "POST":
-			status, msg := createApp(app, appCtx, user, username)
-			writeResponse(w, status, msg)
-		case "DELETE":
-			status, msg := deleteApp(app, appCtx, user, username)
-			writeResponse(w, status, msg)
-		case "GET":
-			status, msg := getAppStatus(w, app, appCtx, user, username)
-			writeResponse(w, status, msg)
+			// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
+			userToks := strings.Split(user, ":")
+			user = userToks[len(userToks)-1]
+
+			username := broker.GetUsernameFromHeaderOrDefault(r, appCtx.UsernameHeader, user)
+
+			// Handle each verb
+			switch r.Method {
+			case "POST":
+				status, msg := createApp(app, appCtx, user, username)
+				writeResponse(w, status, msg)
+			case "DELETE":
+				status, msg := deleteApp(app, appCtx, user, username)
+				writeResponse(w, status, msg)
+			case "GET":
+				status, msg := getAppStatus(w, app, appCtx, user, username)
+				writeResponse(w, status, msg)
+			}
 		}
 	}
 }
@@ -746,6 +807,26 @@ func deleteApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 			}
 		}
 	}
+	return statusCode, msg
+}
+
+func deletePod(app broker.AppConfigSpec, pod BrokerPod) (int, string) {
+	statusCode := http.StatusOK
+	msg := "shutdown"
+	podName := pod.Name
+
+	// Delete the pod from K8S
+	log.Printf("deleting pod %s", podName)
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl delete pod -n %s %s --wait=false 1>&2", app.Name, podName))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("failed to delete pod %s: %s\n%v", podName, stdoutStderr, err)
+		statusCode = http.StatusInternalServerError
+		msg = "error deleting app"
+		return statusCode, msg
+	}
+
 	return statusCode, msg
 }
 
