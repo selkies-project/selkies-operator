@@ -127,15 +127,28 @@ func main() {
 						}
 					}
 					if foundMatchingImage {
-						log.Printf("processing GCR image: %s", message.Tag)
-
 						imageWithDigest := message.Digest
 						imageToks := strings.Split(imageWithTag, ":")
 						imageTag := imageToks[1]
 
-						if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
-							log.Printf("%v", err)
-							return
+						// Check to see if image is already on node.
+						nodeImages, err := broker.GetImagesOnNode()
+						if err != nil {
+							log.Fatal(err)
+						}
+
+						// Check if image is already on node.
+						imageOnNode := false
+						for _, nodeImage := range nodeImages {
+							if fmt.Sprintf("%s@%s", nodeImage.Repository, nodeImage.Digest) == imageWithDigest {
+								imageOnNode = true
+							}
+						}
+
+						if !imageOnNode {
+							if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
+								log.Printf("%v", err)
+							}
 						}
 					} else {
 						fmt.Printf("skipping image pull because image is not used by any apps: %s", imageWithTag)
@@ -143,6 +156,7 @@ func main() {
 				} else {
 					fmt.Printf("skipping gcr message because message is missing image tag: %s", message.Digest)
 				}
+				m.Ack()
 			}); err != nil {
 				fmt.Printf("error receiving message: %v", sub)
 			}
