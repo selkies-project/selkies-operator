@@ -47,8 +47,34 @@ CLIENT_ID=$(gcloud secrets versions access ${CLIENT_ID_SECRET_VERSION} --secret 
 (cd "${SCRIPT_DIR}/base/pod-broker" && kustomize edit add secret oauth-client-id --from-literal=CLIENT_ID=${CLIENT_ID})
 
 ###
+# Fetch auth header values from Secret Manager
+###
+AUTH_HEADER="x-goog-authenticated-user-email"
+AUTH_HEADER_SECRET_VERSION=$(gcloud -q secrets versions list broker-auth-header --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+if [[ -n "${AUTH_HEADER_SECRET_VERSION}" ]]; then
+  AUTH_HEADER=$(gcloud secrets versions access ${AUTH_HEADER_SECRET_VERSION} --secret broker-auth-header)
+fi
+
+USERNAME_HEADER="x-broker-user"
+USERNAME_HEADER_SECRET_VERSION=$(gcloud -q secrets versions list broker-username-header --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+if [[ -n "${USERNAME_HEADER_SECRET_VERSION}" ]]; then
+  USERNAME_HEADER=$(gcloud secrets versions access ${USERNAME_HEADER_SECRET_VERSION} --secret broker-username-header)
+fi
+
+###
 # Broker configmap items
 ###
+CONFIG_DATA=$(cat <<-EOF
+  POD_BROKER_PARAM_ProjectID: "${PROJECT_ID}"
+  POD_BROKER_PARAM_Theme: "dark"
+  POD_BROKER_PARAM_Title: "App Launcher"
+  POD_BROKER_PARAM_Domain: "${ENDPOINT}"
+  POD_BROKER_PARAM_AuthHeader: "${AUTH_HEADER}"
+  POD_BROKER_PARAM_UsernameHeader: "${USERNAME_HEADER}"
+  POD_BROKER_PARAM_AuthorizedUserRepoPattern: "gcr.io/.*"
+EOF
+)
+
 DEST=${DEST_DIR}/patch-pod-broker-config.yaml
 cat > "${DEST}" << EOF
 apiVersion: v1
@@ -56,15 +82,28 @@ kind: ConfigMap
 metadata:
   name: pod-broker-config
 data:
-  POD_BROKER_PARAM_ProjectID: "${PROJECT_ID}"
-  POD_BROKER_PARAM_Theme: "dark"
-  POD_BROKER_PARAM_Title: "App Launcher"
-  POD_BROKER_PARAM_Domain: "${ENDPOINT}"
-  POD_BROKER_PARAM_AuthHeader: "x-goog-authenticated-user-email"
-  POD_BROKER_PARAM_AuthorizedUserRepoPattern: "gcr.io/.*"
+${CONFIG_DATA}
 EOF
 
 echo "INFO: Created pod broker config patch: ${DEST}"
+
+# Generate md5 hash of configmap data to enable rolling updates of pod-broker when config changes.
+BROKER_CONFIG_HASH=$(echo "$CONFIG_DATA" | md5sum | cut -d' ' -f1)
+
+DEST=${DEST_DIR}/patch-pod-broker-config-hash.yaml
+cat > "${DEST}" << EOF
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pod-broker
+spec:
+  template:
+    metadata:
+      annotations:
+        app.broker/config-hash: "${BROKER_CONFIG_HASH}"
+EOF
+
+echo "INFO: Created pod broker configmap hash patch: ${DEST}"
 
 ###
 # Patch to add cluser service account email to pod-broker service account annotation.
@@ -173,6 +212,7 @@ COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/ku
   kustomize edit add base "../base/pod-broker/"
   kustomize edit add base "../base/turn/"
   kustomize edit add patch "patch-pod-broker-config.yaml"
+  kustomize edit add patch "patch-pod-broker-config-hash.yaml"
   kustomize edit add patch "patch-pod-broker-service-account.yaml"
   kustomize edit add patch "patch-pod-broker-node-init-service-account.yaml"
   kustomize edit add patch "patch-pod-broker-gateway.yaml"

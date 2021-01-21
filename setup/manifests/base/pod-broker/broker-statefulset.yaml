@@ -190,6 +190,8 @@ spec:
     metadata:
       labels:
         app: pod-broker
+      annotations:
+        app.broker/config-hash: "deadbeef"
     spec:
       serviceAccountName: pod-broker
       terminationGracePeriodSeconds: 5
