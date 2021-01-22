@@ -89,6 +89,12 @@ func main() {
 		log.Fatal("Missing POD_BROKER_PARAM_Domain env.")
 	}
 
+	// Logout URL from params
+	logoutURL, ok := sysParams["LogoutURL"]
+	if !ok {
+		logoutURL = fmt.Sprintf("https://%s/_gcp_iap/clear_login_cookie", domain)
+	}
+
 	// AuthHeader from params
 	authHeaderName, ok := sysParams["AuthHeader"]
 	if !ok {
@@ -146,6 +152,7 @@ func main() {
 				BrokerRegion: brokerRegion,
 				Apps:         make([]broker.AppDataResponse, 0),
 				User:         user,
+				LogoutURL:    logoutURL,
 			}
 
 			for _, app := range registeredApps.Apps {

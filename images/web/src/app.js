@@ -225,11 +225,17 @@ var vue_app = new Vue({
         return {
             brokerName: "App Launcher",
             brokerRegion: "",
+            user: "",
+            logoutURL: "",
             darkTheme: false,
             quickLaunchEnabled: false,
 
             // array of BrokerApp objects.
             apps: [],
+
+            logoutFunction: () => {
+                window.location.href = this.logoutURL;
+            },
 
             launchDisabled: (app) => {
                 var appReady = (['stopped', 'ready'].indexOf(app.status) < 0);
@@ -288,6 +294,7 @@ var fetchApps = () => {
         vue_app.brokerName = data.brokerName;
         vue_app.brokerRegion = data.brokerRegion;
         vue_app.user = data.user;
+        vue_app.logoutURL = data.logoutURL;
         vue_app.$vuetify.theme.dark = data.brokerTheme === "dark";
 
         // Fetch app status.

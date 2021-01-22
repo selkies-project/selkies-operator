@@ -62,6 +62,15 @@ if [[ -n "${USERNAME_HEADER_SECRET_VERSION}" ]]; then
 fi
 
 ###
+# Fetch logout URL from Secret Manager
+###
+LOGOUT_URL="https://${ENDPOINT}/_gcp_iap/clear_login_cookie"
+LOGOUT_URL_SECRET_VERSION=$(gcloud -q secrets versions list broker-logout-url --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+if [[ -n "${LOGOUT_URL_SECRET_VERSION}" ]]; then
+  LOGOUT_URL=$(gcloud secrets versions access ${LOGOUT_URL_SECRET_VERSION} --secret broker-logout-url)
+fi
+
+###
 # Broker configmap items
 ###
 CONFIG_DATA=$(cat <<-EOF
@@ -71,6 +80,7 @@ CONFIG_DATA=$(cat <<-EOF
   POD_BROKER_PARAM_Domain: "${ENDPOINT}"
   POD_BROKER_PARAM_AuthHeader: "${AUTH_HEADER}"
   POD_BROKER_PARAM_UsernameHeader: "${USERNAME_HEADER}"
+  POD_BROKER_PARAM_LogoutURL: "${LOGOUT_URL}"
   POD_BROKER_PARAM_AuthorizedUserRepoPattern: "gcr.io/.*"
 EOF
 )

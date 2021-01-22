@@ -222,6 +222,7 @@ type AppListResponse struct {
 	BrokerRegion string            `json:"brokerRegion"`
 	Apps         []AppDataResponse `json:"apps"`
 	User         string            `json:"user"`
+	LogoutURL    string            `json:"logoutURL"`
 }
 
 type AppDataResponse struct {

@@ -48,7 +48,21 @@
       <v-app-bar app>
         <v-toolbar-title>{{ brokerName }}</v-toolbar-title>
         <v-spacer></v-spacer>
-        <div>{{ brokerRegion }}</div>
+        <v-menu :close-on-content-click="true">
+          <template v-slot:activator="{ on: onMenu }">
+            <v-btn v-btn icon v-on="{ ...onMenu }">
+              <v-icon>mdi-account-circle</v-icon>
+            </v-btn>
+          </template>
+          <v-list dense>
+            <v-subheader>{{ user }}<br/>{{ brokerRegion }}</v-subheader>
+            <v-list-item-group>
+              <v-list-item>
+                <v-list-item @click="logoutFunction()">Logout</v-list-item>
+              </v-list-item>
+            </v-list-item-group>
+          </v-list>
+        </v-menu>
       </v-app-bar>
       <v-content>
         <v-layout row wrap clas="justify-center d-flex">
@@ -142,6 +156,22 @@
     </v-app>
   </div>
 </body>
+
+<script type="application/javascript">
+  // auth test
+  fetch("/favicon.ico", {
+                mode: 'no-cors',
+                cache: 'no-cache',
+                credentials: 'include',
+                redirect: 'manual',
+            })
+            .then(function (response) {
+                if (response.ok !== true) {
+                    document.location.reload();
+                    return null;
+                }
+            });
+</script>
 
 <script src="pod_broker.js?ts=1"></script>
 <script src="vendor/vue.min.js"></script>
