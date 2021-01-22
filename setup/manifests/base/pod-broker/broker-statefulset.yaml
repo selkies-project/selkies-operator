@@ -200,32 +200,32 @@ spec:
         # temp volume for building statefulset manifests
         ###
         - name: build-statefulsets
-          emptyDir: {}
+          emptyDir: {medium: Memory, sizeLimit: 128Mi}
         ###
         # temp volume for building deployment type manifests
         ###
         - name: build-deployments
-          emptyDir: {}
+          emptyDir: {medium: Memory, sizeLimit: 128Mi}
         ###
         # temp volume for building deployment type user manifests
         ###
         - name: build-deployments-user
-          emptyDir: {}
+          emptyDir: {medium: Memory, sizeLimit: 128Mi}
         ###
         # temp volume for building user namespace manifests
         ###
         - name: buildns
-          emptyDir: {}
+          emptyDir: {medium: Memory, sizeLimit: 128Mi}
         ###
         # temp volume for storing app configs and manifest bundles.
         ###
         - name: buildsrc
-          emptyDir: {}
+          emptyDir: {medium: Memory, sizeLimit: 128Mi}
         ###
         # temp volume for storing cached user configs
         ###
         - name: userconfig
-          emptyDir: {}
+          emptyDir: {medium: Memory, sizeLimit: 128Mi}
         ###
         # App publishing job template
         ###

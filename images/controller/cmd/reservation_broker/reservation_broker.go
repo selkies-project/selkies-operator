@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -56,6 +57,7 @@ type BrokerPod struct {
 
 type AppContext struct {
 	sync.RWMutex
+	Name              string
 	AuthHeaderName    string
 	UsernameHeader    string
 	CookieSecret      string
@@ -236,6 +238,7 @@ func main() {
 					appCtx = c
 				} else {
 					appCtx = &AppContext{
+						Name:              app.Name,
 						AuthHeaderName:    authHeaderName,
 						UsernameHeader:    usernameHeader,
 						CookieSecret:      cookieSecret,
@@ -530,6 +533,7 @@ func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 		log.Printf("started pod watcher for %s", app.Name)
 		for {
 			if !appCtx.PodWatcherRunning {
+				log.Printf("stopping pod watcher for: %s", app.Name)
 				break
 			}
 
@@ -564,6 +568,10 @@ func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 					IP:   pod.Status.PodIPs[0].IP,
 				})
 			}
+
+			// Write current list of tracked pods for debugging.
+			appCtx.WriteCacheFiles()
+
 			appCtx.Unlock()
 
 			time.Sleep(2 * time.Second)
@@ -844,4 +852,24 @@ func listBrokerPods(namespace, selector string) (GetPodsSpec, error) {
 		return resp, fmt.Errorf("failed to parse pod spec in initial pod list: %v", err)
 	}
 	return podResp, nil
+}
+
+// WriteCacheFiles is not thread-safe, should be run within the context of a mutex lock.
+func (appCtx *AppContext) WriteCacheFiles() {
+	availablePodNames := make([]string, 0)
+	reservedPodNames := make([]string, 0)
+
+	for _, pod := range appCtx.AvailablePods {
+		availablePodNames = append(availablePodNames, pod.Name)
+	}
+
+	for _, pod := range appCtx.ReservedPods {
+		reservedPodNames = append(reservedPodNames, pod.Name)
+	}
+
+	availablePodsCacheFile := path.Join(broker.BundleSourceBaseDir, appCtx.Name, "reservation_pods_available.txt")
+	ioutil.WriteFile(availablePodsCacheFile, []byte(strings.Join(availablePodNames, "\n")), 0644)
+
+	reservedPodsCacheFile := path.Join(broker.BundleSourceBaseDir, appCtx.Name, "reservation_pods_reserved.txt")
+	ioutil.WriteFile(reservedPodsCacheFile, []byte(strings.Join(reservedPodNames, "\n")), 0644)
 }
