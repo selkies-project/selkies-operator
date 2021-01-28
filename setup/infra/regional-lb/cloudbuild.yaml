@@ -1,4 +1,4 @@
-# Copyright 2019 Google LLC
+# Copyright 2021 The Selkies Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,31 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-timeout: 3600s
+timeout: 10800s
 substitutions:
-  _INFRA_NAME: broker
+  _ACTION: apply
+  _NAME: broker
   _REGION: us-west1
 tags:
+  - selkies-cluster
   - selkies-setup
-  - selkies-manifests
 steps:
   ###
-  # Waits for the cluster to become ready.
+  # Apply terraform to create cluster
   ###
-  - name: "gcr.io/${PROJECT_ID}/${_INFRA_NAME}-installer"
-    id: "wait-for-infra"
-    entrypoint: "/workspace/wait_for_clusters.sh"
-    args:
-      - ${_INFRA_NAME}
-      - ${_REGION}
-  ###
-  # Deploys manifests to cluster.
-  ###
-  - name: "gcr.io/${PROJECT_ID}/${_INFRA_NAME}-installer"
-    id: "deploy-manifests"
+  - name: "gcr.io/${PROJECT_ID}/${_NAME}-installer"
+    id: "terraform-apply"
     entrypoint: "/workspace/deploy.sh"
     env:
-      - PROJECT_ID=${PROJECT_ID}
-      - INFRA_NAME=${_INFRA_NAME}
-      - REGION=${_REGION}
-      - NODE_SERVICE_ACCOUNT=broker@${PROJECT_ID}.iam.gserviceaccount.com
+      - TF_VAR_project_id=${PROJECT_ID}
+      - TF_VAR_name=${_NAME}
+      - TF_VAR_region=${_REGION}
+      - TERRAFORM_WORKSPACE_NAME=lb-${_REGION}
+      - ACTION=${_ACTION}

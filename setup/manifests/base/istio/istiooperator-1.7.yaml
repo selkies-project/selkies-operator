@@ -71,6 +71,8 @@ spec:
                       release: istio
                     annotations:
                       cloud.google.com/neg: '{"exposed_ports": {"80":{}}}'
+
+                      # Note that the deployment script updates the value of this annotation to match the correct backend service name.
                       anthos.cft.dev/autoneg: '{"name":"istio-ingressgateway", "max_rate_per_endpoint":100}'
 
                 # Change type from LoadBalancer to NodePort

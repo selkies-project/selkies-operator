@@ -65,9 +65,18 @@ fi
 # Fetch logout URL from Secret Manager
 ###
 LOGOUT_URL="https://${ENDPOINT}/_gcp_iap/clear_login_cookie"
-LOGOUT_URL_SECRET_VERSION=$(gcloud -q secrets versions list broker-logout-url --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+# First, try to get regional secret value.
+LOGOUT_URL_SECRET_VERSION=$(gcloud -q secrets versions list broker-logout-url-${REGION} --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
 if [[ -n "${LOGOUT_URL_SECRET_VERSION}" ]]; then
-  LOGOUT_URL=$(gcloud secrets versions access ${LOGOUT_URL_SECRET_VERSION} --secret broker-logout-url)
+  # Use regional value
+  LOGOUT_URL=$(gcloud secrets versions access ${LOGOUT_URL_SECRET_VERSION} --secret broker-logout-url-${REGION})
+else
+  # Try to get global value
+  LOGOUT_URL_SECRET_VERSION=$(gcloud -q secrets versions list broker-logout-url --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+  if [[ -n "${LOGOUT_URL_SECRET_VERSION}" ]]; then
+    # Use global value
+    LOGOUT_URL=$(gcloud secrets versions access ${LOGOUT_URL_SECRET_VERSION} --secret broker-logout-url)
+  fi
 fi
 
 ###

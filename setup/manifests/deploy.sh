@@ -36,6 +36,19 @@ function log_red() { echo -e "${RED}$@${NC}"; }
 export ISTIOCTL=/opt/istio-${LATEST_ISTIO}/bin/istioctl
 export ISTIOCTL_COMPAT=/opt/istio-${ISTIO_COMPAT}/bin/istioctl
 
+# Extract endpoint and backend service name from terraform output.
+ENDPOINT="broker.endpoints.${PROJECT_ID}.cloud.goog"
+BACKEND_SERVICE="istio-ingressgateway"
+TFSTATE="$(gsutil cat gs://${PROJECT_ID}-broker-tf-state/${INFRA_NAME}/lb-${CLUSTER_LOCATION}.tfstate 2>/dev/null || true)"
+if [[ -n "${TFSTATE}" ]]; then
+    # Use endpoint and backend service from regional LB.
+    ENDPOINT=$(jq -r '.outputs["cloud-ep-endpoint"].value' <<< $TFSTATE)
+    [[ -z "${ENDPOINT}" ]] && log_red "ERROR: Failed to get regional LB endpoint from tfstate" && exit 1
+    BACKEND_SERVICE=$(jq -r '.outputs["backend-service"].value' <<< $TFSTATE)
+    [[ -z "${BACKEND_SERVICE}" ]] && log_red "ERROR: Failed to get regional LB backend service name from tfstate" && exit 1
+fi
+export ENDPOINT
+
 # Get cluster credentials
 log_cyan "Obtaining cluster credentials..."
 gcloud container clusters get-credentials ${CLUSTER_NAME} --region=${CLUSTER_LOCATION}
@@ -70,12 +83,19 @@ log_cyan "Installing AutoNEG controller..."
 kubectl kustomize base/autoneg-system | sed 's/${PROJECT_ID}/'${PROJECT_ID}'/g' | \
     kubectl apply -f -
 
+# Update istio ingressgateway service annotation with backend service name for autoneg.
+log_cyan "Updating ingress gateway autoneg annotation to match backend service: ${BACKEND_SERVICE}"
+sed -i \
+    -e "s|anthos.cft.dev/autoneg:.*|anthos.cft.dev/autoneg: '{\"name\":\"${BACKEND_SERVICE}\", \"max_rate_per_endpoint\":100}'|g" \
+        base/istio/istiocontrolplane.yaml base/istio/istiooperator-*.yaml
+
 # Check installed istio version, default is latest.
+log_cyan "Checking existing istio installation"
 ISTIO_VERSION=$(${ISTIOCTL_COMPAT} version -o json | grep -v "no running Istio" | jq -r '.meshVersion[0].Info.version // "'${LATEST_ISTIO}'"')
 ISTIO_LATEST_INSTALLER="./install_istio_${LATEST_ISTIO_MAJOR}.sh"
 case "$ISTIO_VERSION" in
     1.4*) log_cyan "Installing istio 1.4" && ./install_istio_1.4.sh ;;
-    1.7*) log_cyan "Installing isio 1.7" && ./install_istio_1.7.sh ;;
+    1.7*) log_cyan "Installing istio 1.7" && ./install_istio_1.7.sh ;;
     * ) log_red "Unsupported istio version found: ${ISTIO_VERSION}, attempting latest installer." && ${ISTIO_LATEST_INSTALLER} ;;
 esac
 
