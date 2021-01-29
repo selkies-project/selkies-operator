@@ -30,7 +30,6 @@ write_files:
     ExecStartPre=-/usr/bin/docker rm %n
     ExecStartPre=/usr/bin/docker pull ${element(split(",", custom_var), 3)}
     ExecStart=/usr/bin/docker run --rm --name %n \
-      --log-driver=gcplogs --log-opt gcp-log-cmd=true \
       --net=host \
       --env TURN_SHARED_SECRET="${element(split(",", custom_var), 0)}" \
       --env TURN_REALM="${element(split(",", custom_var), 1)}" \
@@ -58,7 +57,6 @@ write_files:
     ExecStartPre=-/usr/bin/docker rm %n
     ExecStartPre=/usr/bin/docker pull ${element(split(",", custom_var), 3)}
     ExecStart=/usr/bin/docker run --rm --name %n \
-      --log-driver=gcplogs --log-opt gcp-log-cmd=true \
       --net=host \
       --env TURN_SHARED_SECRET="${element(split(",", custom_var), 0)}" \
       --env TURN_REALM="${element(split(",", custom_var), 1)}" \
@@ -70,6 +68,6 @@ write_files:
     WantedBy=multi-user.target
 runcmd:
 - docker-credential-gcr configure-docker
-- iptables -I INPUT 1 -p tcp -m tcp --dport 22 -m state --state NEW,ESTABLISHED -j ACCEPT
+- iptables -I INPUT -j ACCEPT
 - systemctl daemon-reload
 - systemctl enable coturn.service && systemctl start coturn.service && systemctl enable coturn_web.service && systemctl start coturn_web.service

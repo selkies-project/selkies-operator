@@ -30,7 +30,7 @@ locals {
   // Update this based on auth mechanism
   auth_header_name = "x-goog-authenticated-user-email"
 
-  // Default the REAM to the Cloud Endpoints DNS name
+  // Default the REALM to the Cloud Endpoints DNS name
   turn_realm = "broker.endpoints.${var.project_id}.cloud.goog"
 }
 
