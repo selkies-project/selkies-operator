@@ -332,6 +332,7 @@ func main() {
 	server.InitDispatch()
 	log.Printf("Initializing request routes...\n")
 
+	// Allow managed pods to query their own metadata
 	server.Urls["metadata"] = func(w http.ResponseWriter, r *http.Request) {
 		srcIP := strings.Split(r.RemoteAddr, ":")[0]
 		fwdIP := r.Header.Get("X-Forwarded-For")
@@ -352,6 +353,27 @@ func main() {
 			}
 		}
 		writeResponse(w, http.StatusNotFound, fmt.Sprintf("reservation metadata not found for IP: %s", srcIP))
+	}
+
+	// Allow managed pods to shut themselves down
+	server.Urls["shutdown"] = func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "DELETE" {
+			writeResponse(w, http.StatusBadRequest, fmt.Sprintf("only DELETE method is supported"))
+			return
+		}
+		srcIP := strings.Split(r.RemoteAddr, ":")[0]
+		fwdIP := r.Header.Get("X-Forwarded-For")
+		// Check reserved pods to match requestor IP.
+		for _, appCtx := range appContexts {
+			for _, pod := range appCtx.AvailablePods {
+				if srcIP == pod.IP || fwdIP == pod.IP {
+					statusCode, msg := deletePod(appCtx.Name, pod)
+					writeResponse(w, statusCode, msg)
+					return
+				}
+			}
+		}
+		writeResponse(w, http.StatusNotFound, fmt.Sprintf("managed pod not found with IP: %s", srcIP))
 	}
 
 	server.Start()
@@ -447,7 +469,7 @@ func registerAppHandler(s *Server, app broker.AppConfigSpec, appCtx *AppContext)
 			case "POST":
 				writeResponse(w, http.StatusBadRequest, fmt.Sprintf("unsupported request method from source pod without reservation: %s", r.Method))
 			case "DELETE":
-				status, msg := deletePod(app, pod)
+				status, msg := deletePod(app.Name, pod)
 				writeResponse(w, status, msg)
 			case "GET":
 				msg := "pod has not been reserved"
@@ -818,7 +840,7 @@ func deleteApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 	return statusCode, msg
 }
 
-func deletePod(app broker.AppConfigSpec, pod BrokerPod) (int, string) {
+func deletePod(appName string, pod BrokerPod) (int, string) {
 	statusCode := http.StatusOK
 	msg := "shutdown"
 	podName := pod.Name
@@ -826,7 +848,7 @@ func deletePod(app broker.AppConfigSpec, pod BrokerPod) (int, string) {
 	// Delete the pod from K8S
 	log.Printf("deleting pod %s", podName)
 
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl delete pod -n %s %s --wait=false 1>&2", app.Name, podName))
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl delete pod -n %s %s --wait=false 1>&2", appName, podName))
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("failed to delete pod %s: %s\n%v", podName, stdoutStderr, err)
