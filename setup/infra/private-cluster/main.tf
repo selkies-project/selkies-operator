@@ -16,7 +16,7 @@
 
 module "broker" {
   source = "terraform-google-modules/kubernetes-engine/google//modules/beta-private-cluster-update-variant"
-
+  version = "12.3.0"
   project_id                = var.project_id
   release_channel           = "REGULAR"
   name                      = "${var.name}-${var.region}"
