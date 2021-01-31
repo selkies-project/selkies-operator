@@ -49,10 +49,11 @@ type Server struct {
 }
 
 type BrokerPod struct {
-	Name        string   `json:"name"`
-	IP          string   `json:"ip"`
-	SessionKey  string   `json:"session_key"`
-	UserObjects []string `json:"user_objects"`
+	Name         string   `json:"name"`
+	IP           string   `json:"ip"`
+	SessionKey   string   `json:"session_key"`
+	UserObjects  []string `json:"user_objects"`
+	SessionStart string   `json:"session_start"`
 }
 
 type AppContext struct {
@@ -332,49 +333,61 @@ func main() {
 	server.InitDispatch()
 	log.Printf("Initializing request routes...\n")
 
-	// Allow managed pods to query their own metadata
-	server.Urls["metadata"] = func(w http.ResponseWriter, r *http.Request) {
+	// Allow managed pods to query their own session info and themselves down
+	sessionFunc := func(w http.ResponseWriter, r *http.Request) {
 		srcIP := strings.Split(r.RemoteAddr, ":")[0]
 		fwdIP := r.Header.Get("X-Forwarded-For")
-		// Check reserved pods to match requestor IP.
-		for _, appCtx := range appContexts {
-			for user, pod := range appCtx.ReservedPods {
-				if srcIP == pod.IP || fwdIP == pod.IP {
-					metadata := broker.ReservationMetadataSpec{
-						IP:         pod.IP,
-						SessionKey: pod.SessionKey,
-						User:       user,
+
+		if r.Method == "GET" {
+			// Check reserved pods to match requestor IP.
+			for _, appCtx := range appContexts {
+				for user, pod := range appCtx.ReservedPods {
+					if srcIP == pod.IP || fwdIP == pod.IP {
+						metadata := broker.ReservationMetadataSpec{
+							IP:           pod.IP,
+							SessionKey:   pod.SessionKey,
+							User:         user,
+							SessionStart: pod.SessionStart,
+						}
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						json.NewEncoder(w).Encode(metadata)
+						return
 					}
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusOK)
-					json.NewEncoder(w).Encode(metadata)
-					return
 				}
 			}
-		}
-		writeResponse(w, http.StatusNotFound, fmt.Sprintf("reservation metadata not found for IP: %s", srcIP))
-	}
-
-	// Allow managed pods to shut themselves down
-	server.Urls["shutdown"] = func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "DELETE" {
-			writeResponse(w, http.StatusBadRequest, fmt.Sprintf("only DELETE method is supported"))
+			writeResponse(w, http.StatusNotFound, fmt.Sprintf("reservation metadata not found for IP: %s", srcIP))
+		} else if r.Method == "DELETE" {
+			srcIP := strings.Split(r.RemoteAddr, ":")[0]
+			fwdIP := r.Header.Get("X-Forwarded-For")
+			// Check reserved pods to match requestor IP.
+			for _, appCtx := range appContexts {
+				for _, pod := range appCtx.AvailablePods {
+					if srcIP == pod.IP || fwdIP == pod.IP {
+						statusCode, msg := deletePod(appCtx.Name, pod)
+						writeResponse(w, statusCode, msg)
+						return
+					}
+				}
+				for user, pod := range appCtx.ReservedPods {
+					if srcIP == pod.IP || fwdIP == pod.IP {
+						statusCode, msg := deleteApp(appCtx, user)
+						writeResponse(w, statusCode, msg)
+						return
+					}
+				}
+			}
+			writeResponse(w, http.StatusNotFound, fmt.Sprintf("managed pod not found with IP: %s", srcIP))
+		} else {
+			writeResponse(w, http.StatusBadRequest, fmt.Sprintf("only GET and DELETE methods are supported"))
 			return
 		}
-		srcIP := strings.Split(r.RemoteAddr, ":")[0]
-		fwdIP := r.Header.Get("X-Forwarded-For")
-		// Check reserved pods to match requestor IP.
-		for _, appCtx := range appContexts {
-			for _, pod := range appCtx.AvailablePods {
-				if srcIP == pod.IP || fwdIP == pod.IP {
-					statusCode, msg := deletePod(appCtx.Name, pod)
-					writeResponse(w, statusCode, msg)
-					return
-				}
-			}
-		}
-		writeResponse(w, http.StatusNotFound, fmt.Sprintf("managed pod not found with IP: %s", srcIP))
 	}
+	server.Urls["session"] = sessionFunc
+
+	// DEPRECATED routes.
+	server.Urls["metadata"] = sessionFunc
+	server.Urls["shutdown"] = sessionFunc
 
 	server.Start()
 }
@@ -481,7 +494,7 @@ func registerAppHandler(s *Server, app broker.AppConfigSpec, appCtx *AppContext)
 			case "POST":
 				writeResponse(w, http.StatusBadRequest, fmt.Sprintf("unsupported request method from source pod with reservation: %s", r.Method))
 			case "DELETE":
-				status, msg := deleteApp(app, appCtx, user, podUser)
+				status, msg := deleteApp(appCtx, user)
 				writeResponse(w, status, msg)
 			case "GET":
 				status, msg := getAppStatus(w, app, appCtx, user, podUser)
@@ -502,7 +515,7 @@ func registerAppHandler(s *Server, app broker.AppConfigSpec, appCtx *AppContext)
 				status, msg := createApp(app, appCtx, user, username)
 				writeResponse(w, status, msg)
 			case "DELETE":
-				status, msg := deleteApp(app, appCtx, user, username)
+				status, msg := deleteApp(appCtx, user)
 				writeResponse(w, status, msg)
 			case "GET":
 				status, msg := getAppStatus(w, app, appCtx, user, username)
@@ -701,10 +714,14 @@ func createApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 	// Generate session key
 	sessionKey := broker.MakeSessionKey()
 
+	// Generate session start timestamp
+	ts := fmt.Sprintf("%d", time.Now().Unix())
+
 	// Assign user a pod and remove it from the list
 	pod := appCtx.AvailablePods[0]
 	appCtx.AvailablePods = appCtx.AvailablePods[1:]
 	pod.SessionKey = sessionKey
+	pod.SessionStart = ts
 
 	// Build the per-user manifest templates
 	destDir, err := buildUserBundle(app, appCtx, user, username, pod)
@@ -788,7 +805,7 @@ func buildUserBundle(app broker.AppConfigSpec, appCtx *AppContext, user, usernam
 /*
 Release a reservation and delete the pod.
 */
-func deleteApp(app broker.AppConfigSpec, appCtx *AppContext, user, username string) (int, string) {
+func deleteApp(appCtx *AppContext, user string) (int, string) {
 	statusCode := http.StatusOK
 	msg := "shutdown"
 
@@ -804,7 +821,7 @@ func deleteApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 		podName := bPod.Name
 		// Remove instance label from the pod.
 		// This is done so that subsequest GET requests don't return the terminating pod.
-		cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl label pod -n %s %s app.kubernetes.io/instance- 1>&2", app.Name, podName))
+		cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl label pod -n %s %s app.kubernetes.io/instance- 1>&2", appCtx.Name, podName))
 		stdoutStderr, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Printf("warning: failed to remove instance label from pod: %s: %s\n%v", podName, stdoutStderr, err)
@@ -813,7 +830,7 @@ func deleteApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 		// Delete the pod from K8S
 		log.Printf("deleting pod for user %s: %s", user, podName)
 
-		cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl delete pod -n %s %s --wait=false 1>&2", app.Name, podName))
+		cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl delete pod -n %s %s --wait=false 1>&2", appCtx.Name, podName))
 		stdoutStderr, err = cmd.CombinedOutput()
 		if err != nil {
 			log.Printf("failed to delete pod for user %s: %s: %s\n%v", user, podName, stdoutStderr, err)
@@ -825,8 +842,8 @@ func deleteApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 		// Delete the per-user resources
 		if len(bPod.UserObjects) > 0 {
 			objectTypes := strings.Join(bPod.UserObjects, ",")
-			fullName := fmt.Sprintf("%s-%s", app.Name, broker.MakePodID(user))
-			cmdStr := fmt.Sprintf("kubectl delete %s -n %s -l \"app.kubernetes.io/instance=%s\" --wait=false", objectTypes, app.Name, fullName)
+			fullName := fmt.Sprintf("%s-%s", appCtx.Name, broker.MakePodID(user))
+			cmdStr := fmt.Sprintf("kubectl delete %s -n %s -l \"app.kubernetes.io/instance=%s\" --wait=false", objectTypes, appCtx.Name, fullName)
 			cmd = exec.Command("sh", "-o", "pipefail", "-c", cmdStr)
 			stdoutStderr, err = cmd.CombinedOutput()
 			if err != nil {

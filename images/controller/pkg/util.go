@@ -406,3 +406,12 @@ func StringWithCharset(length int, charset string) string {
 	}
 	return string(b)
 }
+
+func K8sTimestampToUnix(k8sTimestamp string) string {
+	t, err := time.Parse(time.RFC3339, k8sTimestamp)
+	if err != nil {
+		log.Printf("WARN: failed to parse timestamp '%s': %v", k8sTimestamp, err)
+		return ""
+	}
+	return fmt.Sprintf("%d", t.Unix())
+}

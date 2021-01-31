@@ -50,6 +50,7 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 	type getPodsSpec struct {
 		Items []struct {
 			Metadata struct {
+				CreationTimestamp *string           `json:"creationTimestamp"`
 				DeletionTimestamp *string           `json:"deletionTimestamp"`
 				Annotations       map[string]string `json:"annotations"`
 			} `json:"metadata"`
@@ -103,6 +104,10 @@ func GetPodStatus(namespace, selector string) (StatusResponse, error) {
 
 		if brokerObjects, ok := item.Metadata.Annotations["app.broker/last-applied-object-types"]; ok {
 			resp.BrokerObjects = strings.Split(brokerObjects, ",")
+		}
+
+		if item.Metadata.CreationTimestamp != nil {
+			resp.CreationTimestamp = *item.Metadata.CreationTimestamp
 		}
 
 		for _, cond := range item.Status.Conditions {

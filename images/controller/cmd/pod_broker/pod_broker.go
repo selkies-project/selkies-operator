@@ -342,8 +342,8 @@ func main() {
 		srcDirUser := path.Join(broker.UserBundleSourceBaseDir, appName)
 		destDirUser := path.Join(broker.BuildSourceBaseDirNS, user)
 
-		// Handle requests for per-app metadata requests
-		if regexp.MustCompile(fmt.Sprintf(".*%s/metadata/?$", appName)).MatchString(r.URL.Path) {
+		// Handle requests for per-app session info requests
+		if regexp.MustCompile(fmt.Sprintf(".*%s/session/?$", appName)).MatchString(r.URL.Path) {
 			// Fetch pod status
 			status, err := broker.GetPodStatus(namespace, fmt.Sprintf("app.kubernetes.io/instance=%s,app=%s", fullName, app.ServiceName))
 			if err != nil {
@@ -361,9 +361,10 @@ func main() {
 				sessionKey = status.SessionKeys[0]
 			}
 			metadata := broker.ReservationMetadataSpec{
-				IP:         ip,
-				SessionKey: sessionKey,
-				User:       user,
+				IP:           ip,
+				SessionKey:   sessionKey,
+				User:         user,
+				SessionStart: broker.K8sTimestampToUnix(status.CreationTimestamp),
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
