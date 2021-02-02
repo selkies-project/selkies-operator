@@ -156,6 +156,12 @@ func main() {
 			}
 
 			for _, app := range registeredApps.Apps {
+				srcPath := path.Join(broker.BundleSourceBaseDir, app.Name)
+				if _, err := os.Stat(srcPath); os.IsNotExist(err) {
+					log.Printf("WARN: missing bundle source directory for app: %s", app.Name)
+					continue
+				}
+
 				if app.UserParams == nil {
 					// default user params to empty list.
 					app.UserParams = make([]broker.AppConfigParam, 0)
