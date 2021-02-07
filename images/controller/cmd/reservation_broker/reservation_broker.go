@@ -793,6 +793,11 @@ func buildUserBundle(app broker.AppConfigSpec, appCtx *AppContext, user, usernam
 	// Add sessionKey as app param.
 	data.AppParams["sessionKey"] = pod.SessionKey
 
+	// Populate app params from app spec.
+	for _, param := range app.AppParams {
+		data.AppParams[param.Name] = param.Default
+	}
+
 	srcDirUser := path.Join(broker.UserBundleSourceBaseDir, app.Name)
 	destDirUser := path.Join(broker.BuildSourceBaseDirUser, user, app.Name)
 	if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirDeploymentUser, srcDirUser, destDirUser, &data); err != nil {
