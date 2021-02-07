@@ -80,6 +80,45 @@ else
 fi
 
 ###
+# Fetch image puller enabled secret from Secret Manager
+###
+ENABLE_IMAGE_PULLER="true"
+# First, try to get regional secret value.
+IMAGE_PULLER_SECRET_VERSION=$(gcloud -q secrets versions list broker-${REGION}-enable-image-puller --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+if [[ -n "${IMAGE_PULLER_SECRET_VERSION}" ]]; then
+  # Use regional value
+  ENABLE_IMAGE_PULLER=$(gcloud secrets versions access ${IMAGE_PULLER_SECRET_VERSION} --secret broker-${REGION}-enable-image-puller)
+else
+  # Try to get global value
+  IMAGE_PULLER_SECRET_VERSION=$(gcloud -q secrets versions list broker-enable-image-puller --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+  if [[ -n "${IMAGE_PULLER_SECRET_VERSION}" ]]; then
+    # Use global value
+    ENABLE_IMAGE_PULLER=$(gcloud secrets versions access ${IMAGE_PULLER_SECRET_VERSION} --secret broker-enable-image-puller)
+  fi
+fi
+
+DEST=${DEST_DIR}/patch-image-puller-patch.yaml
+cat > "${DEST}" << EOF
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: pod-broker-image-puller
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: app.broker/tier
+                    operator: In
+                    values: ["disabled"]
+EOF
+
+echo "INFO: Created pod broker image puller patch: ${DEST}"
+
+###
 # Broker configmap items
 ###
 CONFIG_DATA=$(cat <<-EOF
@@ -91,6 +130,7 @@ CONFIG_DATA=$(cat <<-EOF
   POD_BROKER_PARAM_UsernameHeader: "${USERNAME_HEADER}"
   POD_BROKER_PARAM_LogoutURL: "${LOGOUT_URL}"
   POD_BROKER_PARAM_AuthorizedUserRepoPattern: "gcr.io/.*"
+  POD_BROKER_PARAM_EnableImagePuller: "${ENABLE_IMAGE_PULLER}"
 EOF
 )
 
@@ -236,6 +276,7 @@ COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/ku
   kustomize edit add patch "patch-pod-broker-node-init-service-account.yaml"
   kustomize edit add patch "patch-pod-broker-gateway.yaml"
   kustomize edit add patch "patch-pod-broker-virtual-service.yaml"
+  [[ "${ENABLE_IMAGE_PULLER}" == "false" ]] && kustomize edit add patch "patch-image-puller-patch.yaml"
   kustomize edit set image \
     gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest=${CONTROLLER_IMAGE} \
     gcr.io/cloud-solutions-images/kube-pod-broker-web:latest=${WEB_IMAGE} \
