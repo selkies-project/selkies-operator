@@ -617,7 +617,7 @@ func main() {
 			if len(status.BrokerObjects) > 0 {
 				log.Printf("shutting down %s pod for user: %s", appName, user)
 				objectTypes := strings.Join(status.BrokerObjects, ",")
-				cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kubectl delete %s -n %s -l \"app.kubernetes.io/instance=%s\" --wait=false", objectTypes, namespace, fullName))
+				cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kubectl delete %s -n %s -l \"app.kubernetes.io/instance=%s, app.broker/deletion-policy notin (abandon)\" --wait=false", objectTypes, namespace, fullName))
 				cmd.Dir = destDir
 				stdoutStderr, err := cmd.CombinedOutput()
 				if err != nil {

@@ -848,7 +848,7 @@ func deleteApp(appCtx *AppContext, user string) (int, string) {
 		if len(bPod.UserObjects) > 0 {
 			objectTypes := strings.Join(bPod.UserObjects, ",")
 			fullName := fmt.Sprintf("%s-%s", appCtx.Name, broker.MakePodID(user))
-			cmdStr := fmt.Sprintf("kubectl delete %s -n %s -l \"app.kubernetes.io/instance=%s\" --wait=false", objectTypes, appCtx.Name, fullName)
+			cmdStr := fmt.Sprintf("kubectl delete %s -n %s -l \"app.kubernetes.io/instance=%s, app.broker/deletion-policy notin (abandon)\" --wait=false", objectTypes, appCtx.Name, fullName)
 			cmd = exec.Command("sh", "-o", "pipefail", "-c", cmdStr)
 			stdoutStderr, err = cmd.CombinedOutput()
 			if err != nil {
