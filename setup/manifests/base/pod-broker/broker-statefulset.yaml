@@ -342,6 +342,10 @@ spec:
           image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
           workingDir: /var/run/build
           command: ["/usr/local/bin/image-finder"]
+          envFrom:
+            - configMapRef:
+                name: pod-broker-config
+                optional: false
           env:
             - name: NAMESPACE
               valueFrom:
