@@ -49,9 +49,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	region, err := broker.GetInstanceRegion()
-	if err != nil {
-		log.Fatal(err)
+	// Set from downward API.
+	nodeName := os.Getenv("NODE_NAME")
+	if len(nodeName) == 0 {
+		log.Fatal("Missing NODE_NAME env.")
 	}
 
 	// Obtain Service Account email
@@ -69,7 +70,7 @@ func main() {
 	checkUserConfigs()
 
 	// Subscribe to GCR pub/sub topic
-	subName := fmt.Sprintf("pod-broker-image-finder-%s", region)
+	subName := fmt.Sprintf("pod-broker-image-finder-%s", nodeName)
 	var sub *pubsub.Subscription
 
 	// Poll until subscription is obtained

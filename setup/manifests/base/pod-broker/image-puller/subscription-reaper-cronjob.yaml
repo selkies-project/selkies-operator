@@ -51,6 +51,12 @@ spec:
                       echo "deleting stale node subscription: $sub"
                       gcloud pubsub subscriptions delete $sub
                     fi
+
+                    submatch=$(echo $sub | cut -d'/' -f4 | sed 's/pod-broker-image-finder-//g')
+                    if [[ ! "$NODES" =~ $submatch ]]; then
+                      echo "deleting stale node subscription: $sub"
+                      gcloud pubsub subscriptions delete $sub
+                    fi
                   done
               resources:
                 requests:

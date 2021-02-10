@@ -113,6 +113,8 @@ func main() {
 			defer cancelRecv()
 
 			if err := sub.Receive(recvCtx, func(ctx context.Context, m *pubsub.Message) {
+				defer m.Ack()
+
 				var message broker.GCRPubSubMessage
 				if err := json.Unmarshal(m.Data, &message); err != nil {
 					log.Printf("error decoding GCR message: %v", err)
@@ -164,7 +166,7 @@ func main() {
 				} else {
 					fmt.Printf("skipping gcr message because message is missing image tag: %s", message.Digest)
 				}
-				m.Ack()
+				time.Sleep(100 * time.Millisecond)
 			}); err != nil {
 				fmt.Printf("error receiving message: %v", sub)
 			}
