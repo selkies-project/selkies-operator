@@ -115,6 +115,9 @@ if [[ -n "$(kubectl get ds -n kube-system -l app=pod-broker-image-loader -o name
     (cd base/pod-broker/image-puller && kustomize edit add patch patch-wait-for-image-cache.yaml)
 fi
 
+# Delete old pod-broker StatefulSet, migrate to Deployment
+kubectl delete statefulset -n pod-broker-system pod-broker 2>/dev/null || true
+
 # Apply the manifests
 log_cyan "Applying manifests..."
 kustomize build generated/ | sed -e 's/${PROJECT_ID}/'${PROJECT_ID}'/g' | \

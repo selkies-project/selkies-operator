@@ -176,16 +176,20 @@ spec:
       timeoutSeconds: 10
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: pod-broker
 spec:
   selector:
     matchLabels:
       app: pod-broker
-  serviceName: pod-broker
   replicas: 1
-  volumeClaimTemplates: []
+  minReadySeconds: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0%
   template:
     metadata:
       labels:

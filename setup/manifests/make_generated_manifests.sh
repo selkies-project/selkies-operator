@@ -152,7 +152,7 @@ BROKER_CONFIG_HASH=$(echo "$CONFIG_DATA" | md5sum | cut -d' ' -f1)
 DEST=${DEST_DIR}/patch-pod-broker-config-hash.yaml
 cat > "${DEST}" << EOF
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: pod-broker
 spec:

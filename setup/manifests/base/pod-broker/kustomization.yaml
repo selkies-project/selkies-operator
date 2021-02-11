@@ -25,5 +25,5 @@ bases:
 resources:
   - namespace.yaml
   - crd.yaml
-  - broker-statefulset.yaml
+  - broker-deployment.yaml
   - network-policy.yaml
