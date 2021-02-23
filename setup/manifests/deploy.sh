@@ -43,7 +43,7 @@ TFSTATE="$(gsutil cat gs://${PROJECT_ID}-broker-tf-state/${INFRA_NAME}/lb-${CLUS
 if [[ -n "${TFSTATE}" ]]; then
     # Use endpoint and backend service from regional LB.
     ENDPOINT=$(jq -r '.outputs["cloud-ep-endpoint"].value' <<< $TFSTATE)
-    [[ -z "${ENDPOINT}" ]] && log_red "ERROR: Failed to get regional LB endpoint from tfstate" && exit 1
+    [[ -z "${ENDPOINT}" || "${ENDPOINT,,}" == "null" ]] && log_red "ERROR: Failed to get regional LB endpoint from tfstate" && exit 1
     BACKEND_SERVICE=$(jq -r '.outputs["backend-service"].value' <<< $TFSTATE)
     [[ -z "${BACKEND_SERVICE}" ]] && log_red "ERROR: Failed to get regional LB backend service name from tfstate" && exit 1
 fi
