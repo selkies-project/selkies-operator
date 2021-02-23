@@ -14,7 +14,7 @@
 
 FROM alpine:3.9
 
-RUN apk add -u --no-cache coturn
+RUN apk add -u --no-cache coturn bind-tools
 
 COPY detect_external_ip.sh /usr/bin/detect_external_ip
 RUN chmod +x /usr/bin/detect_external_ip
