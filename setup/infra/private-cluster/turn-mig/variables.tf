@@ -106,7 +106,7 @@ variable "stackdriver_logging" {
 variable "stackdriver_monitoring" {
   description = "Enable the Stackdriver monitoring agent."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "allow_stopping_for_update" {
