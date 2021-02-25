@@ -52,24 +52,26 @@ if [[ -z "${ACCOUNT}" ]]; then
 fi
 
 AUTH_HEADER=$(kubectl $CTX get cm -n pod-broker-system pod-broker-config -o jsonpath='{.data.POD_BROKER_PARAM_AuthHeader}')
+POD=$(kubectl $CTX get pod -n pod-broker-system -l app=pod-broker -o jsonpath='{..metadata.name}')
+[[ -z "${POD}" ]] && echo "ERROR: failed to get pod-broker pod from cluster" && exit 1
 
 case $ACTION in
 "list")
-    kubectl $CTX exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
+    kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
         curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XGET localhost:8080/ \
             | jq -r '.apps[].name'
     ;;
 "start")
-    kubectl $CTX exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
+    kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
         curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XPOST localhost:8080/${APP}
     ;;
 "stop")
-    kubectl $CTX exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
+    kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
         curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XDELETE localhost:8080/${APP} \
             | jq -r .
     ;;
 "status")
-    kubectl $CTX exec -n pod-broker-system -c pod-broker pod-broker-0 -- \
+    kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
         curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XGET localhost:8080/${APP} \
             | jq -r .
     ;;
