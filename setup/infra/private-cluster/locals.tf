@@ -20,6 +20,13 @@ locals {
   // NOTE: if you plan on using accelerators, choose regions that contain the desired accelerator type
 
   // Map used to create subnets, integer values are used for CIDR range offsets.
+  // NOTE: If using a cluster with an index greater than 15,
+  //       a ConfigMap in the kube-system namespaced named ip-masq-agent must be created like the one below:
+  //
+  //     nonMasqueradeCIDRs:
+  //      - 172.0.0.0/10
+  //     resyncInterval: 60s
+
   cluster_regions = {
     "us-west1"                = 0,  # The Dalles, Oregon, USA
     "us-west2"                = 1,  # Los Angeles, California, USA
