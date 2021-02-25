@@ -37,9 +37,6 @@ import (
 	broker "selkies.io/controller/pkg"
 )
 
-// pubsub message receive context timeout in seconds
-const pubsubRecvTimeout = 2
-
 // job cleanup loop interval in seconds
 const jobCleanupInterval = 10
 
@@ -108,12 +105,16 @@ func main() {
 	// Go routine to process all messages from subscription
 	go func() {
 		log.Printf("starting GCR pubsub worker")
+		var mu sync.Mutex
 		for {
-			recvCtx, cancelRecv := context.WithTimeout(context.Background(), pubsubRecvTimeout*time.Second)
+			recvCtx, cancelRecv := context.WithCancel(context.Background())
 			defer cancelRecv()
 
+			log.Printf("pulling messages")
 			if err := sub.Receive(recvCtx, func(ctx context.Context, m *pubsub.Message) {
 				defer m.Ack()
+				mu.Lock()
+				defer mu.Unlock()
 
 				var message broker.GCRPubSubMessage
 				if err := json.Unmarshal(m.Data, &message); err != nil {
@@ -125,7 +126,8 @@ func main() {
 					// Fetch list of current images we care about.
 					images, err := findImageTags(namespace)
 					if err != nil {
-						log.Fatal(err)
+						log.Printf("error finding current images in namespace %s: %v", namespace, err)
+						return
 					}
 
 					imageWithTag := message.Tag
@@ -144,7 +146,8 @@ func main() {
 						// Check to see if image is already on node.
 						nodeImages, err := broker.GetImagesOnNode()
 						if err != nil {
-							log.Fatal(err)
+							log.Printf("error getting images on node: %v", err)
+							return
 						}
 
 						// Check if image is already on node.
@@ -157,7 +160,7 @@ func main() {
 
 						if !imageOnNode {
 							if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
-								log.Printf("%v", err)
+								log.Printf("error creating image pull job: %v", err)
 							}
 						}
 					} else {
@@ -168,8 +171,9 @@ func main() {
 				}
 				time.Sleep(100 * time.Millisecond)
 			}); err != nil {
-				fmt.Printf("error receiving message: %v", sub)
+				fmt.Printf("error receiving message: %v", err)
 			}
+			time.Sleep(2 * time.Second)
 		}
 	}()
 

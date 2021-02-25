@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -87,12 +88,15 @@ func main() {
 	// Go routine to process all messages from subscription
 	go func() {
 		log.Printf("starting GCR pubsub worker")
+		var mu sync.Mutex
 		for {
-			recvCtx, cancelRecv := context.WithTimeout(context.Background(), pubsubRecvTimeout*time.Second)
+			cctx, cancelRecv := context.WithTimeout(context.Background(), pubsubRecvTimeout*time.Second)
 			defer cancelRecv()
 
-			if err := sub.Receive(recvCtx, func(ctx context.Context, m *pubsub.Message) {
+			if err := sub.Receive(cctx, func(ctx context.Context, m *pubsub.Message) {
 				defer m.Ack()
+				mu.Lock()
+				defer mu.Unlock()
 
 				var message broker.GCRPubSubMessage
 				if err := json.Unmarshal(m.Data, &message); err != nil {
@@ -137,9 +141,9 @@ func main() {
 				}
 				time.Sleep(100 * time.Millisecond)
 			}); err != nil {
-				fmt.Printf("error receiving message: %v\n", sub)
-				time.Sleep(2 * time.Second)
+				fmt.Printf("error receiving message: %v\n", err)
 			}
+			time.Sleep(2 * time.Second)
 		}
 	}()
 
