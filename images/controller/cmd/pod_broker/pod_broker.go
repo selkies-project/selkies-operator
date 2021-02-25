@@ -502,6 +502,14 @@ func main() {
 			return
 		}
 
+		// Fetch the current pod status
+		status, err := broker.GetPodStatus(namespace, fmt.Sprintf("app.kubernetes.io/instance=%s,app=%s", fullName, app.ServiceName))
+		if err != nil {
+			log.Printf("failed to get pod status: %v", err)
+			writeResponse(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+
 		// Extract query parameters
 		// Note that only the first instance of a repeated query param is used.
 		queryParams := make(map[string]string, len(r.URL.Query()))
@@ -532,7 +540,12 @@ func main() {
 			appParams[param.Name] = param.Default
 		}
 
-		// Generate session key. Add to AppParams
+		// If pod is already created, use existing sessionKey
+		if status.Status != "shutdown" && len(status.SessionKeys) > 0 {
+			appParams["sessionKey"] = status.SessionKeys[0]
+		}
+
+		// Generate new session key if one was not already found.
 		if _, ok := appParams["sessionKey"]; !ok {
 			appParams["sessionKey"] = broker.MakeSessionKey()
 		}
@@ -606,14 +619,6 @@ func main() {
 				}
 			}
 
-			// Fetch pod status to retrieve the list of object types.
-			status, err := broker.GetPodStatus(namespace, fmt.Sprintf("app.kubernetes.io/instance=%s,app=%s", fullName, app.ServiceName))
-			if err != nil {
-				log.Printf("failed to get pod status: %v", err)
-				writeResponse(w, http.StatusInternalServerError, "internal server error")
-				return
-			}
-
 			if len(status.BrokerObjects) > 0 {
 				log.Printf("shutting down %s pod for user: %s", appName, user)
 				objectTypes := strings.Join(status.BrokerObjects, ",")
@@ -635,14 +640,6 @@ func main() {
 		}
 
 		if getStatus {
-			// Get pod status based on conditions.
-			status, err := broker.GetPodStatus(namespace, fmt.Sprintf("app.kubernetes.io/instance=%s,app=%s", fullName, app.ServiceName))
-			if err != nil {
-				log.Printf("failed to get pod ips: %v", err)
-				writeResponse(w, http.StatusInternalServerError, "internal server error")
-				return
-			}
-
 			statusCode := http.StatusOK
 
 			if status.Status == "waiting" {
@@ -667,20 +664,27 @@ func main() {
 		}
 
 		if create {
-			log.Printf("creating pod for user: %s: %s", user, fullName)
-			cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kustomize build %s | kubectl apply -f -", destDirUser, destDir))
-			cmd.Dir = destDir
-			stdoutStderr, err := cmd.CombinedOutput()
-			if err != nil {
-				log.Printf("error calling kubectl for %s: %v\n%s", user, err, stdoutStderr)
-				writeResponse(w, http.StatusInternalServerError, "internal server error")
-				return
+			if status.Status == "shutdown" {
+				log.Printf("creating pod for user: %s: %s", user, fullName)
+				cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kustomize build %s | kubectl apply -f -", destDirUser, destDir))
+				cmd.Dir = destDir
+				stdoutStderr, err := cmd.CombinedOutput()
+				if err != nil {
+					log.Printf("error calling kubectl for %s: %v\n%s", user, err, stdoutStderr)
+					writeResponse(w, http.StatusInternalServerError, "internal server error")
+					return
+				}
+
+				broker.SetCookie(w, cookieName, cookieValue, appPath, maxCookieAgeSeconds)
+
+				writeResponse(w, http.StatusAccepted, "created")
+				log.Printf("pod created for user: %s: %s", user, fullName)
+			} else {
+				broker.SetCookie(w, cookieName, cookieValue, appPath, maxCookieAgeSeconds)
+
+				writeResponse(w, http.StatusCreated, "created")
+				log.Printf("pod already created for user: %s: %s", user, fullName)
 			}
-
-			broker.SetCookie(w, cookieName, cookieValue, appPath, maxCookieAgeSeconds)
-
-			writeResponse(w, http.StatusAccepted, "created")
-			log.Printf("pod created for user: %s: %s", user, fullName)
 		}
 	})
 
