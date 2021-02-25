@@ -30,6 +30,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	broker "selkies.io/controller/pkg"
@@ -109,6 +110,15 @@ func main() {
 		log.Fatal("Missing POD_BROKER_PARAM_AuthorizedUserRepoPattern env.")
 	}
 	allowedRepoPattern := regexp.MustCompile(allowedRepoPatternParam)
+
+	// Mutex for serializing per-user/per-app operations.
+	type appLock struct {
+		sync.RWMutex
+	}
+	appSync := make(map[string]*appLock, 0)
+
+	// Mutex for serializing per-user operations.
+	userSync := make(map[string]*appLock, 0)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := sysParams["Debug"]; ok {
@@ -316,6 +326,16 @@ func main() {
 		userConfigFile := path.Join(broker.AppUserConfigBaseDir, appName, user, broker.AppUserConfigJSONFile)
 
 		ts := fmt.Sprintf("%d", time.Now().Unix())
+
+		// Lock per-user/per-app operations.
+		if lock, ok := appSync[fullName]; ok {
+			lock.Lock()
+			defer lock.Unlock()
+		} else {
+			appSync[fullName] = &appLock{}
+			appSync[fullName].Lock()
+			defer appSync[fullName].Unlock()
+		}
 
 		// Fetch user config, only use user options if spec.disableOptions is false.
 		userConfig, err := broker.GetAppUserConfig(userConfigFile)
@@ -599,11 +619,23 @@ func main() {
 		}
 
 		// Build user namespace template.
+
+		// Lock per-user operation
+		var userLock *appLock
+		if lock, ok := userSync[user]; ok {
+			userLock = lock
+		} else {
+			userSync[user] = &appLock{}
+			userLock = userSync[user]
+		}
+		userLock.Lock()
 		if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirStatefulSetUser, srcDirUser, destDirUser, userNSData); err != nil {
 			log.Printf("%v", err)
 			writeResponse(w, http.StatusInternalServerError, "internal server error")
+			userLock.Unlock()
 			return
 		}
+		userLock.Unlock()
 
 		if shutdown {
 			if _, err := os.Stat(destDir); os.IsNotExist(err) {
@@ -665,6 +697,9 @@ func main() {
 
 		if create {
 			if status.Status == "shutdown" {
+				userLock.Lock()
+				defer userLock.Unlock()
+
 				log.Printf("creating pod for user: %s: %s", user, fullName)
 				cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kustomize build %s | kubectl apply -f -", destDirUser, destDir))
 				cmd.Dir = destDir
