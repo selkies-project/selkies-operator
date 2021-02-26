@@ -131,9 +131,9 @@ func main() {
 					for _, data := range cm.Data {
 						scanner := bufio.NewScanner(strings.NewReader(data))
 						for scanner.Scan() {
-							userPat := scanner.Text()
-							// Skip comment lines.
-							if !strings.HasPrefix(userPat, "#") {
+							userPat := strings.TrimSpace(scanner.Text())
+							// Skip comment and empty lines.
+							if len(userPat) > 0 && !strings.HasPrefix(userPat, "#") {
 								_, err := regexp.Compile(userPat)
 								if err != nil {
 									log.Printf("WARN: invalid authorized user pattern found in ConfigMap %s: '%s', skipped.", authzCMName, userPat)
