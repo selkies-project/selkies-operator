@@ -116,7 +116,12 @@ if [[ -n "$(kubectl get ds -n kube-system -l app=pod-broker-image-loader -o name
 fi
 
 # Delete old pod-broker StatefulSet, migrate to Deployment
+log_cyan "Removing any old pod-broker StatefulSet to migrate to Deployment..."
 kubectl delete statefulset -n pod-broker-system pod-broker 2>/dev/null || true
+
+# Apply ip-masq-agent config to fix rfc-1918 pod cidr range on some clusters.
+log_cyan "Applying ip-masq-agent patch..."
+./fix_pod_cidr_masq.sh || true
 
 # Apply the manifests
 log_cyan "Applying manifests..."
