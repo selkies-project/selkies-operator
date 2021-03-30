@@ -85,7 +85,7 @@ variable turn_pool_preemptive_nodes {
 }
 
 variable "ip_cidr_range" {
-  description = "Custom IP CIRD ranges"
+  description = "Custom IP CIDR ranges"
   type = map(string)
   default = {
     nodes = ""
