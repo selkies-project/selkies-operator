@@ -80,3 +80,13 @@ variable turn_pool_disk_size_gb {
 variable turn_pool_disk_type {
   default = "pd-standard"
 }
+
+variable "ip_cidr_range" {
+  description = "Custom IP CIRD ranges"
+  type = map(string)
+  default = {
+    nodes = ""
+    pods = ""
+    services = ""
+  }
+}
