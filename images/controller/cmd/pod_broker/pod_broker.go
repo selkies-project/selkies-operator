@@ -321,7 +321,7 @@ func main() {
 
 		destDir := path.Join(broker.BuildSourceBaseDir, user, appName)
 
-		cookieValue := broker.MakeCookieValue(user, cookieSecret)
+		cookieValue := broker.MakeCookieValue(user, appName, cookieSecret)
 
 		userConfigFile := path.Join(broker.AppUserConfigBaseDir, appName, user, broker.AppUserConfigJSONFile)
 

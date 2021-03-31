@@ -681,7 +681,7 @@ func getAppStatus(w http.ResponseWriter, app broker.AppConfigSpec, appCtx *AppCo
 	if status.Status == "ready" {
 		statusCode = http.StatusOK
 		cookieName := fmt.Sprintf("broker_%s", app.Name)
-		cookieValue := broker.MakeCookieValue(user, appCtx.CookieSecret)
+		cookieValue := broker.MakeCookieValue(user, app.Name, appCtx.CookieSecret)
 		appPath := fmt.Sprintf("/%s/", app.Name)
 		broker.SetCookie(w, cookieName, cookieValue, appPath, maxCookieAgeSeconds)
 	}
@@ -780,7 +780,7 @@ func buildUserBundle(app broker.AppConfigSpec, appCtx *AppContext, user, usernam
 	data := appCtx.PodData
 	data.User = user
 	data.Username = username
-	data.CookieValue = broker.MakeCookieValue(user, appCtx.CookieSecret)
+	data.CookieValue = broker.MakeCookieValue(user, app.Name, appCtx.CookieSecret)
 	data.ID = broker.MakePodID(user)
 	data.FullName = fmt.Sprintf("%s-%s", app.Name, data.ID)
 	data.Timestamp = fmt.Sprintf("%d", time.Now().Unix())

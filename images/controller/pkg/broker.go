@@ -191,12 +191,12 @@ func ValidateImageRepo(repo, tag string, authorizedImagePattern *regexp.Regexp) 
 	return listResp.Tags, nil
 }
 
-func MakeCookieValue(user, cookieSecret string) string {
-	// Create cookie value in the form of: user#sha1("user.secret")
+func MakeCookieValue(user, app, cookieSecret string) string {
+	// Create cookie value in the form of: user#sha1("user.app.secret")
 	// Note that this value is used in a regex match for virtualservice routing
 	// and should be free of regex breaking characters.
 	h := sha1.New()
-	io.WriteString(h, fmt.Sprintf("%s.%s", user, cookieSecret))
+	io.WriteString(h, fmt.Sprintf("%s.%s.%s", user, app, cookieSecret))
 	return fmt.Sprintf("%s#%x", user, h.Sum(nil))
 }
 
