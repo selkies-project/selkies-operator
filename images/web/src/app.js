@@ -95,7 +95,11 @@ class BrokerApp {
             // Build launch params.
             this.waitLaunch = true;
             var launchParams = this.getLaunchParams();
-            this.broker.start_app(this.name, launchParams, () => {
+            this.broker.start_app(this.name, launchParams, (resp) => {
+                if (resp.status === 401 || resp.status === 0) {
+                    vue_app.reload_dialog = true;
+                    return;
+                }
                 this.update(true);
             });
         }
@@ -104,7 +108,11 @@ class BrokerApp {
     shutdown() {
         if (this.status === "stopped") return;
         this.status = "terminating";
-        this.broker.shutdown_app(this.name, () => {
+        this.broker.shutdown_app(this.name, (resp) => {
+            if (resp.status === 401 || resp.status === 0) {
+                vue_app.reload_dialog = true;
+                return;
+            }
             this.status = "terminating";
             setTimeout(() => {
                 this.update(true);
@@ -186,7 +194,9 @@ class BrokerApp {
         }
         Object.keys(this.paramValues).forEach(key => data.params[key] = this.paramValues[key].toString());
         this.broker.set_config(this.name, data, (resp) => {
-            if (resp.code !== 200) {
+            if (resp.status !== undefined && resp.status === 401 || resp.status === 0) {
+                vue_app.reload_dialog = true;
+            } else if (resp.code !== 200) {
                 this.saveStatus = "failed";
                 this.saveError = resp.status;
             } else {
@@ -202,6 +212,10 @@ class BrokerApp {
         if (this.type !== "statefulset") return;
         this.saveStatus = "idle";
         this.broker.get_config(this.name, (data) => {
+            if (data.status !== undefined && data.status !== 200) {
+                vue_app.reload_dialog = true;
+                return;
+            }
             this.imageRepo = data.imageRepo;
             this.imageTag = data.imageTag;
             this.imageTags = data.tags;
@@ -229,6 +243,7 @@ var vue_app = new Vue({
             logoutURL: "",
             darkTheme: false,
             quickLaunchEnabled: false,
+            reload_dialog: false,
 
             // array of BrokerApp objects.
             apps: [],
@@ -263,6 +278,11 @@ var vue_app = new Vue({
                     this.quickLaunchEnabled = false;
                     console.log("WARN: quick launch app not found: " + curr_app);
                 }
+            },
+
+            reload: () => {
+                console.log("reloading page.");
+                location.reload();
             }
         }
     },

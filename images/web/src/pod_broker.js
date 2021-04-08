@@ -98,9 +98,11 @@ class PodBroker {
             body: JSON.stringify(data),
         })
             .then(function (response) {
+                if (response.status !== 200) throw response;
                 return response.json();
             })
             .then(cb)
+            .catch(cb)
             .finally(fcb);
     }
 
@@ -112,11 +114,13 @@ class PodBroker {
      */
     get_config(app_name, cb, fcb) {
         var url = new URL(this.broker_url + app_name + "/config/");
-        fetch(url, { method: "GET", credentials: 'include' })
+        fetch(url, { method: "GET", credentials: 'include', redirect: 'manual' })
             .then(function (response) {
+                if (response.status !== 200) throw response;
                 return response.json();
             })
             .then(cb)
+            .catch(cb)
             .finally(fcb);
     }
 };
