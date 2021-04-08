@@ -20,7 +20,7 @@ data "google_compute_network" "broker" {
 
 resource "google_compute_subnetwork" "broker" {
   name                     = "${var.name}-${var.region}"
-  ip_cidr_range            = "10.${2 + lookup(local.cluster_regions, var.region)}.0.0/16"
+  ip_cidr_range            = var.ip_cidr_range.nodes != "" ?  var.ip_cidr_range.nodes : "10.${2 + lookup(local.cluster_regions, var.region)}.0.0/16"
   region                   = var.region
   network                  = data.google_compute_network.broker.self_link
   private_ip_google_access = true
@@ -28,11 +28,11 @@ resource "google_compute_subnetwork" "broker" {
   secondary_ip_range = [
     {
       range_name    = "${var.region}-pods"
-      ip_cidr_range = "172.${16 + lookup(local.cluster_regions, var.region)}.0.0/18"
+      ip_cidr_range = var.ip_cidr_range.pods != "" ?  var.ip_cidr_range.pods : "172.${16 + lookup(local.cluster_regions, var.region)}.0.0/18"
     },
     {
       range_name    = "${var.region}-services"
-      ip_cidr_range = "192.168.${lookup(local.cluster_regions, var.region)}.0/24"
+      ip_cidr_range = var.ip_cidr_range.services != "" ?  var.ip_cidr_range.services : "192.168.${lookup(local.cluster_regions, var.region)}.0/24"
     },
   ]
 }

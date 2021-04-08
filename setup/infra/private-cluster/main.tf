@@ -31,7 +31,7 @@ module "broker" {
   service_account           = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
   remove_default_node_pool  = true
   network_policy            = var.network_policy
-  master_ipv4_cidr_block    = "172.${2 + lookup(local.cluster_regions, var.region)}.0.0/28"
+  master_ipv4_cidr_block    = var.ip_cidr_range.master != "" ?  var.ip_cidr_range.master : "172.${2 + lookup(local.cluster_regions, var.region)}.0.0/28"
   enable_private_endpoint   = false
   enable_private_nodes      = true
   default_max_pods_per_node = var.max_pods_per_node

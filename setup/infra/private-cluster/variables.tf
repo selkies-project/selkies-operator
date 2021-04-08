@@ -83,3 +83,14 @@ variable turn_pool_instance_count {
 variable turn_pool_preemptive_nodes {
   default = false
 }
+
+variable "ip_cidr_range" {
+  description = "Custom IP CIDR ranges"
+  type = map(string)
+  default = {
+    nodes = ""
+    pods = ""
+    services = ""
+    master = ""
+  }
+}
