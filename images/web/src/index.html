@@ -42,6 +42,7 @@
     <v-app v-if="quickLaunchEnabled">
         <div class="loading">
         <scale-loader size="200px" :loading="true" color="#E0E0E0"></scale-loader>
+        <span>{{quickLaunchText}}</span>
       </div>
     </v-app>
     <v-app v-else>

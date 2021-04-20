@@ -73,6 +73,8 @@ class BrokerApp {
 
         this.checkAppTotal = 1;
         this.checkAppCount = 0;
+
+        this.update_timeout = null;
     }
 
     setParamValues(values) {
@@ -90,23 +92,26 @@ class BrokerApp {
     launch() {
         if (this.status === "ready") {
             window.location.href = this.launchURL;
-        } else {
-            this.status = "checking";
-            // Build launch params.
-            this.waitLaunch = true;
-            var launchParams = this.getLaunchParams();
-            this.broker.start_app(this.name, launchParams, (resp) => {
-                if (resp.status === 401 || resp.status === 0) {
-                    vue_app.reload_dialog = true;
-                    return;
-                }
-                this.update(true);
-            });
+            return;
         }
+        if (this.status !== "stopped") return;
+        this.status = "checking";
+        // Build launch params.
+        this.waitLaunch = true;
+        var launchParams = this.getLaunchParams();
+        this.broker.start_app(this.name, launchParams, (resp) => {
+            if (resp.status === 401 || resp.status === 0) {
+                vue_app.reload_dialog = true;
+                return;
+            }
+            clearTimeout(this.update_timeout);
+            this.update(true);
+        });
     }
 
     shutdown() {
-        if (this.status === "stopped") return;
+        if (this.status !== "running" && this.status !== "ready") return;
+        clearTimeout(this.update_timeout);
         this.status = "terminating";
         this.broker.shutdown_app(this.name, (resp) => {
             if (resp.status === 401 || resp.status === 0) {
@@ -137,7 +142,7 @@ class BrokerApp {
         },
             () => {
                 if (loop && this.status === "checking") {
-                    setTimeout(() => {
+                    this.update_timeout = setTimeout(() => {
                         this.update(loop);
                     }, 2000);
                 }
@@ -212,7 +217,7 @@ class BrokerApp {
         if (this.type !== "statefulset") return;
         this.saveStatus = "idle";
         this.broker.get_config(this.name, (data) => {
-            if (data.status !== undefined && data.status !== 200) {
+            if (data.status !== undefined && data.status !== 200 && data.status !== 503) {
                 vue_app.reload_dialog = true;
                 return;
             }
@@ -243,6 +248,7 @@ var vue_app = new Vue({
             logoutURL: "",
             darkTheme: false,
             quickLaunchEnabled: false,
+            quickLaunchText: "",
             reload_dialog: false,
 
             // array of BrokerApp objects.
@@ -267,9 +273,12 @@ var vue_app = new Vue({
                 var found = false;
                 this.apps.forEach((app) => {
                     if (app.name === curr_app) {
+                        this.quickLaunchText = "Launching " + app.displayName + "...";
                         this.quickLaunchEnabled = true;
                         found = true;
                         console.log("launching app: " + curr_app);
+                        clearInterval(app.update_timeout);
+                        app.status = "stopped";
                         app.launch();
                     }
                 });
