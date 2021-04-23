@@ -17,6 +17,11 @@
 variable project_id {}
 variable region {}
 
+variable release_channel {
+  description = "Configuration options for the Release channels https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels"
+  default = "REGULAR"
+}
+
 variable service_account {
   # If not specified, will use: broker@${var.project_id}.iam.gserviceaccount.com
   default = ""
