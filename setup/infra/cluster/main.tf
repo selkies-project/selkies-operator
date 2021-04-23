@@ -17,7 +17,7 @@
 module "broker" {
   source                   = "github.com/terraform-google-modules/terraform-google-kubernetes-engine//modules/beta-public-cluster?ref=v9.0.0"
   project_id               = var.project_id
-  release_channel          = "REGULAR"
+  release_channel          = var.release_channel
   name                     = "${var.name}-${var.region}"
   regional                 = true
   region                   = var.region
