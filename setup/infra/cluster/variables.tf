@@ -40,6 +40,11 @@ variable network_policy {
   default = true
 }
 
+// Set this to a lower value if your pod cidr is constrained.
+variable max_pods_per_node {
+  default = 110
+}
+
 # Default node pool counts per zone
 variable default_pool_machine_type {
   default = "e2-standard-4"
