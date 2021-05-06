@@ -31,6 +31,7 @@ module "broker" {
   remove_default_node_pool = true
   network_policy           = var.network_policy
   gce_pd_csi_driver        = true
+  default_max_pods_per_node = var.max_pods_per_node
 
   # Zones must be compatible with the chosen accelerator_type in the gpu-* node pools.
   zones = length(var.zones) == 0 ? lookup(local.cluster_node_zones, var.region) : var.zones
