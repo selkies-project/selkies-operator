@@ -37,6 +37,11 @@ variable "custom_ssl_policy_enabled" {
   default     = true
 }
 
+variable "custom_ssl_policy_delete" {
+  description = "set this in 2-pass ssl_policy removal after running with custom_ssl_policy_enabled = false to remove the ssl_policy resource without dependency issues with the target proxy"
+  default     = true
+}
+
 variable "ssl_policy_min_tls_version" {
   description = "(optional) - The minimum version of SSL protocol that can be used by the clients\nto establish a connection with the load balancer. Default value: \"TLS_1_0\" Possible values: [\"TLS_1_0\", \"TLS_1_1\", \"TLS_1_2\"]"
   type        = string

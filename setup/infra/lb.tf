@@ -129,15 +129,16 @@ resource "google_compute_target_https_proxy" "ingress" {
   name             = "istio-ingressgateway"
   url_map          = google_compute_url_map.ingress.self_link
   ssl_certificates = concat(list(google_compute_managed_ssl_certificate.ingress.self_link), values(google_compute_managed_ssl_certificate.extras).*.self_link)
-  ssl_policy = var.custom_ssl_policy_enabled ? concat(google_compute_ssl_policy.ssl_policy.*.id, [""])[0] : null
+  ssl_policy       = var.custom_ssl_policy_enabled ? concat(google_compute_ssl_policy.ssl_policy.*.id, [""])[0] : null
 }
 
+# SSL Policy
 resource "google_compute_ssl_policy" "ssl_policy" {
   name            = "${var.name}-ssl-policy"
   min_tls_version = var.ssl_policy_min_tls_version
   profile         = var.ssl_policy_profile
   custom_features = var.ssl_policy_profile == "CUSTOM" ? var.ssl_policy_custom_features : null
-  count           = var.custom_ssl_policy_enabled ? 1 : 0
+  count           = var.custom_ssl_policy_delete ? 0 : 1
 }
 
 # Forwarding rule - HTTP
