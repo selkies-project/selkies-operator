@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
@@ -337,14 +338,16 @@ func main() {
 			defer appSync[fullName].Unlock()
 		}
 
+		// Default app params from app config
+		defaultAppParams := make(map[string]string, 0)
+		for _, param := range app.UserParams {
+			defaultAppParams[param.Name] = param.Default
+		}
+
 		// Fetch user config, only use user options if spec.disableOptions is false.
 		userConfig, err := broker.GetAppUserConfig(userConfigFile)
 		if app.DisableOptions || err != nil {
-			// config does not exist yet, generate default.
-			defaultAppParams := make(map[string]string, 0)
-			for _, param := range app.UserParams {
-				defaultAppParams[param.Name] = param.Default
-			}
+			// config does not exist yet, generate one with defaults.
 
 			// Create new user config field with default spec
 			userConfig = broker.NewAppUserConfig(fullName, namespace, broker.AppUserConfigSpec{
@@ -356,6 +359,31 @@ func main() {
 				NodeTier:  app.DefaultTier,
 				Params:    defaultAppParams,
 			})
+		} else {
+			// Fill in default values.
+			if len(userConfig.Spec.AppName) == 0 {
+				userConfig.Spec.AppName = appName
+			}
+
+			if len(userConfig.Spec.ImageRepo) == 0 {
+				userConfig.Spec.ImageRepo = app.DefaultRepo
+			}
+
+			if len(userConfig.Spec.ImageTag) == 0 {
+				userConfig.Spec.ImageTag = app.DefaultTag
+			}
+
+			if len(userConfig.Spec.Tags) == 0 {
+				userConfig.Spec.Tags = []string{app.DefaultTag}
+			}
+
+			if len(userConfig.Spec.NodeTier) == 0 {
+				userConfig.Spec.NodeTier = app.DefaultTier
+			}
+
+			if len(userConfig.Spec.Params) == 0 {
+				userConfig.Spec.Params = defaultAppParams
+			}
 		}
 
 		userNSData := &broker.UserPodData{
@@ -645,9 +673,25 @@ func main() {
 
 			for i, hook := range app.ShutdownHooks {
 				selector := strings.Join([]string{"app.kubernetes.io/instance=" + fullName, hook.Selector}, ",")
-				log.Printf("executing shutdown hook %d/%d for %s, selector=%s, container=%s, command=%s", i+1, len(app.ShutdownHooks), fullName, selector, hook.Container, hook.Command)
-				if err := broker.ExecPodCommand(namespace, selector, hook.Container, hook.Command); err != nil {
-					log.Printf("error calling shutdown hook: %v", err)
+				tmpFile, err := ioutil.TempFile(os.TempDir(), fmt.Sprintf("shutdown-hook-%d", i))
+				if err != nil {
+					log.Printf("failed to create tempfile for shutdown hook %d", i)
+					continue
+				}
+				defer os.Remove(tmpFile.Name())
+				// Write contents of hook to temp file.
+				tmpFile.WriteString(hook.Command)
+				tmpFile.Sync()
+				tmpFile.Close()
+				tmpFileDest := fmt.Sprintf("/tmp/broker_shutdown_hook_%s_%d", hook.Container, i)
+				tmpFileCmd := fmt.Sprintf("sh %s", tmpFileDest)
+				if err := broker.CopyFileToContainer(namespace, selector, hook.Container, tmpFile.Name(), tmpFileDest); err != nil {
+					log.Printf("error copying shutdown hook file to container: %v", err)
+				} else {
+					log.Printf("executing shutdown hook %d/%d for %s, selector=%s, container=%s, command=%s", i+1, len(app.ShutdownHooks), fullName, selector, hook.Container, hook.Command)
+					if err := broker.ExecPodCommand(namespace, selector, hook.Container, tmpFileCmd); err != nil {
+						log.Printf("error calling shutdown hook: %v", err)
+					}
 				}
 			}
 

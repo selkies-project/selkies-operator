@@ -23,6 +23,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -233,6 +234,32 @@ func GetEgressNetworkPolicyData(podBrokerNamespace string) (NetworkPolicyTemplat
 	}
 
 	return resp, nil
+}
+
+func CopyFileToContainer(namespace, selector, container, srcPath, destPath string) error {
+	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
+		return fmt.Errorf("cannot copy file to container, srcPath not found: %s", srcPath)
+	}
+
+	// Fetch pod name from selector query.
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get pod -n %s -l %s -o 'jsonpath={..metadata.name}' 1>&2", namespace, selector))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to get pods: %s, %v", string(stdoutStderr), err)
+	}
+	podName := string(stdoutStderr)
+	if len(podName) == 0 {
+		return fmt.Errorf("cloud not find pod with given selector")
+	}
+	podName = strings.Split(podName, "\n")[0]
+
+	// Copy file to container
+	cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl cp -n %s -c %s %s %s:%s 1>&2", namespace, container, srcPath, podName, destPath))
+	stdoutStderr, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to copy file to pod command: %s, %v", string(stdoutStderr), err)
+	}
+	return nil
 }
 
 func ExecPodCommand(namespace, selector, container, command string) error {
