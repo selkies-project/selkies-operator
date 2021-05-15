@@ -122,6 +122,11 @@ func main() {
 					return
 				}
 
+				if message.Action == "DELETE" {
+					log.Printf("image deleted: %v", message)
+					return
+				}
+
 				if len(message.Tag) > 0 {
 					// Fetch list of current images we care about.
 					images, err := findImageTags(namespace)
@@ -236,30 +241,25 @@ func main() {
 		wg.Add(len(images))
 		for _, image := range images {
 			go func(image, token string) {
-				// Fetch image details for images in the form of: "gcr.io.*:tag"
-				if image[:6] == "gcr.io" {
-					imageWithDigest, err := getImageDigest(image, token)
-					if err != nil {
-						log.Printf("error fetching image digest: %s, %v", image, err)
-					} else {
-						// Check if image is already on node.
-						imageOnNode := false
-						for _, nodeImage := range nodeImages {
-							if fmt.Sprintf("%s@%s", nodeImage.Repository, nodeImage.Digest) == imageWithDigest {
-								imageOnNode = true
-							}
-						}
-
-						if !imageOnNode {
-							imageTag := getTagFromImage(image)
-							if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
-								log.Printf("%v", err)
-							}
+				// Fetch image details for GCR images
+				imageWithDigest, err := getImageDigest(image, token)
+				if err != nil {
+					log.Printf("error fetching image digest: %s, %v", image, err)
+				} else {
+					// Check if image is already on node.
+					imageOnNode := false
+					for _, nodeImage := range nodeImages {
+						if fmt.Sprintf("%s@%s", nodeImage.Repository, nodeImage.Digest) == imageWithDigest {
+							imageOnNode = true
 						}
 					}
-				} else {
-					// Non-gcr image
-					log.Printf("skipping pull of non-gcr image: %s", image)
+
+					if !imageOnNode {
+						imageTag := getTagFromImage(image)
+						if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
+							log.Printf("%v", err)
+						}
+					}
 				}
 				wg.Done()
 			}(image, token)
@@ -336,7 +336,10 @@ func findImageTags(namespace string) ([]string, error) {
 
 	images := make([]string, 0)
 	for image := range uniqueImages {
-		images = append(images, image)
+		if strings.Contains("gcr.io", image) {
+			// Only gcr images supported.
+			images = append(images, image)
+		}
 	}
 
 	return images, nil

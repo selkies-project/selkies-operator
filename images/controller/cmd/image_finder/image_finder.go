@@ -104,6 +104,11 @@ func main() {
 					return
 				}
 
+				if message.Action == "DELETE" {
+					log.Printf("image deleted: %v", message)
+					return
+				}
+
 				if len(message.Tag) > 0 {
 					// Fetch all user app configs
 					userConfigs, err := broker.FetchAppUserConfigs()
