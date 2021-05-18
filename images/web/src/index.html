@@ -193,7 +193,8 @@
                 redirect: 'manual',
             })
             .then(function (response) {
-                if (response.ok !== true) {
+                if (response.ok !== true && response.status != 404) {
+                    console.log("auth test failed, reloading.", response);
                     document.location.reload();
                     return null;
                 }

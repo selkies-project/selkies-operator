@@ -25,12 +25,26 @@ function cleanup() {
     echo "done"
 }
 trap cleanup EXIT
-kubectl port-forward -n pod-broker-system pod-broker-0 --address 0.0.0.0 8080:8080 &
+
+POD=$(kubectl $CTX get pod -n pod-broker-system -l app=pod-broker -o jsonpath='{..metadata.name}')
+[[ -z "${POD}" ]] && echo "ERROR: failed to get pod-broker pod from cluster" && exit 1
+
+kubectl port-forward -n pod-broker-system ${POD} --address 0.0.0.0 8080:8080 &
 port_forward1_pid=$!
-kubectl port-forward -n pod-broker-system pod-broker-0 --address 0.0.0.0 8082:8082 &
+kubectl port-forward -n pod-broker-system ${POD} --address 0.0.0.0 8084:8082 &
 port_forward2_pid=$!
 
-cat - | node <<'EOF'
+if [[ ! -d src/vendor ]]; then
+    mkdir -p src/vendor
+    curl -sSL "https://cdnjs.cloudflare.com/ajax/libs/vuetify/2.1.12/vuetify.min.css" -o src/vendor/vuetify.min.css
+    curl -sSL "https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.9/vue.min.js" -o src/vendor/vue.min.js
+    curl -sSL "https://cdnjs.cloudflare.com/ajax/libs/vuetify/2.1.12/vuetify.min.js" -o src/vendor/vuetify.min.js
+    curl -sSL "https://cdn.jsdelivr.net/npm/vue-spinner@1.0.3/dist/vue-spinner.min.js" -o src/vendor/vue-spinner.min.js
+fi
+
+USER_ACCOUNT=${USER_ACCOUNT:-$(gcloud config get-value account)}
+
+cat - | node <<EOF
 var express = require('express');
 var proxy = require('http-proxy-middleware');
 var app = express();
@@ -44,20 +58,23 @@ app.use(
             pathRewrite: {
                 '^/broker': '/'
             },
+            onProxyReq: (proxyReq, req, res) => {
+                proxyReq.setHeader('x-goog-authenticated-user-email', '${USER_ACCOUNT}')
+            },
         })
 );
 app.use(
     '/reservation-broker',
     proxy.createProxyMiddleware(
         {
-            target: 'http://localhost:8082',
+            target: 'http://localhost:8084',
             changeOrigin: true,
             pathRewrite: {
                 '^/reservation-broker': '/'
             },
         })
 );
-var devHost = process.env['CODE_SERVER_WEB_PREVIEW_3000'] ? "https://" + process.env['CODE_SERVER_WEB_PREVIEW_3000'] : "http://localhost:3000";
+var devHost = process.env['WEB_PREVIEW_PORT_3000'] ? process.env['WEB_PREVIEW_PORT_3000'] : "http://localhost:3000";
 console.log("dev server listening at: " + devHost);
 app.listen(3000);
 EOF
