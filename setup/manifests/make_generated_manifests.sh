@@ -97,6 +97,23 @@ else
   fi
 fi
 
+###
+# Fetch custom web image repo and tag from value in Secret Manager
+###
+CUSTOM_WEB_IMAGE=""
+WEB_IMAGE_SECRET_VERSION=$(gcloud -q secrets versions list broker-${REGION}-web-image --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+if [[ -n "${WEB_IMAGE_SECRET_VERSION}" ]]; then
+  # Use regional value
+  CUSTOM_WEB_IMAGE=$(gcloud secrets versions access ${WEB_IMAGE_SECRET_VERSION} --secret broker-${REGION}-web-image)
+else
+  # Try to get global value
+  WEB_IMAGE_SECRET_VERSION=$(gcloud -q secrets versions list broker-web-image --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+  if [[ -n "${WEB_IMAGE_SECRET_VERSION}" ]]; then
+    # Use global value
+    CUSTOM_WEB_IMAGE=$(gcloud secrets versions access ${WEB_IMAGE_SECRET_VERSION} --secret broker-web-image)
+  fi
+fi
+
 DEST=${DEST_DIR}/patch-image-puller-patch.yaml
 cat > "${DEST}" << EOF
 apiVersion: apps/v1
@@ -249,6 +266,25 @@ function fetchLatestDigest() {
   [[ $? -ne 0 || -z "$digest" ]] && echo "ERROR: failed to find digest for ${image}:latest" >&2 && return 1
   echo "${image}@${digest}"
 }
+
+###
+# Extract the digest for an exact image locator uri
+###
+function fetchImageDigest() {
+  local imageRepo=$1
+  local imageTag=$2
+  local digest=$(gcloud -q container images list-tags ${imageRepo} --limit 1 --filter=tags~${imageTag} --format="json" | jq -r ".[].digest")
+  [[ $? -ne 0 || -z "$digest" ]] && echo "ERROR: failed to find digest for ${imageRepo}:${imageTag}" >&2 && return 1
+  echo "${imageRepo}@${digest}"
+}
+
+if [[ -n "${CUSTOM_WEB_IMAGE}" ]]; then
+  # Find digest of custom web image and save that as WEB_IMAGE to be used later in the kustomization.
+  WEB_REPO="${CUSTOM_WEB_IMAGE/:*/}"
+  WEB_TAG="${CUSTOM_WEB_IMAGE/*:/}"
+  export WEB_IMAGE=$(fetchImageDigest ${WEB_REPO} ${WEB_TAG})
+  echo "INFO: Using custom web image ${CUSTOM_WEB_IMAGE} -> ${WEB_IMAGE}"
+fi
 
 CONTROLLER_IMAGE=${CONTROLLER_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-controller)}
 WEB_IMAGE=${WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-web)}
