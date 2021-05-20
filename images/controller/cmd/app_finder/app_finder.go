@@ -52,7 +52,7 @@ func main() {
 	userBundleManifestChecksums := make(map[string]string, 0)
 
 	for {
-		// Fetch all user app configs
+		// Fetch all broker apps
 		appConfigs, err := broker.FetchBrokerAppConfigs(namespace)
 		if err != nil {
 			log.Printf("failed to fetch broker app configs: %v", err)

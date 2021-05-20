@@ -16,9 +16,9 @@
 
 package pod_broker
 
-const apiVersion = "gcp.solutions/v1"
-const brokerAppConfigKind = "BrokerAppUserConfig"
-const brokerAppUserConfigKind = "BrokerAppUserConfig"
+const ApiVersion = "gcp.solutions/v1"
+const BrokerAppConfigKind = "BrokerAppUserConfig"
+const BrokerAppUserConfigKind = "BrokerAppUserConfig"
 
 type AppType string
 

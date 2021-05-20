@@ -691,6 +691,8 @@ func main() {
 					log.Printf("executing shutdown hook %d/%d for %s, selector=%s, container=%s, command=%s", i+1, len(app.ShutdownHooks), fullName, selector, hook.Container, hook.Command)
 					if err := broker.ExecPodCommand(namespace, selector, hook.Container, tmpFileCmd); err != nil {
 						log.Printf("error calling shutdown hook: %v", err)
+					} else {
+						log.Printf("finished shutdown hook %d/%d for %s", i+1, len(app.ShutdownHooks), fullName)
 					}
 				}
 			}

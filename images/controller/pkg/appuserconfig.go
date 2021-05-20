@@ -43,8 +43,8 @@ func (userConfig *AppUserConfigObject) WriteJSON(destFile string) error {
 func NewAppUserConfig(name, namespace string, spec AppUserConfigSpec) AppUserConfigObject {
 	return AppUserConfigObject{
 		KubeObjectBase: KubeObjectBase{
-			ApiVersion: apiVersion,
-			Kind:       brokerAppUserConfigKind,
+			ApiVersion: ApiVersion,
+			Kind:       BrokerAppUserConfigKind,
 		},
 		Metadata: KubeObjectMeta{
 			Name:      name,
