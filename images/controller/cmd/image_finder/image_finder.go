@@ -160,11 +160,6 @@ func main() {
 					return
 				}
 
-				if message.Action == "DELETE" {
-					log.Printf("image deleted: %v", message)
-					return
-				}
-
 				if len(message.Tag) > 0 {
 					// Fetch all user app configs
 					userConfigs, err := broker.FetchAppUserConfigs()
@@ -174,21 +169,49 @@ func main() {
 
 					// Update list of tags for all user configs that use this image.
 					for i := range userConfigs {
+						appName := userConfigs[i].Spec.AppName
+						user := userConfigs[i].Spec.User
 						imageToks := strings.Split(message.Tag, ":")
 						imageRepo := imageToks[0]
 						imageTag := imageToks[1]
+						currTags := userConfigs[i].Spec.Tags
+
+						// Read local file to get up to date tags list.
+						userConfig, err := broker.GetAppUserConfig(path.Join(broker.AppUserConfigBaseDir, appName, user, broker.AppUserConfigJSONFile))
+						if err == nil {
+							currTags = userConfig.Spec.Tags
+						}
 
 						if imageRepo == userConfigs[i].Spec.ImageRepo {
-							log.Printf("updating list of tags for app: %s, user: %s", userConfigs[i].Spec.AppName, userConfigs[i].Spec.User)
-
-							destDir := path.Join(broker.AppUserConfigBaseDir, userConfigs[i].Spec.AppName, userConfigs[i].Spec.User)
+							destDir := path.Join(broker.AppUserConfigBaseDir, appName, user)
 							err = os.MkdirAll(destDir, os.ModePerm)
 							if err != nil {
 								log.Fatalf("failed to create directory: %v", err)
 							}
 
-							// Update tags
-							userConfigs[i].Spec.Tags = append(userConfigs[i].Spec.Tags, imageTag)
+							if message.Action == "INSERT" {
+								// Add tag to user config
+								log.Printf("adding tag to app %s for user %s: %s", appName, user, message.Tag)
+								currTags = append(currTags, imageTag)
+							} else if message.Action == "DELETE" {
+								// remove tag from config
+								log.Printf("deleting tag from app %s for user %s: %s", appName, user, message.Tag)
+								newTags := make([]string, 0)
+								for _, tag := range currTags {
+									if tag != imageTag {
+										newTags = append(newTags, tag)
+									}
+								}
+								currTags = newTags
+							}
+
+							userConfigs[i].Spec.Tags = currTags
+
+							if len(currTags) == 0 {
+								// image deleted
+								userConfigs[i].Spec.ImageRepo = ""
+								userConfigs[i].Spec.ImageTag = ""
+							}
 
 							// Save app config to local file.
 							if err := userConfigs[i].WriteJSON(path.Join(destDir, broker.AppUserConfigJSONFile)); err != nil {
