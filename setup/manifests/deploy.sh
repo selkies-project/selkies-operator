@@ -101,7 +101,6 @@ esac
 
 # force repair of autoneg annotations.
 log_cyan "Repairing neg-status and autoneg-status annotations on istio-ingressgateway service to force update"
-kubectl annotate service istio-ingressgateway -n istio-system cloud.google.com/neg-status-
 kubectl annotate service istio-ingressgateway -n istio-system anthos.cft.dev/autoneg-status-
 
 # Create generated manifests
