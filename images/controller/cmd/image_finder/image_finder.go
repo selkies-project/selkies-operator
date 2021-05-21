@@ -222,9 +222,26 @@ func writeUserConfigJSON(userConfig broker.AppUserConfigObject) error {
 		return fmt.Errorf("failed to create directory: %v", err)
 	}
 
-	// Save app config to local file.
-	if err := userConfig.WriteJSON(path.Join(destDir, broker.AppUserConfigJSONFile)); err != nil {
-		return fmt.Errorf("failed to save copy of user app config: %v", err)
+	// Get service account name from metadata server
+	sa, err := broker.GetServiceAccountFromMetadataServer()
+	if err != nil {
+		return fmt.Errorf("failed to get service account name from metadata server: %v", err)
+	}
+
+	// Get access token from metadata server
+	token, err := broker.GetServiceAccountTokenFromMetadataServer(sa)
+	if err != nil {
+		return fmt.Errorf("failed to get token from metadata server: %v", err)
+	}
+
+	if len(userConfig.Spec.ImageRepo) > 0 && len(userConfig.Spec.ImageTag) > 0 {
+		// Fill in the userConfig with the list of tags from GCR, then write the JSON to a file.
+		getImageTags(userConfig, destDir, token)
+	} else {
+		// Save app config to local file.
+		if err := userConfig.WriteJSON(path.Join(destDir, broker.AppUserConfigJSONFile)); err != nil {
+			return fmt.Errorf("failed to save copy of user app config: %v", err)
+		}
 	}
 
 	return nil

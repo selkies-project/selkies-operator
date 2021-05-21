@@ -344,9 +344,9 @@ func main() {
 			defaultAppParams[param.Name] = param.Default
 		}
 
-		// Fetch user config, only use user options if spec.disableOptions is false.
+		// Fetch user config.
 		userConfig, err := broker.GetAppUserConfig(userConfigFile)
-		if app.DisableOptions || err != nil {
+		if err != nil {
 			// config does not exist yet, generate one with defaults.
 
 			// Create new user config field with default spec
