@@ -46,16 +46,20 @@ spec:
                   NODES=$(kubectl get node -o jsonpath='{..metadata.name}')
                   
                   for sub in $SUBSCRIPTIONS; do
-                    submatch=$(echo $sub | cut -d'/' -f4 | sed 's/pod-broker-image-puller-//g')
-                    if [[ ! "$NODES" =~ $submatch ]]; then
-                      echo "deleting stale node subscription: $sub"
-                      gcloud pubsub subscriptions delete $sub
+                    if [[ "$sub" =~ pod-broker-image-puller ]]; then
+                      submatch=$(echo $sub | cut -d'/' -f4 | sed 's/pod-broker-image-puller-//g')
+                      if [[ ! "$NODES" =~ $submatch ]]; then
+                        echo "deleting stale node subscription: $sub"
+                        gcloud pubsub subscriptions delete $sub
+                      fi
                     fi
 
-                    submatch=$(echo $sub | cut -d'/' -f4 | sed 's/pod-broker-image-finder-//g')
-                    if [[ ! "$NODES" =~ $submatch ]]; then
-                      echo "deleting stale node subscription: $sub"
-                      gcloud pubsub subscriptions delete $sub
+                    if [[ "$sub" =~ pod-broker-image-finder ]]; then
+                      submatch=$(echo $sub | cut -d'/' -f4 | sed 's/pod-broker-image-finder-//g')
+                      if [[ ! "$NODES" =~ $submatch ]]; then
+                        echo "deleting stale node subscription: $sub"
+                        gcloud pubsub subscriptions delete $sub
+                      fi
                     fi
                   done
               resources:
