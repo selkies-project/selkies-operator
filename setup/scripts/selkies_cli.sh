@@ -22,11 +22,11 @@ function usage() {
 ACCOUNT=""
 CTX=""
 while (( "$#" )); do
-    case ${1,,} in
+    case ${1} in
         start|stop|status)
-            ACTION=${1,,}
+            ACTION=${1}
             shift
-            APP=${1,,}
+            APP=${1}
             ;;
         list)
             ACTION=$1
@@ -39,7 +39,7 @@ while (( "$#" )); do
             shift
             CTX="--context $1"
             ;;
-        *) log_red "ERROR: Invalid argument '$1', USAGE: pod-broker <build|push|deploy-REGION> [-p <project id>]" && return 1 ;;
+        *)  "ERROR: Invalid argument '$1', USAGE: pod-broker <build|push|deploy-REGION> [-p <project id>]" && return 1 ;;
     esac
     shift
 done
