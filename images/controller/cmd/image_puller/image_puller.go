@@ -41,7 +41,7 @@ import (
 const jobCleanupInterval = 10
 
 // new image check interval in seconds
-const newImagePullInterval = 5
+const newImagePullInterval = 300
 
 func main() {
 
@@ -336,7 +336,7 @@ func findImageTags(namespace string) ([]string, error) {
 
 	images := make([]string, 0)
 	for image := range uniqueImages {
-		if strings.Contains("gcr.io", image) {
+		if strings.Contains(image, "gcr.io") {
 			// Only gcr images supported.
 			images = append(images, image)
 		}
@@ -400,7 +400,6 @@ func getTagFromImage(image string) string {
 // If running, return (non-fatal) error.
 // If not running, apply job to given namespace.
 func makeImagePullJob(image, tag, nodeName, namespace, templatePath string) error {
-
 	imageToks := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@sha256:")
 	imageBase := path.Base(imageToks[0])
 	digestHash := imageToks[1]
