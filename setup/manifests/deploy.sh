@@ -118,6 +118,16 @@ fi
 log_cyan "Removing any old pod-broker StatefulSet to migrate to Deployment..."
 kubectl delete statefulset -n pod-broker-system pod-broker 2>/dev/null || true
 
+# Delete non-csi StorageClasses, migrate to CSI provisioner.
+# The provisioner field of the StorageClass object is immutable, so the old one has to be deleted first.
+for sc in pd-ssd pd-standard; do
+    PROVISIONER=$(kubectl get storageclass ${sc} -o jsonpath='{.provisioner}')
+    if [[ "${PROVISIONER}" == "kubernetes.io/gce-pd" ]]; then
+        log_cyan "Removing non-csi storageclass ${sc} to migrate to CSI provisioner"
+        kubectl delete storageclass ${sc}
+    fi
+done
+
 # Apply ip-masq-agent config to fix rfc-1918 pod cidr range on some clusters.
 log_cyan "Applying ip-masq-agent patch..."
 ./fix_pod_cidr_masq.sh || true
