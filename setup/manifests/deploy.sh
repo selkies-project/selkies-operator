@@ -121,7 +121,7 @@ kubectl delete statefulset -n pod-broker-system pod-broker 2>/dev/null || true
 # Delete non-csi StorageClasses, migrate to CSI provisioner.
 # The provisioner field of the StorageClass object is immutable, so the old one has to be deleted first.
 for sc in pd-ssd pd-standard; do
-    PROVISIONER=$(kubectl get storageclass ${sc} -o jsonpath='{.provisioner}')
+    PROVISIONER=$(kubectl get storageclass ${sc} -o jsonpath='{.provisioner}' || true)
     if [[ "${PROVISIONER}" == "kubernetes.io/gce-pd" ]]; then
         log_cyan "Removing non-csi storageclass ${sc} to migrate to CSI provisioner"
         kubectl delete storageclass ${sc}
