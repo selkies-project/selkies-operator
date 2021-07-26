@@ -27,6 +27,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -191,7 +192,9 @@ func BuildDeploy(brokerCommonBaseDir, srcDir, destDir string, data *UserPodData)
 
 func TemplateFile(templatePath, destDir string, data *UserPodData) error {
 	base := path.Base(templatePath)
-	t, err := template.New(base).Funcs(sprig.TxtFuncMap()).ParseFiles(templatePath)
+	t, err := template.New(base).Funcs(sprig.TxtFuncMap()).Funcs(template.FuncMap{
+		"avail": avail,
+	}).ParseFiles(templatePath)
 	if err != nil {
 		return err
 	}
@@ -300,4 +303,15 @@ func MD5All(root string) (map[string][md5.Size]byte, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func avail(name string, data interface{}) bool {
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return false
+	}
+	return v.FieldByName(name).IsValid()
 }

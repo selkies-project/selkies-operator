@@ -99,8 +99,9 @@ type UserPodData struct {
 }
 
 type NodeResource struct {
-	CPU    interface{} `yaml:"cpu,omitempty" json:"cpu,omitempty,string"`
-	Memory interface{} `yaml:"memory,omitempty" json:"memory,omitempty,string"`
+	CPU              interface{} `yaml:"cpu,omitempty" json:"cpu,omitempty,string"`
+	Memory           interface{} `yaml:"memory,omitempty" json:"memory,omitempty,string"`
+	EphemeralStorage interface{} `yaml:"ephemeral-storage,omitempty" json:"ephemeral-storage,omitempty,string"`
 }
 
 type NodeResourceRequestSpec struct {

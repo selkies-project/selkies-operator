@@ -17,7 +17,8 @@ FROM gcr.io/cloud-builders/kubectl as kubectl
 
 FROM gcr.io/google.com/cloudsdktool/cloud-sdk:alpine
 RUN apk add -u \
-    jq
+    jq \
+    coreutils
 
 ARG TERRAFORM_VERSION=0.12.30
 ARG KUSTOMIZE_VERSION=3.5.3
