@@ -46,6 +46,10 @@ variable tier1_pool_disk_size_gb {
 variable tier1_pool_disk_type {
   default = "pd-balanced"
 }
+variable tier1_pool_ephemeral_storage_ssd_count {
+  description = "use local-ssd for ephemeral container storage. NOTE: requires either n1, n2 or n2d instance types."
+  default = 0
+}
 
 # Tier 1 Ubuntu node pool parameters
 variable tier1_ubuntu_pool_enabled {
@@ -72,6 +76,10 @@ variable tier1_ubuntu_pool_disk_size_gb {
 variable tier1_ubuntu_pool_disk_type {
   default = "pd-balanced"
 }
+variable tier1_ubuntu_pool_ephemeral_storage_ssd_count {
+  description = "use local-ssd for ephemeral container storage. NOTE: requires either n1, n2 or n2d instance types."
+  default = 0
+}
 
 # Tier 2 node pool parameters
 variable tier2_pool_enabled {
@@ -97,4 +105,8 @@ variable tier2_pool_disk_size_gb {
 }
 variable tier2_pool_disk_type {
   default = "pd-balanced"
+}
+variable tier2_pool_ephemeral_storage_ssd_count {
+  description = "use local-ssd for ephemeral container storage. NOTE: requires either n1, n2 or n2d instance types."
+  default = 0
 }

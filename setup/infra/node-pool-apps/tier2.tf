@@ -15,6 +15,7 @@
  */
 
 resource "google_container_node_pool" "tier2" {
+  provider           = "google-beta"
   count              = var.tier2_pool_enabled ? 1 : 0
   name               = "tier2"
   location           = var.region
@@ -29,6 +30,10 @@ resource "google_container_node_pool" "tier2" {
 
     disk_size_gb = var.tier2_pool_disk_size_gb
     disk_type    = var.tier2_pool_disk_type
+
+    ephemeral_storage_config {
+      local_ssd_count = var.tier2_pool_ephemeral_storage_ssd_count
+    }
 
     image_type = "COS"
 
