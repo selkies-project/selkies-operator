@@ -30,7 +30,8 @@ cd "${SCRIPT_DIR}"
 
 # Fetch any Secret Manager secrets named broker-tfvars* and same them to .auto.tfvars files.
 for secret in $(gcloud -q secrets list --filter=name~broker-tfvars- --format="value(name)"); do
-    latest=$(gcloud secrets versions list ${secret} --sort-by=created --format='value(name)' --limit=1)
+    latest=$(gcloud secrets versions list ${secret} --sort-by=created --format='value(name)' --filter='STATE=enabled' --limit=1)
+    [[ -z "${latest}" ]] && log_red "WARN: no enabled versions found for secret ${secret}" && continue
     dest="${secret/broker-tfvars-/}.auto.tfvars"
     log_cyan "Creating ${dest} from secret: ${secret}"
     gcloud -q secrets versions access ${latest} --secret ${secret} > ${dest}
