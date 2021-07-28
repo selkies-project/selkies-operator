@@ -67,4 +67,15 @@ locals {
     "asia-southeast1"         = ["asia-southeast1-b"],
     "australia-southeast1"    = ["australia-southeast1-a"],
   }
+
+  // Placeholder that can be overriden in _override.tf file.
+  pod_subnets = []
+
+  // Default subnet values computed from region indices.
+  default_ip_cidr_range = {
+    "nodes" = "10.${2 + lookup(local.cluster_regions, var.region)}.0.0/16"
+    "master" = "172.${2 + lookup(local.cluster_regions, var.region)}.0.0/28"
+    "services" = "192.168.${lookup(local.cluster_regions, var.region)}.0/24"
+    "pods" = "172.${16 + lookup(local.cluster_regions, var.region)}.0.0/18"
+  }
 }
