@@ -37,6 +37,11 @@ resource "google_compute_subnetwork" "broker" {
   ]
 }
 
+resource "google_compute_address" "nat-address" {
+  count = 2
+  name  = "broker-nat-${var.region}-${count.index}"
+}
+
 resource "google_compute_router" "router-nat" {
   provider = google-beta
   name     = "broker-nat-${var.region}"
@@ -50,8 +55,9 @@ resource "google_compute_router" "router-nat" {
 
 module "cloud-nat" {
   source     = "terraform-google-modules/cloud-nat/google"
-  version    = "~> 1.2"
+  version    = "~> 1.4"
   project_id = var.project_id
   region     = var.region
   router     = google_compute_router.router-nat.name
+  nat_ips    = google_compute_address.nat-address.*.self_link
 }

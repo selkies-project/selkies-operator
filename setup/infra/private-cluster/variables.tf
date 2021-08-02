@@ -19,7 +19,7 @@ variable region {}
 
 variable release_channel {
   description = "Configuration options for the Release channels https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels"
-  default = "REGULAR"
+  default     = "REGULAR"
 }
 
 variable service_account {
@@ -91,11 +91,11 @@ variable turn_pool_preemptive_nodes {
 
 variable "ip_cidr_range" {
   description = "Custom IP CIDR ranges"
-  type = map(string)
+  type        = map(string)
   default = {
-    nodes = ""
-    pods = ""
+    nodes    = ""
+    pods     = ""
     services = ""
-    master = ""
+    master   = ""
   }
 }

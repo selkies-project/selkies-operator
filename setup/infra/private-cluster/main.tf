@@ -15,8 +15,8 @@
  */
 
 module "broker" {
-  source = "terraform-google-modules/kubernetes-engine/google//modules/beta-private-cluster-update-variant"
-  version = "12.3.0"
+  source                    = "terraform-google-modules/kubernetes-engine/google//modules/beta-private-cluster-update-variant"
+  version                   = "12.3.0"
   project_id                = var.project_id
   release_channel           = var.release_channel
   name                      = "${var.name}-${var.region}"
@@ -89,7 +89,7 @@ module "broker" {
   }
 
   node_pools_labels = {
-    all               = {}
+    all = {}
     default-node-pool = {
       "cloud.google.com/gke-private-cluster" = "true"
     }
