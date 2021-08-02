@@ -15,6 +15,7 @@
  */
 
 resource "google_container_node_pool" "gpu-cos" {
+  provider           = google-beta
   count              = var.gpu_cos_pool_enabled ? 1 : 0
   name               = "gpu-cos"
   location           = var.region

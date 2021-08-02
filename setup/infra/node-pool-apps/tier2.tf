@@ -15,7 +15,7 @@
  */
 
 resource "google_container_node_pool" "tier2" {
-  provider           = "google-beta"
+  provider           = google-beta
   count              = var.tier2_pool_enabled ? 1 : 0
   name               = "tier2"
   location           = var.region
