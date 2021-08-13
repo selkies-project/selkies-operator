@@ -50,6 +50,10 @@ variable gpu_cos_pool_disk_size_gb {
 variable gpu_cos_pool_disk_type {
   default = "pd-balanced"
 }
+variable gpu_cos_pool_ephemeral_storage_ssd_count {
+  description = "use local-ssd for ephemeral container storage. NOTE: requires either n1, n2 or n2d instance types."
+  default = 0
+}
 
 # GPU Ubuntu node pool parameters
 variable gpu_ubuntu_pool_enabled {
@@ -79,4 +83,8 @@ variable gpu_ubuntu_pool_disk_size_gb {
 }
 variable gpu_ubuntu_pool_disk_type {
   default = "pd-balanced"
+}
+variable gpu_ubuntu_pool_ephemeral_storage_ssd_count {
+  description = "use local-ssd for ephemeral container storage. NOTE: requires either n1, n2 or n2d instance types."
+  default = 0
 }

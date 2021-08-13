@@ -31,6 +31,10 @@ resource "google_container_node_pool" "gpu-cos" {
     disk_size_gb = var.gpu_cos_pool_disk_size_gb
     disk_type    = var.gpu_cos_pool_disk_type
 
+    ephemeral_storage_config {
+      local_ssd_count = var.gpu_cos_pool_ephemeral_storage_ssd_count
+    }
+
     image_type = "COS"
 
     guest_accelerator {
