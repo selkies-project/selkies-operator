@@ -56,7 +56,8 @@ spec:
             - -ec
             - |
               echo "Pulling image: ${IMAGE}"
-              gcloud -q auth configure-docker
+              mkdir -p ${HOME}/.docker
+              echo "${DOCKER_CONFIG_JSON64}" | base64 -d > ${HOME}/.docker/config.json
               docker pull ${IMAGE}
               if [[ -n "${TAG}" ]]; then
                 echo "Tagging image ${IMAGE} with ${TAG}"
@@ -69,6 +70,8 @@ spec:
               value: {{.Image|quote}}
             - name: TAG
               value: {{.Tag|quote}}
+            - name: DOCKER_CONFIG_JSON64
+              value: {{.DockerConfigJSON64|quote}}
           volumeMounts:
             - name: docker
               mountPath: /var/run/docker.sock

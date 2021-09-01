@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,6 +39,10 @@ import (
 	"cloud.google.com/go/pubsub"
 	oauth2 "golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
+
+	registry_authn "github.com/google/go-containerregistry/pkg/authn"
+	registry_name "github.com/google/go-containerregistry/pkg/name"
+	remote_registry "github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 const GCRImageWithoutTagPattern = `gcr.io.*$`
@@ -78,6 +83,117 @@ func SetCookie(w http.ResponseWriter, cookieName, cookieValue, appPath string, m
 	// Set cookie for header based routing.
 	cookie := http.Cookie{Name: cookieName, Value: cookieValue, Path: appPath, MaxAge: maxAgeSeconds}
 	http.SetCookie(w, &cookie)
+}
+
+func GetDockerRepoFromImage(image string) (string, error) {
+	resp := ""
+	nameRef, err := registry_name.ParseReference(image)
+	if err != nil {
+		return resp, err
+	}
+	resp = nameRef.Context().Name()
+	return resp, nil
+}
+
+// Test each auth config against the list tags operation and return the first working one.
+func GetDockerAuthConfigForRepo(image string, authConfigs []registry_authn.AuthConfig) (registry_authn.AuthConfig, error) {
+	resp := registry_authn.AuthConfig{}
+	for _, authConfig := range authConfigs {
+		_, err := DockerRemoteRegistryGetDigest(image, []registry_authn.AuthConfig{authConfig})
+		if err == nil {
+			resp = authConfig
+			return resp, nil
+		}
+	}
+	return resp, fmt.Errorf("failed to find auth config for repo")
+}
+
+func GetDefaultSADockerConfig() (DockerConfigJSON, error) {
+	dockerConfig := DockerConfigJSON{}
+
+	// Get SA email from metadata server
+	sa, err := GetServiceAccountFromMetadataServer()
+	if err != nil {
+		return dockerConfig, err
+	}
+
+	// Get token from default service account.
+	token, err := GetServiceAccountTokenFromMetadataServer(sa)
+	if err != nil {
+		return dockerConfig, err
+	}
+
+	// Generate AuthConfig from service account token.
+	dockerConfig = DockerConfigJSON{
+		Auths: map[string]registry_authn.AuthConfig{
+			"https://gcr.io": registry_authn.AuthConfig{
+				Username: "oauth2accesstoken",
+				Password: token,
+			},
+		},
+	}
+
+	return dockerConfig, nil
+}
+
+func DockerRemoteRegistryListTags(image string, authConfigs []registry_authn.AuthConfig) ([]string, error) {
+	resp := []string{}
+	uaOpt := remote_registry.WithUserAgent("Selkies_Controller/1.0")
+	nameRef, err := registry_name.ParseReference(image)
+	if err != nil {
+		return resp, err
+	}
+	repoName := nameRef.Context().Name()
+	repo, err := registry_name.NewRepository(repoName)
+	if err != nil {
+		return resp, err
+	}
+	for _, authConfig := range authConfigs {
+		authOpt := remote_registry.WithAuth(registry_authn.FromConfig(authConfig))
+		resp, err = remote_registry.List(repo, authOpt, uaOpt)
+		if err == nil {
+			return resp, nil
+		}
+	}
+	return resp, fmt.Errorf("failed to list tags on repo: '%s' with given auth configs", repoName)
+}
+
+func DockerRemoteRegistryGetDigest(repoRef string, authConfigs []registry_authn.AuthConfig) (string, error) {
+	resp := ""
+	nameRef, err := registry_name.ParseReference(repoRef)
+	if err != nil {
+		return resp, err
+	}
+	uaOpt := remote_registry.WithUserAgent("Selkies_Controller/1.0")
+	for _, authConfig := range authConfigs {
+		authOpt := remote_registry.WithAuth(registry_authn.FromConfig(authConfig))
+		head, err := remote_registry.Head(nameRef, authOpt, uaOpt)
+		if err == nil {
+			resp = head.Digest.String()
+			return resp, nil
+		}
+	}
+	return resp, fmt.Errorf("failed to get digest for: '%s' with given auth configs", repoRef)
+}
+
+func GetDockerTagFromImage(image string) (string, error) {
+	resp := ""
+	tag, err := registry_name.NewTag(image)
+	if err != nil {
+		return resp, err
+	}
+	resp = tag.TagStr()
+	return resp, nil
+}
+
+func GetDockerImageRegistryURI(image string) (string, error) {
+	resp := ""
+	tag, err := registry_name.NewTag(image)
+	if err != nil {
+		return resp, err
+	}
+	resp = tag.RegistryStr()
+	return resp, nil
 }
 
 func GetServiceAccountFromMetadataServer() (string, error) {
@@ -220,6 +336,52 @@ func ListGCRImageTagsInternalMetadataToken(image string) (ImageListResponse, err
 	return ListGCRImageTags(image, authToken)
 }
 
+// Returns a list of all the dockerconfigjson type secrets found in the given namespace.
+func GetDockerConfigs(namespace string) ([]DockerConfigJSON, []string, error) {
+	resp := make([]DockerConfigJSON, 0)
+	secrets := make([]string, 0)
+
+	type getSecretSpec struct {
+		Metadata map[string]interface{} `json:"metadata"`
+		Data     map[string]interface{} `json:"data"`
+	}
+
+	type getSecretList struct {
+		Items []getSecretSpec `json:"items"`
+	}
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get secret -n %s --field-selector 'type=kubernetes.io/dockerconfigjson' -o json 1>&2", namespace))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return resp, secrets, fmt.Errorf("failed to get node: %s, %v", string(stdoutStderr), err)
+	}
+
+	var jsonResp getSecretList
+	if err := json.Unmarshal(stdoutStderr, &jsonResp); err != nil {
+		return resp, secrets, fmt.Errorf("failed to parse secret list spec: %v", err)
+	}
+
+	for _, secret := range jsonResp.Items {
+		secretName := secret.Metadata["name"].(string)
+		secrets = append(secrets, secretName)
+		if v, ok := secret.Data[".dockerconfigjson"]; ok {
+			dockerConfigJSONData, err := base64.StdEncoding.DecodeString(v.(string))
+			if err != nil {
+				return resp, secrets, fmt.Errorf("failed to decode .dockerconfigjson from secret: %s", secretName)
+			}
+
+			var dockerConfig DockerConfigJSON
+			if err := json.Unmarshal(dockerConfigJSONData, &dockerConfig); err != nil {
+				return resp, secrets, fmt.Errorf("failed to parse docker config from secret %s: %v", secretName, err)
+			}
+
+			resp = append(resp, dockerConfig)
+		}
+	}
+
+	return resp, secrets, nil
+}
+
 func GetImagesOnNode() ([]DockerImage, error) {
 	resp := make([]DockerImage, 0)
 
@@ -354,6 +516,38 @@ func ListPods(namespace, selector string) ([]string, error) {
 		resp = append(resp, podName)
 	}
 
+	return resp, nil
+}
+
+func CopySecret(namespace, name, destDir string) error {
+	err := os.MkdirAll(destDir, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get secret -n %s %s -o yaml > %s/resource-%s.yaml", namespace, name, destDir, name))
+	stdoutStderr, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to copy secret: %s, %v", string(stdoutStderr), err)
+	}
+	return nil
+}
+
+func CopyDockerRegistrySecrets(namespace, destDir string) ([]string, error) {
+	resp := []string{}
+	err := os.MkdirAll(destDir, os.ModePerm)
+	if err != nil {
+		return resp, err
+	}
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get secret -n %s --field-selector 'type=kubernetes.io/dockerconfigjson' -o jsonpath='{.items[].metadata.name}' | xargs -I{} sh -c \"kubectl get secret {} -n %s -o yaml > %s/resource-{}.yaml && echo {}\"", namespace, namespace, destDir))
+	output, err := cmd.Output()
+	if err != nil {
+		stdoutStderr, err := cmd.CombinedOutput()
+		return resp, fmt.Errorf("failed to copy secret: %s, %v", string(stdoutStderr), err)
+	}
+
+	resp = strings.Split(strings.Trim(string(output), " \n"), "\n")
 	return resp, nil
 }
 

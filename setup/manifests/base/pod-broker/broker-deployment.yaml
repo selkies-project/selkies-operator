@@ -252,6 +252,10 @@ spec:
                 name: pod-broker-config
                 optional: false
           env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: COOKIE_SECRET
               valueFrom:
                 secretKeyRef:

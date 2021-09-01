@@ -19,14 +19,16 @@ package main
 import (
 	"context"
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path"
-	"regexp"
+	"path/filepath"
 	"strings"
 	"sync"
 	"text/template"
@@ -34,6 +36,9 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/Masterminds/sprig"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 	broker "selkies.io/controller/pkg"
 )
 
@@ -42,6 +47,45 @@ const jobCleanupInterval = 10
 
 // new image check interval in seconds
 const newImagePullInterval = 300
+
+// duration between informer resyncs
+const resyncDuration = 60 * time.Second
+
+// duration between node image listings
+const nodeImageUpdateInterval = 5 * time.Second
+
+// Synchronous slice of de-duplicated images to process
+type NodeImagesSync struct {
+	sync.Mutex
+	Images []broker.DockerImage
+}
+
+func (ni *NodeImagesSync) Update() {
+	ni.Lock()
+	defer ni.Unlock()
+	nodeImages, err := broker.GetImagesOnNode()
+	if err != nil {
+		log.Printf("error getting images on node: %v", err)
+	}
+	ni.Images = nodeImages
+}
+
+func (ni *NodeImagesSync) Contains(repo, imageDigest string) bool {
+	ni.Lock()
+	defer ni.Unlock()
+	for _, nodeImage := range ni.Images {
+		if repo == nodeImage.Repository && imageDigest == nodeImage.Digest {
+			return true
+		}
+	}
+	return false
+}
+
+func (ni *NodeImagesSync) Len() int {
+	ni.Lock()
+	defer ni.Unlock()
+	return len(ni.Images)
+}
 
 func main() {
 
@@ -87,6 +131,179 @@ func main() {
 		topicName = "gcr"
 	}
 
+	// Flags used for connecting out-of-cluster.
+	var kubeconfig *string
+	if home := homedir.HomeDir(); home != "" {
+		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	} else {
+		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+	flag.Parse()
+
+	// Try in-cluster config
+	config, err := rest.InClusterConfig()
+	if err == nil {
+		log.Printf("using in-cluster-config")
+	} else {
+		// Try out-of-cluster config
+		outOfClusterConfig, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		if err != nil {
+			panic(err.Error())
+		}
+		log.Printf("using out-of-cluster-config")
+		config = outOfClusterConfig
+	}
+
+	// Get docker config pull secrets
+	dockerConfigs := &broker.DockerConfigsSync{}
+	if err := dockerConfigs.Update(namespace); err != nil {
+		log.Fatalf("failed to fetch docker auth configs: %v", err)
+	}
+
+	// Go routine to watch for pull secrets using informer.
+	go func() {
+		// TODO: Refactor this into informer and add separate goroutine for updating the default SA token.
+		for {
+			if err := dockerConfigs.Update(namespace); err != nil {
+				log.Printf("failed to update docker auth configs: %v", err)
+			}
+			time.Sleep(2 * time.Second)
+		}
+	}()
+
+	// Go routine to periodically update the list of docker images on the node.
+	nodeImages := &NodeImagesSync{}
+	nodeImages.Update()
+	go func() {
+		for {
+			time.Sleep(nodeImageUpdateInterval)
+			nodeImages.Update()
+		}
+	}()
+
+	// Initialize synchronous slice of images to process
+	imageQueue := broker.NewImageQueueSync()
+
+	// Initialize synchronous slice of images found so we can filter the pubsub messages.
+	knownImages := broker.NewImageQueueSync()
+
+	processImage := func(image string) {
+		// Fetch image details.
+		repo, err := broker.GetDockerRepoFromImage(image)
+		if err != nil {
+			log.Printf("failed to get image repo from image: %s: %v", image, err)
+			return
+		}
+		imageDigest, err := dockerConfigs.GetDigest(image)
+		if err != nil {
+			log.Printf("error fetching image digest: %s, %v", image, err)
+			return
+		}
+
+		// Keep track of all relavent images found so we can filter the pubsub messages.
+		knownImages.Push(image)
+
+		// Check if image is already on node.
+		if nodeImages.Len() == 0 {
+			log.Printf("WARN: no node images found.")
+			return
+		}
+		imageOnNode := nodeImages.Contains(repo, imageDigest)
+
+		// Pull image if not found.
+		if !imageOnNode {
+			imageWithDigest := fmt.Sprintf("%s@%s", repo, imageDigest)
+			imageTag, err := broker.GetDockerTagFromImage(image)
+			if err != nil {
+				log.Printf("%v", err)
+			} else {
+				dockerConfigJSON, err := dockerConfigs.GetDockerConfigJSONForRepo(image)
+				if err != nil {
+					log.Printf("could not find valid docker auth config for image: %s: %v", image, err)
+				} else {
+					log.Printf("creating image pull job for: %s", imageWithDigest)
+					if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath, dockerConfigJSON); err != nil {
+						log.Printf("%v", err)
+					}
+				}
+			}
+		}
+	}
+
+	// Watch changes to BrokerAppConfigs with informer.
+	addAppConfigFunc := func(obj broker.AppConfigObject) {
+		// log.Printf("Saw new BrokerAppUserConfig: %s", obj.Metadata.Name)
+		// Add default image
+		imageQueue.Push(makeImageName(obj.Spec.DefaultRepo, obj.Spec.DefaultTag))
+
+		// Add related images
+		for _, imageSpec := range obj.Spec.Images {
+			imageQueue.Push(makeImageName(imageSpec.NewRepo, imageSpec.NewTag))
+		}
+	}
+	deleteAppConfigFunc := func(obj broker.AppConfigObject) {
+		// log.Printf("Saw deletion of BrokerAppUserConfig: %s", obj.Metadata.Name)
+		// Remove default image
+		imageQueue.Remove(makeImageName(obj.Spec.DefaultRepo, obj.Spec.DefaultTag))
+
+		// Remove related images
+		for _, imageSpec := range obj.Spec.Images {
+			imageQueue.Remove(makeImageName(imageSpec.NewRepo, imageSpec.NewTag))
+		}
+	}
+	updateAppConfigFunc := func(oldObj, newObj broker.AppConfigObject) {
+		// log.Printf("Saw update for BrokerAppUserConfig: %s", newObj.Metadata.Name)
+		// Remove old default image
+		imageQueue.Remove(makeImageName(oldObj.Spec.DefaultRepo, oldObj.Spec.DefaultTag))
+		// Add new default image
+		imageQueue.Push(makeImageName(newObj.Spec.DefaultRepo, newObj.Spec.DefaultTag))
+
+		// Remove old related images
+		for _, imageSpec := range oldObj.Spec.Images {
+			imageQueue.Remove(makeImageName(imageSpec.NewRepo, imageSpec.NewTag))
+		}
+
+		// Add new releated images
+		for _, imageSpec := range newObj.Spec.Images {
+			imageQueue.Push(makeImageName(imageSpec.NewRepo, imageSpec.NewTag))
+		}
+	}
+	appConfigInformer := broker.NewAppConfigInformer(addAppConfigFunc, deleteAppConfigFunc, updateAppConfigFunc)
+	go func() {
+		stopper := make(chan struct{})
+		defer close(stopper)
+		opts := &broker.PodBrokerInformerOpts{
+			ResyncDuration: resyncDuration,
+			ClientConfig:   config,
+		}
+		broker.RunPodBrokerInformer(appConfigInformer, stopper, opts)
+	}()
+
+	// Watch changes to BrokerAppUserConfigs with informer.
+	addUserConfigFunc := func(obj broker.AppUserConfigObject) {
+		// log.Printf("Saw new BrokerAppUserConfig: %s", obj.Metadata.Name)
+		imageQueue.Push(makeImageName(obj.Spec.ImageRepo, obj.Spec.ImageTag))
+	}
+	deleteUserConfigFunc := func(obj broker.AppUserConfigObject) {
+		// log.Printf("Saw deletion of BrokerAppUserConfig: %s", obj.Metadata.Name)
+		imageQueue.Remove(makeImageName(obj.Spec.ImageRepo, obj.Spec.ImageTag))
+	}
+	updateUserConfigFunc := func(oldObj, newObj broker.AppUserConfigObject) {
+		// log.Printf("Saw update for BrokerAppUserConfig: %s", newObj.Metadata.Name)
+		imageQueue.Remove(makeImageName(oldObj.Spec.ImageRepo, oldObj.Spec.ImageTag))
+		imageQueue.Push(makeImageName(newObj.Spec.ImageRepo, newObj.Spec.ImageTag))
+	}
+	userConfigInformer := broker.NewAppUserConfigInformer(addUserConfigFunc, deleteUserConfigFunc, updateUserConfigFunc)
+	go func() {
+		stopper := make(chan struct{})
+		defer close(stopper)
+		opts := &broker.PodBrokerInformerOpts{
+			ResyncDuration: resyncDuration,
+			ClientConfig:   config,
+		}
+		broker.RunPodBrokerInformer(userConfigInformer, stopper, opts)
+	}()
+
 	// Subscribe to GCR pub/sub topic
 	subName := fmt.Sprintf("pod-broker-image-puller-%s", nodeName)
 	var sub *pubsub.Subscription
@@ -104,7 +321,7 @@ func main() {
 
 	// Go routine to process all messages from subscription
 	go func() {
-		log.Printf("starting GCR pubsub worker")
+		log.Printf("starting GCR pubsub worker on subscription: %s", subName)
 		var mu sync.Mutex
 		for {
 			recvCtx, cancelRecv := context.WithCancel(context.Background())
@@ -122,57 +339,22 @@ func main() {
 					return
 				}
 
+				imageWithTag := message.Tag
+
 				if message.Action == "DELETE" {
 					log.Printf("image deleted: %v", message)
+					if len(imageWithTag) > 0 {
+						imageQueue.Remove(imageWithTag)
+						knownImages.Remove(imageWithTag)
+					}
 					return
 				}
 
-				if len(message.Tag) > 0 {
-					// Fetch list of current images we care about.
-					images, err := findImageTags(namespace)
-					if err != nil {
-						log.Printf("error finding current images in namespace %s: %v", namespace, err)
-						return
-					}
-
-					imageWithTag := message.Tag
-					foundMatchingImage := false
-					for _, image := range images {
-						if image == imageWithTag {
-							foundMatchingImage = true
-							break
-						}
-					}
-					if foundMatchingImage {
-						imageWithDigest := message.Digest
-						imageToks := strings.Split(imageWithTag, ":")
-						imageTag := imageToks[1]
-
-						// Check to see if image is already on node.
-						nodeImages, err := broker.GetImagesOnNode()
-						if err != nil {
-							log.Printf("error getting images on node: %v", err)
-							return
-						}
-
-						// Check if image is already on node.
-						imageOnNode := false
-						for _, nodeImage := range nodeImages {
-							if fmt.Sprintf("%s@%s", nodeImage.Repository, nodeImage.Digest) == imageWithDigest {
-								imageOnNode = true
-							}
-						}
-
-						if !imageOnNode {
-							if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
-								log.Printf("error creating image pull job: %v", err)
-							}
-						}
-					} else {
-						fmt.Printf("skipping image pull because image is not used by any apps: %s", imageWithTag)
-					}
+				if len(imageWithTag) > 0 && knownImages.Contains(imageWithTag) {
+					log.Printf("queuing image from pub/sub: %s", imageWithTag)
+					imageQueue.Push(imageWithTag)
 				} else {
-					fmt.Printf("skipping gcr message because message is missing image tag: %s", message.Digest)
+					log.Printf("skipping pubsub message because image '%s' was invalid or not related to any broker app.", imageWithTag)
 				}
 				time.Sleep(100 * time.Millisecond)
 			}); err != nil {
@@ -217,61 +399,24 @@ func main() {
 		}
 	}()
 
-	// Go routine to fetch new images
-	log.Printf("starting new image puller worker")
+	// Start the image queue worker
+	log.Printf("starting image queue worker")
 	for {
-		// Perform one-time list of all image tags then exit.
-		token, err := broker.GetServiceAccountTokenFromMetadataServer(saEmail)
-		if err != nil {
-			log.Fatalf("failed to get service account token: %v", err)
-		}
-
-		images, err := findImageTags(namespace)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		nodeImages, err := broker.GetImagesOnNode()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Process images in parallel
-		var wg sync.WaitGroup
-		wg.Add(len(images))
-		for _, image := range images {
-			go func(image, token string) {
-				// Fetch image details for GCR images
-				imageWithDigest, err := getImageDigest(image, token)
-				if err != nil {
-					log.Printf("error fetching image digest: %s, %v", image, err)
-				} else {
-					// Check if image is already on node.
-					imageOnNode := false
-					for _, nodeImage := range nodeImages {
-						if fmt.Sprintf("%s@%s", nodeImage.Repository, nodeImage.Digest) == imageWithDigest {
-							imageOnNode = true
-						}
-					}
-
-					if !imageOnNode {
-						imageTag := getTagFromImage(image)
-						if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath); err != nil {
-							log.Printf("%v", err)
-						}
-					}
+		if imageQueue.Len() > 0 {
+			for {
+				image := imageQueue.Pop()
+				if len(image) == 0 {
+					break
 				}
-				wg.Done()
-			}(image, token)
+				processImage(image)
+			}
 		}
-		wg.Wait()
-
-		time.Sleep(newImagePullInterval * time.Second)
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
 // Creates Job to pull image if one is not already running.
-func pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath string) error {
+func pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath, dockerConfigJSON string) error {
 	// Check to see if job is active.
 	currJobs, err := broker.GetJobs(namespace, "app=image-pull")
 	if err != nil {
@@ -296,134 +441,56 @@ func pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath stri
 	}
 
 	if !jobFound {
-		log.Printf("creating image pull job for %s", imageWithDigest)
-		if err := makeImagePullJob(imageWithDigest, imageTag, nodeName, namespace, templatePath); err != nil {
+		if err := makeImagePullJob(imageWithDigest, imageTag, nodeName, namespace, templatePath, dockerConfigJSON); err != nil {
 			return fmt.Errorf("failed to make job: %v", err)
 		}
 	}
 	return nil
 }
 
-// Returns de-duplicated list of image tags from:
-// 1. broker apps spec.defaultRepo:defaultTag
-// 2. broker apps spec.images[].newRepo:newTag structure
-// 3. user config spec.ImageRepo:imageTag
-func findImageTags(namespace string) ([]string, error) {
-	uniqueImages := make(map[string]bool, 0)
-
-	// Fetch all broker apps
-	appConfigs, err := broker.FetchBrokerAppConfigs(namespace)
-	if err != nil {
-		log.Printf("failed to fetch broker app configs: %v", err)
-	}
-
-	for _, appConfig := range appConfigs {
-		uniqueImages[makeImageName(appConfig.Spec.DefaultRepo, appConfig.Spec.DefaultTag)] = true
-		for _, imageSpec := range appConfig.Spec.Images {
-			uniqueImages[makeImageName(imageSpec.NewRepo, imageSpec.NewTag)] = true
-		}
-	}
-
-	// Fetch all user app configs
-	userConfigs, err := broker.FetchAppUserConfigs()
-	if err != nil {
-		log.Printf("failed to fetch user app configs: %v", err)
-	} else {
-		for _, userConfig := range userConfigs {
-			uniqueImages[makeImageName(userConfig.Spec.ImageRepo, userConfig.Spec.ImageTag)] = true
-		}
-	}
-
-	images := make([]string, 0)
-	for image := range uniqueImages {
-		if strings.Contains(image, "gcr.io") {
-			// Only gcr images supported.
-			images = append(images, image)
-		}
-	}
-
-	return images, nil
-}
-
 func makeImageName(repo, tag string) string {
 	return fmt.Sprintf("%s:%s", repo, tag)
-}
-
-// Find and verify image digest
-func getImageDigest(image, accessToken string) (string, error) {
-	respImage := ""
-
-	if len(regexp.MustCompile(broker.GCRImageWithTagPattern).FindAllString(image, -1)) > 0 {
-		// Find image digest from tag.
-		imageToks := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), ":")
-		imageRepo := imageToks[0]
-		imageTag := imageToks[1]
-
-		digest, err := broker.GetGCRDigestFromTag(imageRepo, imageTag, accessToken)
-		if err != nil {
-			return respImage, err
-		}
-
-		respImage = fmt.Sprintf("gcr.io/%s@%s", imageRepo, digest)
-	}
-
-	if len(regexp.MustCompile(broker.GCRImageWithDigestPattern).FindAllString(image, -1)) > 0 {
-		// Verify image digest is in list response.
-		imageToks := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@")
-		imageRepo := imageToks[0]
-		imageDigest := imageToks[1]
-		digest, err := broker.GetGCRDigestFromTag(imageRepo, imageDigest, accessToken)
-		if err != nil {
-			return respImage, err
-		}
-		if imageDigest == digest {
-			respImage = image
-		}
-	}
-
-	if len(respImage) == 0 {
-		return respImage, fmt.Errorf("failed to find digest for image: %s", image)
-	}
-
-	return respImage, nil
-}
-
-// Extract tag from image repo:tag format, else return empty string.
-func getTagFromImage(image string) string {
-	if len(regexp.MustCompile(broker.GCRImageWithTagPattern).FindAllString(image, -1)) > 0 {
-		return strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), ":")[1]
-	}
-	return ""
 }
 
 // Check if job is currently running.
 // If running, return (non-fatal) error.
 // If not running, apply job to given namespace.
-func makeImagePullJob(image, tag, nodeName, namespace, templatePath string) error {
-	imageToks := strings.Split(strings.ReplaceAll(image, "gcr.io/", ""), "@sha256:")
-	imageBase := path.Base(imageToks[0])
+func makeImagePullJob(image, tag, nodeName, namespace, templatePath, dockerConfigJSON string) error {
+	imageRepo, err := broker.GetDockerRepoFromImage(image)
+	if err != nil {
+		return err
+	}
+	imageToks := strings.Split(image, "@sha256:")
+	if len(imageToks) < 2 {
+		return fmt.Errorf("missing @sha256: in image: %s", image)
+	}
 	digestHash := imageToks[1]
+	dockerConfigJSON64 := base64.StdEncoding.EncodeToString([]byte(dockerConfigJSON))
 
 	h := sha1.New()
 	io.WriteString(h, fmt.Sprintf("%s", nodeName))
 	nodeNameHash := fmt.Sprintf("%x", h.Sum(nil))
 
-	nameSuffix := fmt.Sprintf("%s-%s-%s", imageBase, digestHash[:5], nodeNameHash[:5])
+	imageRepoSlug := strings.ReplaceAll(imageRepo, "/", "-")
+	if len(imageRepoSlug) > 40 {
+		imageRepoSlug = imageRepoSlug[:40]
+	}
 
-	log.Printf("creating image pull job: %s, %s, %s", nodeName, image, nameSuffix)
-
+	nameSuffix := fmt.Sprintf("%s-%s-%s", imageRepoSlug, digestHash[:5], nodeNameHash[:5])
 	type templateData struct {
-		NameSuffix string
-		NodeName   string
-		Image      string
-		Tag        string
+		NameSuffix         string
+		NodeName           string
+		Image              string
+		Tag                string
+		DockerConfigJSON64 string
 	}
 
 	data := templateData{
-		NameSuffix: nameSuffix,
-		NodeName:   nodeName,
-		Image:      image,
-		Tag:        tag,
+		NameSuffix:         nameSuffix,
+		NodeName:           nodeName,
+		Image:              image,
+		Tag:                tag,
+		DockerConfigJSON64: dockerConfigJSON64,
 	}
 
 	destDir := path.Join("/run/image-puller", nameSuffix)

@@ -41,6 +41,12 @@ import (
 const maxCookieAgeSeconds = 432000
 
 func main() {
+	brokerNamespace := os.Getenv("NAMESPACE")
+	if len(brokerNamespace) == 0 {
+		log.Printf("no NAMESPACE env var found, using default of 'pod-broker-system'")
+		brokerNamespace = "pod-broker-system"
+	}
+
 	cookieSecret := os.Getenv("COOKIE_SECRET")
 	if len(cookieSecret) == 0 {
 		// Generate random secret
@@ -627,26 +633,10 @@ func main() {
 			Timestamp:                 ts,
 			Region:                    brokerRegion,
 			Editable:                  editable,
+			PullSecrets:               []string{},
 		}
 
 		appPath := fmt.Sprintf("/%s/", appName)
-
-		// Build user application bundle.
-		srcDirApp := path.Join(broker.BundleSourceBaseDir, app.Name)
-		if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirStatefulSetApp, srcDirApp, destDir, data); err != nil {
-			log.Printf("%v", err)
-			writeResponse(w, http.StatusInternalServerError, "internal server error")
-			return
-		}
-
-		// Build patch that adds list of applied objects to the statefulset.
-		if err := broker.GenerateObjectTypePatch(destDir); err != nil {
-			log.Printf("%v", err)
-			writeResponse(w, http.StatusInternalServerError, "internal server error")
-			return
-		}
-
-		// Build user namespace template.
 
 		// Lock per-user operation
 		var userLock *appLock
@@ -657,12 +647,41 @@ func main() {
 			userLock = userSync[user]
 		}
 		userLock.Lock()
+
+		// Copy all pull-secrets from the pod-broker-system namespace to the user namespace
+		pullSecrets, err := broker.CopyDockerRegistrySecrets(brokerNamespace, broker.BrokerCommonBuildSourceBaseDirStatefulSetApp)
+		if err != nil {
+			log.Printf("failed to copy secrets from %s to user namespace: %v", brokerNamespace, err)
+			userLock.Unlock()
+			return
+		}
+		data.PullSecrets = pullSecrets
+
+		// Build user application bundle.
+		srcDirApp := path.Join(broker.BundleSourceBaseDir, app.Name)
+		if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirStatefulSetApp, srcDirApp, destDir, data); err != nil {
+			log.Printf("%v", err)
+			writeResponse(w, http.StatusInternalServerError, "internal server error")
+			userLock.Unlock()
+			return
+		}
+
+		// Build patch that adds list of applied objects to the statefulset.
+		if err := broker.GenerateObjectTypePatch(destDir); err != nil {
+			log.Printf("%v", err)
+			writeResponse(w, http.StatusInternalServerError, "internal server error")
+			userLock.Unlock()
+			return
+		}
+
+		// Build user namespace template.
 		if err := broker.BuildDeploy(broker.BrokerCommonBuildSourceBaseDirStatefulSetUser, srcDirUser, destDirUser, userNSData); err != nil {
 			log.Printf("%v", err)
 			writeResponse(w, http.StatusInternalServerError, "internal server error")
 			userLock.Unlock()
 			return
 		}
+
 		userLock.Unlock()
 
 		if shutdown {

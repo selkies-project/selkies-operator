@@ -17,8 +17,10 @@
 package pod_broker
 
 const ApiVersion = "gcp.solutions/v1"
-const BrokerAppConfigKind = "BrokerAppUserConfig"
+const BrokerAppConfigKind = "BrokerAppConfig"
+const BrokerAppConfigApiGroup = "brokerappconfigs.v1.gcp.solutions"
 const BrokerAppUserConfigKind = "BrokerAppUserConfig"
+const BrokerAppUserConfigApiGroup = "brokerappuserconfigs.v1.gcp.solutions"
 
 type AppType string
 
@@ -96,6 +98,7 @@ type UserPodData struct {
 	Timestamp                 string
 	Region                    string
 	Editable                  bool
+	PullSecrets               []string
 }
 
 type NodeResource struct {

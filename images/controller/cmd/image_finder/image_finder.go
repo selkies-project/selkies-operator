@@ -29,15 +29,7 @@ import (
 	"sync"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 
@@ -110,25 +102,58 @@ func main() {
 		config = outOfClusterConfig
 	}
 
-	// Perform initial check
-	checkUserConfigs()
+	dockerConfigs := &broker.DockerConfigsSync{}
+	if err := dockerConfigs.Update(namespace); err != nil {
+		log.Fatalf("failed to fetch docker auth configs: %v", err)
+	}
 
-	// Go routine to watch BrokerAppUserConfigs
+	// Go routine to watch for pull secrets using dynamic informer.
 	go func() {
-		log.Printf("starting user config informer")
-		myinformer, err := GetDynamicInformer(config, "brokerappuserconfigs.v1.gcp.solutions")
-		if err != nil {
-			log.Printf("%v", err)
-			return
+		// TODO: Refactor this into informer and add separate goroutine for updating the default SA token.
+		for {
+			if err := dockerConfigs.Update(namespace); err != nil {
+				log.Printf("failed to update docker auth configs: %v", err)
+			}
+			time.Sleep(2 * time.Second)
 		}
+	}()
+
+	// Perform initial check
+	checkUserConfigs(dockerConfigs)
+
+	// Watch BrokerAppUserConfigs with dynamic informer.
+	addFunc := func(obj broker.AppUserConfigObject) {
+		log.Printf("Saw new BrokerAppUserConfig: %s", obj.Metadata.Name)
+		if err := writeUserConfigJSON(obj, dockerConfigs); err != nil {
+			log.Printf("failed to save user config to JSON: %v", err)
+		}
+	}
+	deleteFunc := func(obj broker.AppUserConfigObject) {
+		log.Printf("Saw deletion of BrokerAppUserConfig: %s", obj.Metadata.Name)
+		destDir := path.Join(broker.AppUserConfigBaseDir, obj.Spec.AppName, obj.Spec.User)
+		destFile := path.Join(destDir, broker.AppUserConfigJSONFile)
+		os.Remove(destFile)
+	}
+	updateFunc := func(oldObj, newObj broker.AppUserConfigObject) {
+		log.Printf("Saw update for BrokerAppUserConfig: %s", newObj.Metadata.Name)
+		if err := writeUserConfigJSON(newObj, dockerConfigs); err != nil {
+			log.Printf("failed to save user config to JSON: %v", err)
+		}
+	}
+	informer := broker.NewAppUserConfigInformer(addFunc, deleteFunc, updateFunc)
+	go func() {
 		stopper := make(chan struct{})
 		defer close(stopper)
-		runCRDInformer(stopper, myinformer.Informer(), namespace)
+		opts := &broker.PodBrokerInformerOpts{
+			ResyncDuration: 0,
+			ClientConfig:   config,
+		}
+		broker.RunPodBrokerInformer(informer, stopper, opts)
 	}()
 
 	// Subscribe to GCR pub/sub topic
-	subName := fmt.Sprintf("pod-broker-image-finder-%s", nodeName)
 	var sub *pubsub.Subscription
+	subName := fmt.Sprintf("pod-broker-image-finder-%s", nodeName)
 
 	// Poll until subscription is obtained
 	for {
@@ -234,64 +259,37 @@ func main() {
 	log.Printf("starting user config refresher")
 	for {
 		// Check all user configs
-		checkUserConfigs()
+		checkUserConfigs(dockerConfigs)
 		time.Sleep(checkInterval * time.Second)
 	}
 }
 
-func writeUserConfigJSON(userConfig broker.AppUserConfigObject) error {
+func writeUserConfigJSON(userConfig broker.AppUserConfigObject, dockerConfigs *broker.DockerConfigsSync) error {
 	destDir := path.Join(broker.AppUserConfigBaseDir, userConfig.Spec.AppName, userConfig.Spec.User)
 	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create directory: %v", err)
 	}
 
-	// Get service account name from metadata server
-	sa, err := broker.GetServiceAccountFromMetadataServer()
-	if err != nil {
-		return fmt.Errorf("failed to get service account name from metadata server: %v", err)
-	}
+	// Fill in the userConfig with the list of tags from GCR, then write the JSON to a file.
+	getImageTags(userConfig, destDir, dockerConfigs)
 
-	// Get access token from metadata server
-	token, err := broker.GetServiceAccountTokenFromMetadataServer(sa)
-	if err != nil {
-		return fmt.Errorf("failed to get token from metadata server: %v", err)
-	}
-
-	if len(userConfig.Spec.ImageRepo) > 0 && len(userConfig.Spec.ImageTag) > 0 {
-		// Fill in the userConfig with the list of tags from GCR, then write the JSON to a file.
-		getImageTags(userConfig, destDir, token)
-	} else {
-		// Save app config to local file.
-		if err := userConfig.WriteJSON(path.Join(destDir, broker.AppUserConfigJSONFile)); err != nil {
-			return fmt.Errorf("failed to save copy of user app config: %v", err)
-		}
+	// Save app config to local file.
+	if err := userConfig.WriteJSON(path.Join(destDir, broker.AppUserConfigJSONFile)); err != nil {
+		return fmt.Errorf("failed to save copy of user app config: %v", err)
 	}
 
 	return nil
 }
 
-func checkUserConfigs() {
+func checkUserConfigs(dockerConfigs *broker.DockerConfigsSync) {
 	// Fetch all user app configs
 	userConfigs, err := broker.FetchAppUserConfigs()
 	if err != nil {
 		log.Fatalf("failed to fetch user app configs: %v", err)
 	}
 
-	// Get service account name from metadata server
-	sa, err := broker.GetServiceAccountFromMetadataServer()
-	if err != nil {
-		log.Fatalf("failed to get service account name from metadata server: %v", err)
-	}
-
-	// Get access token from metadata server
-	token, err := broker.GetServiceAccountTokenFromMetadataServer(sa)
-	if err != nil {
-		log.Fatalf("failed to get token from metadata server: %v", err)
-	}
-
 	// Discover image tags in parallel for all app specs.
 	for i := range userConfigs {
-
 		destDir := path.Join(broker.AppUserConfigBaseDir, userConfigs[i].Spec.AppName, userConfigs[i].Spec.User)
 		err = os.MkdirAll(destDir, os.ModePerm)
 		if err != nil {
@@ -299,94 +297,24 @@ func checkUserConfigs() {
 		}
 
 		// Fetch in go routine.
-		go getImageTags(userConfigs[i], destDir, token)
+		go getImageTags(userConfigs[i], destDir, dockerConfigs)
 	}
 }
 
-func getImageTags(currConfig broker.AppUserConfigObject, destDir string, authToken string) {
+func getImageTags(currConfig broker.AppUserConfigObject, destDir string, dc *broker.DockerConfigsSync) {
 	image := fmt.Sprintf("%s:%s", currConfig.Spec.ImageRepo, currConfig.Spec.ImageTag)
-	listResp, err := broker.ListGCRImageTags(image, authToken)
+	tags, err := dc.ListTags(image)
 	if err != nil {
 		log.Printf("failed to list image tags for: %s\n%v", image, err)
 		return
 	}
 
 	// Update tags
-	currConfig.Spec.Tags = listResp.Tags
+	currConfig.Spec.Tags = tags
 
 	// Save app config to local file.
 	if err := currConfig.WriteJSON(path.Join(destDir, broker.AppUserConfigJSONFile)); err != nil {
 		log.Printf("failed to save copy of user app config: %v", err)
 		return
 	}
-}
-
-func makeUserConfigFromUnstructured(obj interface{}) (broker.AppUserConfigObject, error) {
-	d := broker.AppUserConfigObject{}
-	err := runtime.DefaultUnstructuredConverter.
-		FromUnstructured(obj.(*unstructured.Unstructured).UnstructuredContent(), &d)
-	if err != nil {
-		return d, err
-	}
-	d.ApiVersion = broker.ApiVersion
-	d.Kind = broker.BrokerAppUserConfigKind
-	return d, nil
-}
-
-func runCRDInformer(stopCh <-chan struct{}, s cache.SharedIndexInformer, namespace string) {
-	handlers := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			d, err := makeUserConfigFromUnstructured(obj)
-			if err != nil {
-				fmt.Printf("could not convert obj: %v", err)
-				return
-			}
-			log.Printf("Saw new BrokerAppUserConfig: %s", d.Metadata.Name)
-
-			if err := writeUserConfigJSON(d); err != nil {
-				log.Printf("failed to save user config to JSON: %v", err)
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			d, err := makeUserConfigFromUnstructured(obj)
-			if err != nil {
-				fmt.Printf("could not convert obj: %v", err)
-				return
-			}
-			log.Printf("Saw deletion of BrokerAppUserConfig: %s", d.Metadata.Name)
-
-			destDir := path.Join(broker.AppUserConfigBaseDir, d.Spec.AppName, d.Spec.User)
-			destFile := path.Join(destDir, broker.AppUserConfigJSONFile)
-			os.Remove(destFile)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			d, err := makeUserConfigFromUnstructured(newObj)
-			if err != nil {
-				fmt.Printf("could not convert obj: %v", err)
-				return
-			}
-			log.Printf("Saw update for BrokerAppUserConfig: %s", d.Metadata.Name)
-
-			if err := writeUserConfigJSON(d); err != nil {
-				log.Printf("failed to save user config to JSON: %v", err)
-			}
-		},
-	}
-	s.AddEventHandler(handlers)
-	s.Run(stopCh)
-}
-
-func GetDynamicInformer(cfg *rest.Config, resourceType string) (informers.GenericInformer, error) {
-	// Grab a dynamic interface that we can create informers from
-	dc, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	// Create a factory object that can generate informers for resource types
-	factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dc, 0, corev1.NamespaceAll, nil)
-	// "GroupVersionResource" to say what to watch e.g. "deployments.v1.apps" or "seldondeployments.v1.machinelearning.seldon.io"
-	gvr, _ := schema.ParseResourceArg(resourceType)
-	// Finally, create our informer for deployments!
-	informer := factory.ForResource(*gvr)
-	return informer, nil
 }
