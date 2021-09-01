@@ -38,8 +38,9 @@ resource "google_compute_subnetwork" "broker" {
 }
 
 resource "google_compute_address" "nat-address" {
-  count = 2
-  name  = "broker-nat-${var.region}-${count.index}"
+  count   = 2
+  name    = "broker-nat-${var.region}-${count.index}"
+  region  = var.region
 }
 
 resource "google_compute_router" "router-nat" {
