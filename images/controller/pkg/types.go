@@ -72,6 +72,7 @@ type UserPodData struct {
 	ClientID                  string
 	AppSpec                   AppConfigSpec
 	App                       string
+	AppMetadata               map[string]string
 	AppUserConfig             AppUserConfigSpec
 	ImageRepo                 string
 	ImageTag                  string
@@ -168,6 +169,7 @@ type DeploymentTypeSpec struct {
 type AppConfigSpec struct {
 	Type            AppType                 `yaml:"type" json:"type"`
 	Name            string                  `yaml:"name" json:"name"`
+	Metadata        map[string]string       `yaml:"metadata" json:"metadata"`
 	DisplayName     string                  `yaml:"displayName" json:"displayName"`
 	Description     string                  `yaml:"description" json:"description"`
 	Icon            string                  `yaml:"icon,omitempty" json:"icon,omitempty"`
@@ -230,19 +232,20 @@ type AppListResponse struct {
 }
 
 type AppDataResponse struct {
-	Name           string           `json:"name"`
-	Type           AppType          `json:"type"`
-	DisplayName    string           `json:"displayName"`
-	Description    string           `json:"description"`
-	Icon           string           `json:"icon"`
-	LaunchURL      string           `json:"launchURL"`
-	DefaultRepo    string           `json:"defaultRepo"`
-	DefaultTag     string           `json:"defaultTag"`
-	NodeTiers      []string         `json:"nodeTiers"`
-	DefaultTier    string           `json:"defaultTier"`
-	Params         []AppConfigParam `json:"params"`
-	Editable       bool             `json:"editable"`
-	DisableOptions bool             `json:"disableOptions"`
+	Name           string            `json:"name"`
+	Type           AppType           `json:"type"`
+	DisplayName    string            `json:"displayName"`
+	Description    string            `json:"description"`
+	Icon           string            `json:"icon"`
+	LaunchURL      string            `json:"launchURL"`
+	DefaultRepo    string            `json:"defaultRepo"`
+	DefaultTag     string            `json:"defaultTag"`
+	NodeTiers      []string          `json:"nodeTiers"`
+	DefaultTier    string            `json:"defaultTier"`
+	Params         []AppConfigParam  `json:"params"`
+	Editable       bool              `json:"editable"`
+	DisableOptions bool              `json:"disableOptions"`
+	Metadata       map[string]string `json:"metadata"`
 }
 
 type StatusResponse struct {

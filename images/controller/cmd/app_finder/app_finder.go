@@ -47,6 +47,17 @@ func main() {
 		singleIteration = true
 	}
 
+	// Values available to templates from environment variables prefixed with POD_BROKER_PARAM_Name=Value
+	// Map of Name=Value
+	sysParams := broker.GetEnvPrefixedVars("POD_BROKER_PARAM_")
+
+	// BrokerAppConfig metadata filter passed to frontend.
+	var metadataFilterPattern *regexp.Regexp
+	metadataFilterPatternParam, ok := sysParams["MetadataFilterPattern"]
+	if ok {
+		metadataFilterPattern = regexp.MustCompile(metadataFilterPatternParam)
+	}
+
 	// Map of cached app manifest checksums
 	bundleManifestChecksums := make(map[string]string, 0)
 	userBundleManifestChecksums := make(map[string]string, 0)
@@ -146,6 +157,9 @@ func main() {
 				}
 			}
 
+			// Add the metadata
+			appConfig.Spec.Metadata = getFilteredMetadataFromObject(appConfig, metadataFilterPattern)
+
 			if foundUserBundleCount == len(appConfig.Spec.UserBundles) {
 				foundAllUserBundles = true
 			}
@@ -194,6 +208,25 @@ func main() {
 		}
 		time.Sleep(5 * time.Second)
 	}
+}
+
+// Helper function to get filtered appconfig annotation metadata fields.
+// Metadata on the app spec takes precedence
+func getFilteredMetadataFromObject(obj broker.AppConfigObject, filterPattern *regexp.Regexp) map[string]string {
+	resp := make(map[string]string, 0)
+	appMetadata := obj.Spec.Metadata
+	objMetadata := obj.Metadata.Annotations
+	if filterPattern != nil {
+		for k, v := range objMetadata {
+			if filterPattern.MatchString(k) {
+				resp[k] = v
+			}
+		}
+	}
+	for k, v := range appMetadata {
+		resp[k] = v
+	}
+	return resp
 }
 
 // Helper function to only update the working manifest if the configmap content has changed.

@@ -237,6 +237,7 @@ func main() {
 					NodeTiers:      app.NodeTierNames(),
 					Editable:       editable,
 					DisableOptions: app.DisableOptions,
+					Metadata:       app.Metadata,
 				}
 				appList.Apps = append(appList.Apps, appData)
 			}
