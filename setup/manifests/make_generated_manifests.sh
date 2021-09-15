@@ -114,6 +114,28 @@ else
   fi
 fi
 
+###
+# Fetch additional pod broker params from Secret Manager
+###
+ADDITIONAL_POD_BROKER_PARAMS=""
+POD_BROKER_PARAMS_SECRET_VERSION=$(gcloud -q secrets versions list broker-${REGION}-params --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+if [[ -n "${POD_BROKER_PARAMS_SECRET_VERSION}" ]]; then
+  # Use regional value
+  ADDITIONAL_POD_BROKER_PARAMS=$(gcloud secrets versions access ${POD_BROKER_PARAMS_SECRET_VERSION} --secret broker-${REGION}-params)
+else
+  # Try to get global value
+  POD_BROKER_PARAMS_SECRET_VERSION=$(gcloud -q secrets versions list broker-params --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+  if [[ -n "${POD_BROKER_PARAMS_SECRET_VERSION}" ]]; then
+    # Use global value
+    ADDITIONAL_POD_BROKER_PARAMS=$(gcloud secrets versions access ${POD_BROKER_PARAMS_SECRET_VERSION} --secret broker-params)
+  fi
+fi
+# Verify additional params is valid JSON
+if ! echo "${ADDITIONAL_POD_BROKER_PARAMS}" | jq empty; then
+  echo "ERROR: additional pod-broker params from Secret: broker-*-params is invalid"
+  exit 1
+fi
+
 DEST=${DEST_DIR}/patch-image-puller-patch.yaml
 cat > "${DEST}" << EOF
 apiVersion: apps/v1
@@ -138,28 +160,44 @@ echo "INFO: Created pod broker image puller patch: ${DEST}"
 ###
 # Broker configmap items
 ###
-CONFIG_DATA=$(cat <<-EOF
-  POD_BROKER_PARAM_ProjectID: "${PROJECT_ID}"
-  POD_BROKER_PARAM_Theme: "dark"
-  POD_BROKER_PARAM_Title: "App Launcher"
-  POD_BROKER_PARAM_Domain: "${ENDPOINT}"
-  POD_BROKER_PARAM_AuthHeader: "${AUTH_HEADER}"
-  POD_BROKER_PARAM_UsernameHeader: "${USERNAME_HEADER}"
-  POD_BROKER_PARAM_LogoutURL: "${LOGOUT_URL}"
-  POD_BROKER_PARAM_AuthorizedUserRepoPattern: "gcr.io/.*"
-  POD_BROKER_PARAM_EnableImagePuller: "${ENABLE_IMAGE_PULLER}"
+echo "INFO: Generating pod-broker-config ConfigMap..."
+
+CONFIG_JSON=$(cat - <<-EOF
+{
+  "apiVersion": "v1",
+  "kind": "ConfigMap",
+  "metadata": {
+    "name": "pod-broker-config"
+  },
+  "data": {}
+}
 EOF
 )
 
-DEST=${DEST_DIR}/patch-pod-broker-config.yaml
-cat > "${DEST}" << EOF
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: pod-broker-config
-data:
-${CONFIG_DATA}
+CONFIG_DATA_DEFAULT=$(cat - <<-EOF
+{
+  "POD_BROKER_PARAM_ProjectID": "${PROJECT_ID}",
+  "POD_BROKER_PARAM_Theme": "dark",
+  "POD_BROKER_PARAM_Title": "App Launcher",
+  "POD_BROKER_PARAM_Domain": "${ENDPOINT}",
+  "POD_BROKER_PARAM_AuthHeader": "${AUTH_HEADER}",
+  "POD_BROKER_PARAM_UsernameHeader": "${USERNAME_HEADER}",
+  "POD_BROKER_PARAM_LogoutURL": "${LOGOUT_URL}",
+  "POD_BROKER_PARAM_AuthorizedUserRepoPattern": "gcr.io/.*",
+  "POD_BROKER_PARAM_EnableImagePuller": "${ENABLE_IMAGE_PULLER}"
+}
 EOF
+)
+
+# Merge data
+CONFIG_DATA=$(jq -s '.[0] * .[1]' <(echo "$CONFIG_DATA_DEFAULT") <(echo "$ADDITIONAL_POD_BROKER_PARAMS"))
+
+# Save config map json to file
+DEST=${DEST_DIR}/patch-pod-broker-config.json
+jq -s '.[0] * {data: .[1]}' <(echo "$CONFIG_JSON") <(echo "$CONFIG_DATA") > "${DEST}"
+
+echo "INFO: Broker config data:"
+echo "${CONFIG_DATA}" | jq . | sed 's/^/  /'
 
 echo "INFO: Created pod broker config patch: ${DEST}"
 
@@ -306,7 +344,7 @@ COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/ku
   kustomize edit add base "../base/node/"
   kustomize edit add base "../base/pod-broker/"
   kustomize edit add base "../base/turn/"
-  kustomize edit add patch "patch-pod-broker-config.yaml"
+  kustomize edit add patch "patch-pod-broker-config.json"
   kustomize edit add patch "patch-pod-broker-config-hash.yaml"
   kustomize edit add patch "patch-pod-broker-service-account.yaml"
   kustomize edit add patch "patch-pod-broker-node-init-service-account.yaml"
