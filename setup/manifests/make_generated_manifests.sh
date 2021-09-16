@@ -190,7 +190,10 @@ EOF
 )
 
 # Merge data
-CONFIG_DATA=$(jq -s '.[0] * .[1]' <(echo "$CONFIG_DATA_DEFAULT") <(echo "$ADDITIONAL_POD_BROKER_PARAMS"))
+CONFIG_DATA="${CONFIG_DATA_DEFAULT}"
+if [[ -n "${ADDITIONAL_POD_BROKER_PARAMS}" ]]; then
+  CONFIG_DATA=$(jq -s '.[0] * .[1]' <(echo "$CONFIG_DATA_DEFAULT") <(echo "$ADDITIONAL_POD_BROKER_PARAMS"))
+fi
 
 # Save config map json to file
 DEST=${DEST_DIR}/patch-pod-broker-config.json
