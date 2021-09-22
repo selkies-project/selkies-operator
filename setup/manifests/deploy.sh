@@ -47,6 +47,17 @@ if [[ -n "${TFSTATE}" ]]; then
     BACKEND_SERVICE=$(jq -r '.outputs["backend-service"].value' <<< $TFSTATE)
     [[ -z "${BACKEND_SERVICE}" ]] && log_red "ERROR: Failed to get regional LB backend service name from tfstate" && exit 1
 fi
+
+# Override ENDPOINT from Secret Manager
+CUSTOM_DOMAIN=""
+CUSTOM_DOMAIN_SECRET_VERSION=$(gcloud -q secrets versions list broker-custom-domain --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+if [[ -n "${CUSTOM_DOMAIN_SECRET_VERSION}" ]]; then
+    CUSTOM_DOMAIN=$(gcloud secrets versions access ${CUSTOM_DOMAIN_SECRET_VERSION} --secret broker-custom-domain | xargs)
+fi
+if [[ -n "${CUSTOM_DOMAIN}" ]]; then
+    ENDPOINT="${CUSTOM_DOMAIN}"
+    log_green "INFO: Using custom domain for endpoint: '${ENDPOINT}'"
+fi
 export ENDPOINT
 
 # Get cluster credentials
