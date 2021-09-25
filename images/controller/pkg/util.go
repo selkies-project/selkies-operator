@@ -98,6 +98,15 @@ func GetDockerRepoFromImage(image string) (string, error) {
 // Test each auth config against the list tags operation and return the first working one.
 func GetDockerAuthConfigForRepo(image string, authConfigs []registry_authn.AuthConfig) (registry_authn.AuthConfig, error) {
 	resp := registry_authn.AuthConfig{}
+
+	// If no auth configs were passed, image might be public.
+	if len(authConfigs) == 0 {
+		_, err := DockerRemoteRegistryGetDigest(image, []registry_authn.AuthConfig{})
+		if err == nil {
+			return resp, nil
+		}
+	}
+
 	for _, authConfig := range authConfigs {
 		_, err := DockerRemoteRegistryGetDigest(image, []registry_authn.AuthConfig{authConfig})
 		if err == nil {
@@ -148,6 +157,14 @@ func DockerRemoteRegistryListTags(image string, authConfigs []registry_authn.Aut
 	if err != nil {
 		return resp, err
 	}
+	// If no auth configs were passed, image might be public.
+	if len(authConfigs) == 0 {
+		resp, err = remote_registry.List(repo, uaOpt)
+		if err == nil {
+			return resp, nil
+		}
+	}
+
 	for _, authConfig := range authConfigs {
 		authOpt := remote_registry.WithAuth(registry_authn.FromConfig(authConfig))
 		resp, err = remote_registry.List(repo, authOpt, uaOpt)
@@ -165,6 +182,16 @@ func DockerRemoteRegistryGetDigest(repoRef string, authConfigs []registry_authn.
 		return resp, err
 	}
 	uaOpt := remote_registry.WithUserAgent("Selkies_Controller/1.0")
+
+	// If no auth configs were passed, image might be public.
+	if len(authConfigs) == 0 {
+		head, err := remote_registry.Head(nameRef, uaOpt)
+		if err == nil {
+			resp = head.Digest.String()
+			return resp, nil
+		}
+	}
+
 	for _, authConfig := range authConfigs {
 		authOpt := remote_registry.WithAuth(registry_authn.FromConfig(authConfig))
 		head, err := remote_registry.Head(nameRef, authOpt, uaOpt)
