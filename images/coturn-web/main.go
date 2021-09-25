@@ -48,23 +48,30 @@ func main() {
 	turnPort := popVarFromEnv("TURN_PORT", false, "3478")
 	sharedSecret := popVarFromEnv("TURN_SHARED_SECRET", true, "")
 	listenPort := popVarFromEnv("PORT", false, "8080")
-	authHeaderName := popVarFromEnv("AUTH_HEADER_NAME", false, "x-auth-user")
+	authHeaderName := strings.ToLower(popVarFromEnv("AUTH_HEADER_NAME", false, "x-auth-user"))
 
 	// Env vars for running in aggregator mode.
 	discoveryDNSName := popVarFromEnv("DISCOVERY_DNS_NAME", false, "")
 	discoveryPortName := popVarFromEnv("DISCOVERY_PORT_NAME", false, "turn")
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
 		// Get user from auth header.
-		user := r.Header.Get(authHeaderName)
+		authHeaderValue := r.Header.Get(authHeaderName)
+		user := ""
+		if authHeaderName == "x-goog-authenticated-user-email" {
+			// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
+			userToks := strings.Split(authHeaderValue, ":")
+			if len(userToks) > 1 {
+				user = userToks[len(userToks)-1]
+			}
+		} else {
+			user = authHeaderValue
+		}
 		if len(user) == 0 {
-			writeStatusResponse(w, http.StatusUnauthorized, fmt.Sprintf("Missing or invalid %s header", authHeaderName))
+			writeStatusResponse(w, http.StatusUnauthorized, fmt.Sprintf("Failed to get user from auth header: '%s'", authHeaderName))
 			return
 		}
-		// IAP uses a prefix of accounts.google.com:email, remove this to just get the email
-		userToks := strings.Split(user, ":")
-		user = userToks[len(userToks)-1]
+
 		ips := make([]string, 0)
 
 		if len(discoveryDNSName) == 0 {
@@ -79,6 +86,7 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(resp)
+			return
 		} else {
 			// Aggregator mode, use DNS SRV records to build RTC config.
 			// Fetch all service host and ports using SRV record of headless discovery service.
