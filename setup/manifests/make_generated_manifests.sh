@@ -22,6 +22,7 @@ PROJECT_ID=${PROJECT_ID?}
 INFRA_NAME=${INFRA_NAME?}
 NODE_SERVICE_ACCOUNT=${NODE_SERVICE_ACCOUNT?}
 ENDPOINT=${ENDPOINT?}
+DEFAULT_ENDPOINT="broker.endpoints.${PROJECT_ID}.cloud.goog"
 
 SCRIPT_DIR=$(dirname $(readlink -f $0 2>/dev/null) 2>/dev/null || echo "${PWD}/$(dirname $0)")
 
@@ -333,6 +334,18 @@ COTURN_IMAGE=${COTURN_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-b
 COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn-web)}
 
 ###
+# Patch the manifests if using a custom domain
+###
+export INCLUDE_REDIRECT="false"
+if [[ "${ENDPOINT}" != "${DEFAULT_ENDPOINT}" ]]; then
+  sed -i \
+    -e 's|{{OLD_DOMAIN}}|'${DEFAULT_ENDPOINT}'|g' \
+    -e 's|{{NEW_DOMAIN}}|'${ENDPOINT}'|g' \
+    base/pod-broker/redirect/*.yaml
+    INCLUDE_REDIRECT="true"
+fi
+
+###
 # Generate kustomization file with project scoped images.
 ###
 (
@@ -354,6 +367,7 @@ COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/ku
   kustomize edit add patch "patch-pod-broker-gateway.yaml"
   kustomize edit add patch "patch-pod-broker-virtual-service.yaml"
   [[ "${ENABLE_IMAGE_PULLER}" == "false" ]] && kustomize edit add patch "patch-image-puller-patch.yaml"
+  [[ "${INCLUDE_REDIRECT}" == "true" ]] && kustomize edit add base ../base/pod-broker/redirect/
   kustomize edit set image \
     gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest=${CONTROLLER_IMAGE} \
     gcr.io/cloud-solutions-images/kube-pod-broker-web:latest=${WEB_IMAGE} \
