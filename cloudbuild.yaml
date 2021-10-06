@@ -131,7 +131,7 @@ steps:
   ###
   - name: "gcr.io/cloud-builders/gcloud"
     id: "deploy-cluster-region"
-    dir: "setup/infra/cluster"
+    dir: "setup/infra/private-cluster"
     args:
       - "builds"
       - "submit"
