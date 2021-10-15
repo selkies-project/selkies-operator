@@ -123,6 +123,7 @@ steps:
     args:
       - -exc
       - |
+        [[ "${_USER}" == "NONE" ]] && exit 0
         ./setup/scripts/add_iap_user.sh user \
           ${_USER} ${PROJECT_ID}
     waitFor: ["deploy-infra-base"]
