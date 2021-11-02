@@ -102,6 +102,8 @@ resource "google_compute_backend_service" "ingress" {
     oauth2_client_id     = data.google_secret_manager_secret_version.oauth2_client_id.secret_data
     oauth2_client_secret = data.google_secret_manager_secret_version.oauth2_client_secret.secret_data
   }
+
+  security_policy = var.lb_security_policy_enabled ? concat(google_compute_security_policy.policy.*.id, [""])[0] : null
   lifecycle {
     ignore_changes = [
       backend
@@ -172,5 +174,39 @@ resource "google_compute_managed_ssl_certificate" "extras" {
 
   managed {
     domains = [each.value]
+  }
+}
+
+# Load Balancer Security Policy 
+resource "google_compute_security_policy" "policy" {
+  provider = google-beta
+  count    = var.lb_security_policy_delete ? 0 : 1
+  name     = "istio-ingressgateway-policy"
+
+  dynamic "rule" {
+    for_each = var.lb_security_policy_rules
+    content {
+      action   = rule.value["action"]
+      priority = rule.value["priority"]
+      match {
+        expr {
+          expression = rule.value["expression"]
+        }
+      }
+      description = rule.value["description"]
+    }
+  }
+
+  # By default, for each policy you start with one rule that allows/denies all traffic with the lowest priority (2,147,483,647)
+  rule {
+    action   = var.lb_security_policy_default_rule_action
+    priority = "2147483647"
+    match {
+      versioned_expr = "SRC_IPS_V1"
+      config {
+        src_ip_ranges = ["*"]
+      }
+    }
+    description = "default rule"
   }
 }

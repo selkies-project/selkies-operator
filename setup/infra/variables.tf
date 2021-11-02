@@ -28,7 +28,7 @@ variable "name" {
 
 variable "additional_ssl_certificate_domains" {
   description = "list of additional domains to add to the managed certificate."
-  type        = list
+ type        = list
   default     = []
 }
 
@@ -58,4 +58,31 @@ variable "ssl_policy_custom_features" {
   description = "(optional) - Profile specifies the set of SSL features that can be used by the\nload balancer when negotiating SSL with clients. This can be one of\n'COMPATIBLE', 'MODERN', 'RESTRICTED', or 'CUSTOM'. If using 'CUSTOM',\nthe set of SSL features to enable must be specified in the\n'customFeatures' field.\n\nSee the [official documentation](https://cloud.google.com/compute/docs/load-balancing/ssl-policies#profilefeaturesupport)\nfor which ciphers are available to use. **Note**: this argument\n*must* be present when using the 'CUSTOM' profile. This argument\n*must not* be present when using any other profile."
   type        = set(string)
   default     = null
+}
+
+variable "lb_security_policy_enabled" {
+  description = "Enable Load Balancer Security Policy. A Security Policy defines a policy that protects load balanced Google Cloud services by permitting traffic only from specified IP ranges or geographical locations"
+  type        = bool
+  default     = false
+}
+
+variable "lb_security_policy_delete" {
+  description = "set this in 2-pass security_policy removal after running with lb_security_policy_enabled = false to remove the security_policy resource without dependency issues with the backend service"
+  default     = true
+}
+
+variable "lb_security_policy_rules" {
+  default = [
+    {
+      action      = "allow"
+      priority    = 1000
+      expression  = "inIpRange(origin.ip, '0.0.0.0/0')"
+      description = "Allow all the traffic"
+    }
+  ]
+}
+
+variable "lb_security_policy_default_rule_action" {
+  description = "By default, for each policy you have to configured the default rule that allows/denies all traffic with the lowest priority (2147483647). Possible values allow, deny(403), deny(404), deny(502)"
+  default     = "deny(403)"
 }
