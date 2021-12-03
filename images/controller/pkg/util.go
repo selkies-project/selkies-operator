@@ -567,7 +567,7 @@ func CopyDockerRegistrySecrets(namespace, destDir string) ([]string, error) {
 		return resp, err
 	}
 
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get secret -n %s --field-selector 'type=kubernetes.io/dockerconfigjson' -o jsonpath='{.items[].metadata.name}' | xargs -I{} sh -c \"kubectl get secret {} -n %s -o yaml > %s/resource-{}.yaml && echo {}\"", namespace, namespace, destDir))
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl get secret -n %s --field-selector 'type=kubernetes.io/dockerconfigjson' -o jsonpath='{range .items[*]}{.metadata.name}{\"\\n\"}{end}' | xargs -I{} sh -c \"kubectl get secret {} -n %s -o yaml > %s/resource-{}.yaml && echo {}\"", namespace, namespace, destDir))
 	output, err := cmd.Output()
 	if err != nil {
 		stdoutStderr, err := cmd.CombinedOutput()
