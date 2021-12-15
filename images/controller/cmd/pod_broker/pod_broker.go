@@ -243,7 +243,9 @@ func main() {
 			}
 
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(appList)
+			enc := json.NewEncoder(w)
+			enc.SetIndent("", "  ")
+			enc.Encode(appList)
 			return
 		}
 
@@ -429,7 +431,9 @@ func main() {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(metadata)
+			enc := json.NewEncoder(w)
+			enc.SetIndent("", "  ")
+			enc.Encode(metadata)
 			return
 		}
 
@@ -439,7 +443,9 @@ func main() {
 				statusCode := http.StatusOK
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(statusCode)
-				json.NewEncoder(w).Encode(userConfig.Spec)
+				enc := json.NewEncoder(w)
+				enc.SetIndent("", "  ")
+				enc.Encode(userConfig.Spec)
 				return
 
 			} else if create {
@@ -756,7 +762,9 @@ func main() {
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(statusCode)
-			json.NewEncoder(w).Encode(status)
+			enc := json.NewEncoder(w)
+			enc.SetIndent("", "  ")
+			enc.Encode(status)
 
 			return
 		}
@@ -801,7 +809,9 @@ func writeResponse(w http.ResponseWriter, statusCode int, message string) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(status)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(status)
 }
 
 func writeResponseWithIPs(w http.ResponseWriter, statusCode int, message string, ips []string) {
@@ -812,5 +822,7 @@ func writeResponseWithIPs(w http.ResponseWriter, statusCode int, message string,
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(status)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(status)
 }
