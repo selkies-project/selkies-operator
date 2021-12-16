@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -168,15 +169,23 @@ func ValidateImageRepo(repo, tag string, authorizedImagePattern *regexp.Regexp) 
 		return tags, fmt.Errorf("rejected image repository '%s' per broker config.", repo)
 	}
 
-	listResp, err := ListGCRImageTagsInternalMetadataToken(repo)
-	if err != nil {
-		return tags, fmt.Errorf("failed to check image repository: '%s', %v", repo, err)
+	// Get docker config pull secrets
+	dockerConfigs := &DockerConfigsSync{}
+	if err := dockerConfigs.Update(DefaultBrokerNamespace); err != nil {
+		log.Fatalf("failed to fetch docker auth configs: %v", err)
 	}
-	tags = listResp.Tags
 
-	if len(listResp.Tags) == 0 {
+	foundTags, err := dockerConfigs.ListTags(repo)
+	if err != nil {
+		log.Printf("failed to list image tags for: %s\n%v", repo, err)
+		return tags, err
+	}
+
+	if len(foundTags) == 0 {
 		return tags, fmt.Errorf("invalid permissions or no tags found for image: '%s", repo)
 	}
+
+	tags = foundTags
 
 	found := false
 	for _, t := range tags {
@@ -189,7 +198,7 @@ func ValidateImageRepo(repo, tag string, authorizedImagePattern *regexp.Regexp) 
 		return tags, fmt.Errorf("repo %s does not have tag: %s", repo, tag)
 	}
 
-	return listResp.Tags, nil
+	return tags, nil
 }
 
 func MakeCookieValue(user, app, cookieSecret string) string {

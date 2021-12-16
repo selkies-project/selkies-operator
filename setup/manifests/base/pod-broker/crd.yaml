@@ -167,8 +167,37 @@ spec:
                     type: string
                   type:
                     type: string
+                    enum: ["bool", "string"]
                   default:
                     type: string
+                  ###
+                  # If type is string, an optional regexp pattern to validate against.
+                  # Used to prevent bad input from users setting parameters.
+                  ###
+                  regexp:
+                    type: string
+            ###
+            # Authorization method of allowed user config fields (not params) that can be updated by users.
+            ###
+            userWritableFields:
+              type: array
+              items:
+                type: string
+                enum:
+                  - imageRepo
+                  - imageTag
+                  - nodeTier
+            ###
+            # Authorization method of allowed user config params that can be updated by users.
+            # example:
+            #   imageRepo
+            #   imageTag
+            #   enableAudio
+            ###
+            userWritableParams:
+              type: array
+              items:
+                type: string
             appParams:
               type: array
               items:

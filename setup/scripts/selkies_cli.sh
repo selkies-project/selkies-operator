@@ -15,7 +15,7 @@
 # limitations under the License.
 
 function usage() {
-    echo "USAGE: $0 <start|stop|status|list> [<app name>] [-u <user>] [--ctx <kube context>]" && exit 1
+    echo "USAGE: $0 <start|stop|status|list|get-config|set-config> [<app name>] [-u <user>] [--ctx <kube context>]" && exit 1
 }
 [[ $# -eq 0 ]] && usage && exit 1
 
@@ -29,17 +29,36 @@ while (( "$#" )); do
             APP=${1}
             ;;
         list)
-            ACTION=$1
+            ACTION=${1}
+            ;;
+        get-config)
+            ACTION=${1}
+            shift
+            APP=${1}
+            ;;
+        set-config)
+            ACTION=${1}
+            shift
+            APP=${1}
+            shift
+            FIELD=${1}
+            shift
+            VALUE=${1}
+            [[ -z ${FIELD} || -z "${VALUE}" ]] && echo "USAGE: $0 set-config <app name> <field> <value>" && exit 1 
             ;;
         "-u")
             shift
-            ACCOUNT=$1
+            ACCOUNT=${1}
             ;;
         "--ctx")
             shift
-            CTX="--context $1"
+            CTX="--context ${1}"
             ;;
-        *)  "ERROR: Invalid argument '$1', USAGE: pod-broker <build|push|deploy-REGION> [-p <project id>]" && return 1 ;;
+        "--help")
+            usage
+            exit 1
+            ;;
+        *)  "ERROR: Invalid argument '${1}'" && usage && return 1 ;;
     esac
     shift
 done
@@ -52,7 +71,7 @@ if [[ -z "${ACCOUNT}" ]]; then
 fi
 
 AUTH_HEADER=$(kubectl $CTX get cm -n pod-broker-system pod-broker-config -o jsonpath='{.data.POD_BROKER_PARAM_AuthHeader}')
-POD=$(kubectl $CTX get pod -n pod-broker-system -l app=pod-broker -o jsonpath='{..metadata.name}')
+POD=$(kubectl $CTX get pod -n pod-broker-system -l app=pod-broker --field-selector=status.phase=Running -o jsonpath='{..metadata.name}')
 [[ -z "${POD}" ]] && echo "ERROR: failed to get pod-broker pod from cluster" && exit 1
 
 case $ACTION in
@@ -74,5 +93,25 @@ case $ACTION in
     kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
         curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XGET localhost:8080/${APP} \
             | jq -r .
+    ;;
+"get-config")
+    kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
+        curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XGET localhost:8080/${APP}/config \
+            | jq -r .
+    ;;
+"set-config")
+    TMP_CONFIG=$(mktemp)
+    if [[ "${FIELD}" =~ ^params. ]]; then
+        echo '{}' | jq --arg k "${FIELD/params./}" --arg v "${VALUE}" '. | .params[$k]=$v' > ${TMP_CONFIG}
+    else
+        echo '{}' | jq --arg k "${FIELD}" --arg v "${VALUE}" '. | .[$k]=$v' > ${TMP_CONFIG}
+    fi
+    kubectl $CTX cp -n pod-broker-system -c pod-broker ${TMP_CONFIG} ${POD}:/tmp/user_config_cli.json
+    rm -f ${TMP_CONFIG}
+    kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
+        curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -H "Content-type: application/json" \
+            -XPOST localhost:8080/${APP}/config -d @/tmp/user_config_cli.json \
+            | jq -r .
+    kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- rm -f /tmp/user_config_cli.json
     ;;
 esac

@@ -369,7 +369,7 @@ func main() {
 				Params:    defaultAppParams,
 			})
 		} else {
-			// Fill in default values.
+			// Fill in default field values.
 			if len(userConfig.Spec.AppName) == 0 {
 				userConfig.Spec.AppName = appName
 			}
@@ -392,6 +392,13 @@ func main() {
 
 			if len(userConfig.Spec.Params) == 0 {
 				userConfig.Spec.Params = defaultAppParams
+			} else {
+				// Fill in default param values.
+				for defaultParamName, defaultParamValue := range defaultAppParams {
+					if _, ok := userConfig.Spec.Params[defaultParamName]; !ok {
+						userConfig.Spec.Params[defaultParamName] = defaultParamValue
+					}
+				}
 			}
 		}
 
@@ -464,6 +471,7 @@ func main() {
 				var inputConfigSpec broker.AppUserConfigSpec
 				err := json.NewDecoder(r.Body).Decode(&inputConfigSpec)
 				if err != nil {
+					log.Printf("invalid app user config: %v", err)
 					writeResponse(w, http.StatusBadRequest, "invalid app user config")
 					return
 				}
@@ -473,20 +481,86 @@ func main() {
 				inputConfigSpec.User = user
 				inputConfigSpec.Tags = userConfig.Spec.Tags
 
+				// Set default image repo
 				if len(inputConfigSpec.ImageRepo) == 0 {
-					writeResponse(w, http.StatusBadRequest, "missing config field: imageRepo")
-					return
+					inputConfigSpec.ImageRepo = userConfig.Spec.ImageRepo
+				} else if inputConfigSpec.ImageRepo != userConfig.Spec.ImageRepo {
+					fieldName := "imageRepo"
+					if !isUserFieldWritable(app, fieldName) {
+						msg := fmt.Sprintf("user field '%s' is not writable.", fieldName)
+						log.Printf(msg)
+						writeResponse(w, http.StatusBadRequest, msg)
+						return
+					}
 				}
 
+				// Set default image tag
 				if len(inputConfigSpec.ImageTag) == 0 {
-					writeResponse(w, http.StatusBadRequest, "missing config field: imageTag")
-					return
+					inputConfigSpec.ImageTag = userConfig.Spec.ImageTag
+				} else if inputConfigSpec.ImageTag != userConfig.Spec.ImageTag {
+					fieldName := "imageTag"
+					if !isUserFieldWritable(app, fieldName) {
+						msg := fmt.Sprintf("user field '%s' is not writable.", fieldName)
+						log.Printf(msg)
+						writeResponse(w, http.StatusBadRequest, msg)
+						return
+					}
 				}
 
+				// Set default node tier
 				if len(inputConfigSpec.NodeTier) == 0 {
-					writeResponse(w, http.StatusBadRequest, "missing config field: nodeTier")
-					return
+					inputConfigSpec.NodeTier = userConfig.Spec.NodeTier
+				} else if inputConfigSpec.NodeTier != userConfig.Spec.NodeTier {
+					fieldName := "nodeTier"
+					if !isUserFieldWritable(app, fieldName) {
+						msg := fmt.Sprintf("user field '%s' is not writable.", fieldName)
+						log.Printf(msg)
+						writeResponse(w, http.StatusBadRequest, msg)
+						return
+					}
 				}
+
+				// Set default user params
+				if inputConfigSpec.Params == nil {
+					inputConfigSpec.Params = map[string]string{}
+				}
+				for defaultParamName, defaultParamValue := range userConfig.Spec.Params {
+					if len(inputConfigSpec.Params[defaultParamName]) == 0 {
+						inputConfigSpec.Params[defaultParamName] = defaultParamValue
+					}
+				}
+
+				// Validate input parameters
+				// Only write parameters that were found in the app config and are writable.
+				for paramName, paramValue := range inputConfigSpec.Params {
+					// Return error if param is not found or not writable.
+
+					writable, param := isUserParamWritable(app, paramName)
+					if !writable && paramValue != userConfig.Spec.Params[paramName] {
+						msg := fmt.Sprintf("user param '%s' is not writable.", paramName)
+						log.Printf(msg)
+						writeResponse(w, http.StatusBadRequest, msg)
+						return
+					} else if writable {
+						// Validate string type params against regex.
+						if param.Type == "string" && len(param.Regexp) > 0 {
+							re, err := regexp.Compile(param.Regexp)
+							if err != nil {
+								log.Printf("invalid regexp pattern for user param: '%s' in app '%s'", param.Name, app.Name)
+								writeResponse(w, http.StatusInternalServerError, "internal server error")
+								return
+							}
+							if !re.MatchString(paramValue) {
+								msg := fmt.Sprintf("invalid param value for user param: '%s' in app '%s'", param.Name, app.Name)
+								log.Printf(msg)
+								writeResponse(w, http.StatusBadRequest, fmt.Sprintf("invalid value for param '%s'", param.Name))
+								return
+							}
+						}
+					}
+				}
+
+				// Validate node tier.
 				foundTier := false
 				for _, tier := range app.NodeTiers {
 					if inputConfigSpec.NodeTier == tier.Name {
@@ -500,7 +574,8 @@ func main() {
 
 				// Verifiy image repo and tag exists if it was changed.
 				if inputConfigSpec.ImageRepo != userConfig.Spec.ImageRepo || inputConfigSpec.ImageTag != userConfig.Spec.ImageTag {
-					log.Printf("validating user image repo: %s:%s", inputConfigSpec.ImageRepo, inputConfigSpec.ImageTag)
+					log.Printf("user config image changed from %s:%s to %s:%s", userConfig.Spec.ImageRepo, userConfig.Spec.ImageTag, inputConfigSpec.ImageRepo, inputConfigSpec.ImageTag)
+					log.Printf("validating user image repo against pattern: %s:%s, pattern: %s", inputConfigSpec.ImageRepo, inputConfigSpec.ImageTag, allowedRepoPattern)
 					imageTags, err := broker.ValidateImageRepo(inputConfigSpec.ImageRepo, inputConfigSpec.ImageTag, allowedRepoPattern)
 					if err != nil {
 						log.Printf("user %s config image validation failed: %v", user, err)
@@ -508,23 +583,6 @@ func main() {
 						return
 					}
 					inputConfigSpec.Tags = imageTags
-				}
-
-				// Verify parameters are valid for this app.
-				for paramName := range inputConfigSpec.Params {
-					found := false
-					for _, supportedParamName := range app.UserParams {
-						if paramName == supportedParamName.Name {
-							found = true
-							break
-						}
-					}
-					if !found {
-						msg := fmt.Sprintf("user %s config image validation failed: invalid parameter '%s", user, paramName)
-						log.Printf(msg)
-						writeResponse(w, http.StatusBadRequest, msg)
-						return
-					}
 				}
 
 				// Set user config spec to validated input spec.
@@ -546,7 +604,7 @@ func main() {
 
 				// Apply config to cluster
 				cmd := exec.Command("sh", "-o", "pipefail", "-c", fmt.Sprintf("kustomize build %s | kubectl apply -f - && kubectl apply -f %s", destDirUser, userConfigFile))
-				cmd.Dir = path.Dir(destDir)
+				cmd.Dir = path.Dir(destDirUser)
 				stdoutStderr, err := cmd.CombinedOutput()
 				if err != nil {
 					log.Printf("error calling kubectl to apply user config for %s: %v\n%s", user, err, stdoutStderr)
@@ -799,6 +857,28 @@ func main() {
 
 	log.Println("Listening on port 8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func isUserFieldWritable(app broker.AppConfigSpec, fieldName string) bool {
+	for _, supportedField := range app.UserWritableFields {
+		if fieldName == supportedField {
+			return true
+		}
+	}
+	return false
+}
+
+func isUserParamWritable(app broker.AppConfigSpec, paramName string) (bool, *broker.AppConfigParam) {
+	for _, param := range app.UserParams {
+		if param.Name == paramName {
+			for _, supportedParam := range app.UserWritableParams {
+				if paramName == supportedParam {
+					return true, &param
+				}
+			}
+		}
+	}
+	return false, nil
 }
 
 func writeResponse(w http.ResponseWriter, statusCode int, message string) {
