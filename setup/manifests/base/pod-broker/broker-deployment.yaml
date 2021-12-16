@@ -107,7 +107,7 @@ data:
   POD_BROKER_PARAM_Title: "App Launcher"
   POD_BROKER_PARAM_Domain: "broker.endpoints.my-project-id.cloud.goog"
   POD_BROKER_PARAM_AuthHeader: "x-goog-authenticated-user-email"
-  POD_BROKER_PARAM_AuthonrizedUserRepoPattern: "gcr.io/.*"
+  POD_BROKER_PARAM_AuthorizedUserRepoPattern: ".*"
 ---
 apiVersion: v1
 kind: ServiceAccount

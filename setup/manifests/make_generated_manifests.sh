@@ -184,7 +184,7 @@ CONFIG_DATA_DEFAULT=$(cat - <<-EOF
   "POD_BROKER_PARAM_AuthHeader": "${AUTH_HEADER}",
   "POD_BROKER_PARAM_UsernameHeader": "${USERNAME_HEADER}",
   "POD_BROKER_PARAM_LogoutURL": "${LOGOUT_URL}",
-  "POD_BROKER_PARAM_AuthorizedUserRepoPattern": "gcr.io/.*",
+  "POD_BROKER_PARAM_AuthorizedUserRepoPattern": ".*",
   "POD_BROKER_PARAM_EnableImagePuller": "${ENABLE_IMAGE_PULLER}"
 }
 EOF
