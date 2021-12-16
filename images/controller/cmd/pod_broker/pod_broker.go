@@ -860,6 +860,10 @@ func main() {
 }
 
 func isUserFieldWritable(app broker.AppConfigSpec, fieldName string) bool {
+	if !app.EnableUserConfigAuth {
+		return true
+	}
+
 	for _, supportedField := range app.UserWritableFields {
 		if fieldName == supportedField {
 			return true
@@ -871,6 +875,9 @@ func isUserFieldWritable(app broker.AppConfigSpec, fieldName string) bool {
 func isUserParamWritable(app broker.AppConfigSpec, paramName string) (bool, *broker.AppConfigParam) {
 	for _, param := range app.UserParams {
 		if param.Name == paramName {
+			if !app.EnableUserConfigAuth {
+				return true, &param
+			}
 			for _, supportedParam := range app.UserWritableParams {
 				if paramName == supportedParam {
 					return true, &param

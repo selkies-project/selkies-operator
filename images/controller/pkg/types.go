@@ -170,34 +170,35 @@ type DeploymentTypeSpec struct {
 }
 
 type AppConfigSpec struct {
-	Type               AppType                 `yaml:"type" json:"type"`
-	Name               string                  `yaml:"name" json:"name"`
-	Metadata           map[string]string       `yaml:"metadata" json:"metadata"`
-	DisplayName        string                  `yaml:"displayName" json:"displayName"`
-	Description        string                  `yaml:"description" json:"description"`
-	Icon               string                  `yaml:"icon,omitempty" json:"icon,omitempty"`
-	LaunchURL          string                  `yaml:"launchURL,omitempty" json:"launchURL,omitempty"`
-	Disabled           bool                    `yaml:"disabled" json:"disabled"`
-	Version            string                  `yaml:"version" json:"version"`
-	Deployment         DeploymentTypeSpec      `yaml:"deployment" json:"deployment"`
-	Bundle             BundleSpec              `yaml:"bundle" json:"bundle"`
-	DefaultRepo        string                  `yaml:"defaultRepo" json:"defaultRepo"`
-	DefaultTag         string                  `yaml:"defaultTag" json:"defaultTag"`
-	Images             map[string]AppImageSpec `yaml:"images,omitempty" json:"images,omitempty"`
-	NodeTiers          []NodeTierSpec          `yaml:"nodeTiers,omitempty" json:"nodeTiers,omitempty"`
-	DefaultTier        string                  `yaml:"defaultTier,omitempty" json:"defaultTier,omitempty"`
-	ServiceName        string                  `yaml:"serviceName" json:"serviceName"`
-	UserParams         []AppConfigParam        `yaml:"userParams" json:"userParams"`
-	UserWritableFields []string                `yaml:"userWritableFields" json:"userWritableFields"`
-	UserWritableParams []string                `yaml:"userWritableParams" json:"userWritableParams"`
-	AppParams          []AppConfigParam        `yaml:"appParams" json:"appParams"`
-	AppEnv             []AppEnvSpec            `yaml:"appEnv" json:"appEnv"`
-	ShutdownHooks      []ShutdownHookSpec      `yaml:"shutdownHooks" json:"shutdownHooks"`
-	Editors            []string                `yaml:"editors" json:"editors"`
-	AuthorizedUsers    []string                `yaml:"authorizedUsers" json:"authorizedUsers"`
-	Authorization      AuthZUsersSpec          `yaml:"authorization" json:"authorization"`
-	DisableOptions     bool                    `yaml:"disableOptions" json:"disableOptions"`
-	UserBundles        []UserBundleSpec        `yaml:"userBundles" json:"userBundles"`
+	Type                 AppType                 `yaml:"type" json:"type"`
+	Name                 string                  `yaml:"name" json:"name"`
+	Metadata             map[string]string       `yaml:"metadata" json:"metadata"`
+	DisplayName          string                  `yaml:"displayName" json:"displayName"`
+	Description          string                  `yaml:"description" json:"description"`
+	Icon                 string                  `yaml:"icon,omitempty" json:"icon,omitempty"`
+	LaunchURL            string                  `yaml:"launchURL,omitempty" json:"launchURL,omitempty"`
+	Disabled             bool                    `yaml:"disabled" json:"disabled"`
+	Version              string                  `yaml:"version" json:"version"`
+	Deployment           DeploymentTypeSpec      `yaml:"deployment" json:"deployment"`
+	Bundle               BundleSpec              `yaml:"bundle" json:"bundle"`
+	DefaultRepo          string                  `yaml:"defaultRepo" json:"defaultRepo"`
+	DefaultTag           string                  `yaml:"defaultTag" json:"defaultTag"`
+	Images               map[string]AppImageSpec `yaml:"images,omitempty" json:"images,omitempty"`
+	NodeTiers            []NodeTierSpec          `yaml:"nodeTiers,omitempty" json:"nodeTiers,omitempty"`
+	DefaultTier          string                  `yaml:"defaultTier,omitempty" json:"defaultTier,omitempty"`
+	ServiceName          string                  `yaml:"serviceName" json:"serviceName"`
+	UserParams           []AppConfigParam        `yaml:"userParams" json:"userParams"`
+	EnableUserConfigAuth bool                    `yaml:"enableUserConfigAuth" json:"enableUserConfigAuth"`
+	UserWritableFields   []string                `yaml:"userWritableFields" json:"userWritableFields"`
+	UserWritableParams   []string                `yaml:"userWritableParams" json:"userWritableParams"`
+	AppParams            []AppConfigParam        `yaml:"appParams" json:"appParams"`
+	AppEnv               []AppEnvSpec            `yaml:"appEnv" json:"appEnv"`
+	ShutdownHooks        []ShutdownHookSpec      `yaml:"shutdownHooks" json:"shutdownHooks"`
+	Editors              []string                `yaml:"editors" json:"editors"`
+	AuthorizedUsers      []string                `yaml:"authorizedUsers" json:"authorizedUsers"`
+	Authorization        AuthZUsersSpec          `yaml:"authorization" json:"authorization"`
+	DisableOptions       bool                    `yaml:"disableOptions" json:"disableOptions"`
+	UserBundles          []UserBundleSpec        `yaml:"userBundles" json:"userBundles"`
 }
 
 type AppConfigObject struct {

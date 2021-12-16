@@ -177,6 +177,11 @@ spec:
                   regexp:
                     type: string
             ###
+            # Set this to false to enforce the authorization of the userWritableFields and userWritableParams
+            ###
+            enableUserConfigAuth:
+              type: boolean
+            ###
             # Authorization method of allowed user config fields (not params) that can be updated by users.
             ###
             userWritableFields:
