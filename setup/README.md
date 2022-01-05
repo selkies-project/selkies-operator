@@ -94,7 +94,7 @@ gcloud secrets create broker-cookie-secret --replication-policy=automatic --data
 2. Deploy the cluster for your desired region:
 
 ```bash
-REGION=us-west1
+REGION=us-central1
 ```
 
 ```bash

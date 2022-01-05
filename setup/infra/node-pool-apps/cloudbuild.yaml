@@ -16,7 +16,7 @@ timeout: 10800s
 substitutions:
   _ACTION: apply
   _NAME: broker
-  _REGION: us-west1
+  _REGION: us-central1
   _TIER1: "true"
   _TIER2: "true"
 tags:
