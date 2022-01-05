@@ -1,0 +1,3 @@
+[submodule "images/web"]
+	path = images/web
+	url = https://github.com/selkies-project/selkies-app-launcher-web
