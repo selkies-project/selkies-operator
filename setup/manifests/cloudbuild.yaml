@@ -15,7 +15,7 @@
 timeout: 3600s
 substitutions:
   _INFRA_NAME: broker
-  _REGION: us-west1
+  _REGION: us-central1
 tags:
   - selkies-setup
   - selkies-manifests
