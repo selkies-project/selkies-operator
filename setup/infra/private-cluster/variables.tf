@@ -72,23 +72,6 @@ variable default_pool_disk_type {
   default = "pd-standard"
 }
 
-# TURN node pool counts per zone
-variable turn_pool_machine_type {
-  default = "e2-highcpu-2"
-}
-variable turn_pool_disk_size_gb {
-  default = 10
-}
-variable turn_pool_disk_type {
-  default = "pd-standard"
-}
-variable turn_pool_instance_count {
-  default = 1
-}
-variable turn_pool_preemptive_nodes {
-  default = false
-}
-
 variable "ip_cidr_range" {
   description = "Custom IP CIDR ranges"
   type        = map(string)
