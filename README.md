@@ -91,9 +91,14 @@ The steps below will create the infrastructure for the app launcher. You should 
 
 ### Troubleshooting
 
-* If the initial cloud build fails with the message `Step #2 - "create-oauth-client": ERROR: (gcloud.alpha.iap.oauth-brands.list) INVALID_ARGUMENT: Request contains an invalid argument.` It is most likely due to running as a user that is not a member of the Cloud Identity Organization. See the limitation described above.
+* If the initial cloud build fails with the message
+`Step #2 - "create-oauth-client": ERROR: (gcloud.alpha.iap.oauth-brands.list) INVALID_ARGUMENT: Request contains an invalid argument.`,
+it is most likely due to running as a user
+that is not a member of the Cloud Identity Organization.
+See [the assumption described above](#Assumptions).
 
-* If your region only has 500 GB of Persistent Disk SSD quota, run the following but keep in mind the number of apps and image pull performance will be affected.
+* If your region only has 500 GB of Persistent Disk SSD quota, run the following,
+but keep in mind the number of apps and image pull performance will be affected.
 
     ```bash
     cat - > selkies-min-ssd.auto.tfvars <<EOF
@@ -110,7 +115,9 @@ The steps below will create the infrastructure for the app launcher. You should 
         --data-file selkies-min-ssd.auto.tfvars
     ```
 
-* If the load balancer never comes online and you receive 500 errors after the deployment has completed for at least 30 minutes, the autoneg controller annotation may need to be reset:
+* If the load balancer never comes online and you receive 500 errors
+after the deployment has completed for at least 30 minutes,
+the autoneg controller annotation may need to be reset:
 
     ```bash
     gcloud container clusters get-credentials broker-${REGION?}
