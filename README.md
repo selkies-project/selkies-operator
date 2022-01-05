@@ -88,7 +88,7 @@ The steps below will create the infrastructure for the app launcher. You should 
     echo "https://broker.endpoints.${PROJECT_ID?}.cloud.goog/"
     ```
 
-## Troubleshooting
+### Troubleshooting
 
 * If the initial cloud build fails with the message `Step #2 - "create-oauth-client": ERROR: (gcloud.alpha.iap.oauth-brands.list) INVALID_ARGUMENT: Request contains an invalid argument.` It is most likely due to running as a user that is not a member of the Cloud Identity Organization. See the limitation described above.
 
