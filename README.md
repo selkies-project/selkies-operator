@@ -97,6 +97,15 @@ it is most likely due to running as a user
 that is not a member of the Cloud Identity Organization.
 See [the assumption described above](#Assumptions).
 
+* If the initial cloud build fails with the message
+`Step #2 - "create-oauth-client": ERROR: (gcloud.alpha.iap.oauth-clients.create) FAILED_PRECONDITION: Precondition check failed.`,
+it is most likely due to reusing a project
+that already had its OAuth consent screen set to "External",
+which cannot be changed via `gcloud`.
+Click the "MAKE INTERNAL" button
+[here](https://console.cloud.google.com/apis/credentials/consent)
+in your project.
+
 * If your region only has 500 GB of Persistent Disk SSD quota, run the following,
 but keep in mind the number of apps and image pull performance will be affected.
 
