@@ -330,8 +330,6 @@ fi
 
 CONTROLLER_IMAGE=${CONTROLLER_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-controller)}
 WEB_IMAGE=${WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-web)}
-COTURN_IMAGE=${COTURN_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn)}
-COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn-web)}
 
 ###
 # Patch the manifests if using a custom domain
@@ -371,6 +369,4 @@ fi
   kustomize edit set image \
     gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest=${CONTROLLER_IMAGE} \
     gcr.io/cloud-solutions-images/kube-pod-broker-web:latest=${WEB_IMAGE} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-coturn:latest=${COTURN_IMAGE} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest=${COTURN_WEB_IMAGE}
 )
