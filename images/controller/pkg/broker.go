@@ -211,24 +211,7 @@ func MakeCookieValue(user, app, cookieSecret string) string {
 }
 
 func GetEgressNetworkPolicyData(podBrokerNamespace string) (NetworkPolicyTemplateData, error) {
-	resp := NetworkPolicyTemplateData{
-		TURNIPs: make([]string, 0),
-	}
-
-	// Lookup external TURN IPs. Fetch all service host and ports using SRV record of headless discovery service.
-	// NOTE: The SRV lookup returns resolvable aliases to the endpoints, so do another lookup should return the IP.
-	srv := fmt.Sprintf("turn-discovery.%s.svc.cluster.local", podBrokerNamespace)
-	_, srvs, err := net.LookupSRV("turn", "tcp", srv)
-	if err != nil {
-		return resp, fmt.Errorf("ERROR: failed to lookup TURN discovery SRV '%s', are you running in-cluster?", srv)
-	}
-	for _, srv := range srvs {
-		addrs, err := net.LookupHost(srv.Target)
-		if err != nil {
-			return resp, fmt.Errorf("ERROR: failed to query TURN A record")
-		}
-		resp.TURNIPs = append(resp.TURNIPs, addrs[0])
-	}
+	resp := NetworkPolicyTemplateData{}
 
 	// Get kube-dns service ClusterIP
 	services, err := GetServiceClusterIP("kube-system", "k8s-app=kube-dns")
