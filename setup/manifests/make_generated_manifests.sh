@@ -357,7 +357,6 @@ fi
   kustomize edit add base "../base/ingress/"
   kustomize edit add base "../base/node/"
   kustomize edit add base "../base/pod-broker/"
-  kustomize edit add base "../base/turn/"
   kustomize edit add patch "patch-pod-broker-config.json"
   kustomize edit add patch "patch-pod-broker-config-hash.yaml"
   kustomize edit add patch "patch-pod-broker-service-account.yaml"
