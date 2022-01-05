@@ -6,7 +6,7 @@ Selkies is a platform built on GKE to orchestrate per-user stateful workloads.
 
 ## Limitations
 
-* The instructions below must be run within a Google Cloud Organization by a member of that org. This is due to the use of  `setup/scripts/create_oauth_client.sh`'s use of `gcloud alpha iap oauth-brand` commands - which implicity operate on internal brands. For details see https://cloud.google.com/iap/docs/programmatic-oauth-clients
+* The instructions below must be run within a Google Cloud Organization by a member of that org. This is due to the use of  `setup/scripts/create_oauth_client.sh`'s use of `gcloud alpha iap oauth-brand` commands - which implicity operate on internal brands. For details see [this guide](https://cloud.google.com/iap/docs/programmatic-oauth-clients).
 
 ## Quick start
 
