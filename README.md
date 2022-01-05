@@ -15,7 +15,7 @@ The steps below will create the infrastructure for the app launcher. You should 
 1. Clone the source repository:
 
     ```bash
-    git clone https://github.com/selkies-project/selkies.git -b master && \
+    git clone -b master https://github.com/selkies-project/selkies.git
     cd selkies
     ```
 
@@ -23,16 +23,14 @@ The steps below will create the infrastructure for the app launcher. You should 
 
     ```bash
     export PROJECT_ID=YOUR_PROJECT
-    ```
-
-    ```bash
     gcloud config set project ${PROJECT_ID?}
     ```
 
 1. Enable the required GCP project services:
 
     ```bash
-    gcloud services enable --project ${PROJECT_ID?} \
+    gcloud services enable \
+        --project ${PROJECT_ID?} \
         cloudresourcemanager.googleapis.com \
         compute.googleapis.com \
         container.googleapis.com \
@@ -47,9 +45,17 @@ The steps below will create the infrastructure for the app launcher. You should 
 1. Grant the cloud build service account permissions on your project:
 
     ```bash
-    CLOUDBUILD_SA=$(gcloud projects describe ${PROJECT_ID?} --format='value(projectNumber)')@cloudbuild.gserviceaccount.com && \
-      gcloud projects add-iam-policy-binding ${PROJECT_ID?} --member serviceAccount:${CLOUDBUILD_SA?} --role roles/owner && \
-      gcloud projects add-iam-policy-binding ${PROJECT_ID?} --member serviceAccount:${CLOUDBUILD_SA?} --role roles/iam.serviceAccountTokenCreator
+    PROJECT_NUMBER=$(
+      gcloud projects describe ${PROJECT_ID?} \
+        --format='value(projectNumber)'
+    ) && \
+      CLOUDBUILD_SA="${PROJECT_NUMBER?}@cloudbuild.gserviceaccount.com" && \
+      gcloud projects add-iam-policy-binding ${PROJECT_ID?} \
+        --member serviceAccount:${CLOUDBUILD_SA?} \
+        --role roles/owner && \
+      gcloud projects add-iam-policy-binding ${PROJECT_ID?} \
+        --member serviceAccount:${CLOUDBUILD_SA?} \
+        --role roles/iam.serviceAccountTokenCreator
     ```
 
 1. Deploy with Cloud Build:
@@ -57,14 +63,18 @@ The steps below will create the infrastructure for the app launcher. You should 
     ```bash
     ACCOUNT=$(gcloud config get-value account)
     REGION=us-central1
-
-    gcloud builds submit --project=${PROJECT_ID?} --substitutions=_USER=${ACCOUNT?},_REGION=${REGION?}
+    gcloud builds submit \
+        --project=${PROJECT_ID?} \
+        --substitutions=_USER=${ACCOUNT?},_REGION=${REGION?}
     ```
 
 1. Deploy sample app:
 
     ```bash
-    (cd examples/jupyter-notebook/ && gcloud builds submit --project=${PROJECT_ID?} --substitutions=_REGION=${REGION?})
+    (cd examples/jupyter-notebook/ && \
+      gcloud builds submit \
+        --project=${PROJECT_ID?} \
+        --substitutions=_REGION=${REGION?})
     ```
 
 1. Connect to the App Launcher web interface at the URL output below:
@@ -90,15 +100,17 @@ The steps below will create the infrastructure for the app launcher. You should 
 
     ```bash
     gcloud secrets create broker-tfvars-selkies-min-ssd \
-      --replication-policy=automatic \
-      --data-file selkies-min-ssd.auto.tfvars
+        --replication-policy=automatic \
+        --data-file selkies-min-ssd.auto.tfvars
     ```
 
 * If the load balancer never comes online and you receive 500 errors after the deployment has completed for at least 30 minutes, the autoneg controller annotation may need to be reset:
 
     ```bash
     REGION=us-central1
-    gcloud container clusters get-credentials --region ${REGION?} broker-${REGION?}
+    gcloud container clusters get-credentials \
+        --region ${REGION?} \
+        broker-${REGION?}
     ```
 
     ```bash
