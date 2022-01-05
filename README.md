@@ -24,11 +24,13 @@ The steps below will create the infrastructure for the app launcher. You should 
     cd selkies
     ```
 
-1. Set the project, replace `YOUR_PROJECT` with your project ID:
+1. Configure gcloud (replace `XXX` & `us-west1` with your project ID & preferred region): <!-- TODO: Add a "supported regions" list? What regions can/can't Selkies run in? -->
 
     ```bash
-    export PROJECT_ID=YOUR_PROJECT
+    export PROJECT_ID=XXX
+    export REGION=us-west1
     gcloud config set project ${PROJECT_ID?}
+    gcloud config set compute/region ${REGION?}
     ```
 
 1. Enable the required GCP project services:
@@ -66,9 +68,8 @@ The steps below will create the infrastructure for the app launcher. You should 
 1. Deploy with Cloud Build:
 
     ```bash
-    ACCOUNT=$(gcloud config get-value account)
-    REGION=us-central1
-    gcloud builds submit \
+    ACCOUNT=$(gcloud config get-value account) && \
+      gcloud builds submit \
         --project=${PROJECT_ID?} \
         --substitutions=_USER=${ACCOUNT?},_REGION=${REGION?}
     ```
@@ -112,10 +113,7 @@ The steps below will create the infrastructure for the app launcher. You should 
 * If the load balancer never comes online and you receive 500 errors after the deployment has completed for at least 30 minutes, the autoneg controller annotation may need to be reset:
 
     ```bash
-    REGION=us-central1
-    gcloud container clusters get-credentials \
-        --region ${REGION?} \
-        broker-${REGION?}
+    gcloud container clusters get-credentials broker-${REGION?}
     ```
 
     ```bash
