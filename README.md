@@ -4,11 +4,16 @@
 
 Selkies is a platform built on GKE to orchestrate per-user stateful workloads.
 
-## Limitations
-
-* The instructions below must be run within a Google Cloud Organization by a member of that org. This is due to the use of  `setup/scripts/create_oauth_client.sh`'s use of `gcloud alpha iap oauth-brand` commands - which implicity operate on internal brands. For details see [this guide](https://cloud.google.com/iap/docs/programmatic-oauth-clients).
-
 ## Quick start
+
+### Assumptions
+
+* You are a member of a Google Cloud [organization](https://cloud.google.com/resource-manager/docs/creating-managing-organization).
+  * This is required for `setup/scripts/create_oauth_client.sh` to use `gcloud alpha iap oauth-brand` commands, because these implicity operate on organization-internal brands. For more information, see [this guide](https://cloud.google.com/iap/docs/programmatic-oauth-clients).
+* You are granted the `Owner` role in a project in that organization. <!-- TODO: Can we de-escalate this role assumption? What minimal role/permissions are actually required? -->
+* You have `gcloud` [installed](https://cloud.google.com/sdk/docs/install) in your environment.
+
+### Steps
 
 The steps below will create the infrastructure for the app launcher. You should deploy to a new project.
 
