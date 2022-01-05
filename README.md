@@ -56,7 +56,7 @@ CLOUDBUILD_SA=$(gcloud projects describe ${PROJECT_ID?} --format='value(projectN
 
 ```bash
 ACCOUNT=$(gcloud config get-value account)
-REGION=us-west1
+REGION=us-central1
 
 gcloud builds submit --project=${PROJECT_ID?} --substitutions=_USER=${ACCOUNT?},_REGION=${REGION?}
 ```
@@ -96,7 +96,7 @@ gcloud secrets create broker-tfvars-selkies-min-ssd \
 * If the load balancer never comes online and you receive 500 errors after the deployment has completed for at least 30 minutes, the autoneg controller annotation may need to be reset:
 
 ```bash
-REGION=us-west1
+REGION=us-central1
 gcloud container clusters get-credentials --region ${REGION?} broker-${REGION?}
 ```
 

@@ -15,7 +15,7 @@
 timeout: 300s
 
 substitutions:
-  _REGION: us-west1
+  _REGION: us-central1
 
 steps:
   ###
