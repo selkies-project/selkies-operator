@@ -106,6 +106,9 @@ Click the "MAKE INTERNAL" button
 [here](https://console.cloud.google.com/apis/credentials/consent)
 in your project.
 
+* If a `wget` step fails, retry the same command.
+Some third-party artifact URLs are flaky (due to globally-rate-limited hosts).
+
 * If your region only has 500 GB of Persistent Disk SSD quota, run the following,
 but keep in mind the number of apps and image pull performance will be affected.
 
