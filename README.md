@@ -70,7 +70,6 @@ gcloud builds submit --project=${PROJECT_ID?} --substitutions=_USER=${ACCOUNT?},
 7. Connect to the App Launcher web interface at the URL output below:
 
 ```bash
-# Print real URL
 echo "https://broker.endpoints.${PROJECT_ID?}.cloud.goog/"
 ```
 
