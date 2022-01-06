@@ -210,24 +210,14 @@ func MakeCookieValue(user, app, cookieSecret string) string {
 	return fmt.Sprintf("%s#%x", user, h.Sum(nil))
 }
 
-func GetEgressNetworkPolicyData(podBrokerNamespace string) (NetworkPolicyTemplateData, error) {
+// Fetches egress policy data that will be passed to the template engine.
+// By default the kube-dns cluster IP is always added.
+// You can also provide a list of CIDR ranges to be included.
+// A slice of "<service>:<protocol>:<record>" can also be passed to perform SRV lookup.
+//   Example: turn:udp:coturn-discovery.coturn.svc.cluster.local
+func GetEgressNetworkPolicyData(additionalCIDRs []string, additionalIPsFromSRVRecords []string) (NetworkPolicyTemplateData, error) {
 	resp := NetworkPolicyTemplateData{
-		TURNIPs: make([]string, 0),
-	}
-
-	// Lookup external TURN IPs. Fetch all service host and ports using SRV record of headless discovery service.
-	// NOTE: The SRV lookup returns resolvable aliases to the endpoints, so do another lookup should return the IP.
-	srv := fmt.Sprintf("turn-discovery.%s.svc.cluster.local", podBrokerNamespace)
-	_, srvs, err := net.LookupSRV("turn", "tcp", srv)
-	if err != nil {
-		return resp, fmt.Errorf("ERROR: failed to lookup TURN discovery SRV '%s', are you running in-cluster?", srv)
-	}
-	for _, srv := range srvs {
-		addrs, err := net.LookupHost(srv.Target)
-		if err != nil {
-			return resp, fmt.Errorf("ERROR: failed to query TURN A record")
-		}
-		resp.TURNIPs = append(resp.TURNIPs, addrs[0])
+		AdditionalCIDRs: make([]string, 0),
 	}
 
 	// Get kube-dns service ClusterIP
@@ -236,9 +226,46 @@ func GetEgressNetworkPolicyData(podBrokerNamespace string) (NetworkPolicyTemplat
 		return resp, err
 	}
 
+	// Add KubeDNS ClusterIP to additional cidrs
 	for _, svc := range services.Services {
 		if svc.ServiceName == "kube-dns" {
 			resp.KubeDNSClusterIP = svc.ClusterIP
+		}
+	}
+
+	// Add CIDRs from argument
+	for _, cidr := range additionalCIDRs {
+		resp.AdditionalCIDRs = append(resp.AdditionalCIDRs, cidr)
+	}
+
+	// Lookup additional IPs from SRV record and add them to the additional CIDRs.
+	// NOTE: The SRV lookup returns resolvable aliases to the endpoints, so do another lookup should return the IP.
+	reIPV4Addr := regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
+	for _, srvItem := range additionalIPsFromSRVRecords {
+		toks := strings.Split(srvItem, ":")
+		if len(toks) != 3 {
+			log.Printf("WARN: GetEgressNetworkPolicyData SRV entry is invalid: %s, expected string in form of: '<service>:<protocol>:<record>'", srvItem)
+			continue
+		}
+		svc, proto, record := toks[0], toks[1], toks[2]
+		_, srvs, err := net.LookupSRV(svc, proto, record)
+		if err != nil {
+			log.Printf("WARN: failed to lookup discovery SRV '%s': %v", record, err)
+		}
+		for _, srv := range srvs {
+			if reIPV4Addr.MatchString(srv.Target) {
+				// target was an IP, add it as a /32 CIDR.
+				resp.AdditionalCIDRs = append(resp.AdditionalCIDRs, fmt.Sprintf("%s/32", srv.Target))
+			} else {
+				addrs, err := net.LookupHost(srv.Target)
+				if err != nil {
+					log.Printf("ERROR: failed to query nested SRV record: '%s': %v", srv.Target, err)
+					continue
+				}
+				for _, ip := range addrs {
+					resp.AdditionalCIDRs = append(resp.AdditionalCIDRs, fmt.Sprintf("%s/32", ip))
+				}
+			}
 		}
 	}
 

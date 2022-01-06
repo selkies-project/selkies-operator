@@ -58,6 +58,20 @@ func main() {
 		metadataFilterPattern = regexp.MustCompile(metadataFilterPatternParam)
 	}
 
+	// If provided via pod broker params config, will add this list of CIDR ranges to all NetworkPolicy templates.
+	// CIDRs are provided via a comma-separated list of ranges.
+	addEgressCIDRs := make([]string, 0)
+	if param, ok := sysParams["AddEgressCIDRs"]; ok {
+		addEgressCIDRs = strings.Split(param, ",")
+	}
+
+	// If provided via pod broker params config, will add IPs queried from the SRV records to all NetworkPolicy templates.
+	// SRV records are comma-separated list of items in the form of: '<service>:<proto>:<record>'
+	addEgressSRVRecords := make([]string, 0)
+	if param, ok := sysParams["AddEgressSRVRecords"]; ok {
+		addEgressSRVRecords = strings.Split(param, ",")
+	}
+
 	// Map of cached app manifest checksums
 	bundleManifestChecksums := make(map[string]string, 0)
 	userBundleManifestChecksums := make(map[string]string, 0)
@@ -83,7 +97,7 @@ func main() {
 		}
 
 		// Fetch data required for Egress Network Policy
-		networkPolicyData, err := broker.GetEgressNetworkPolicyData(namespace)
+		networkPolicyData, err := broker.GetEgressNetworkPolicyData(addEgressCIDRs, addEgressSRVRecords)
 		if err != nil {
 			log.Printf("failed to fetch networkpolicy data: %v", err)
 			time.Sleep(2 * time.Second)

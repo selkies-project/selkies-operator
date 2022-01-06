@@ -82,7 +82,6 @@ echo "https://broker.endpoints.${PROJECT_ID?}.cloud.goog/"
 ```
 cat - > selkies-min-ssd.auto.tfvars <<EOF
 default_pool_disk_size_gb = 100
-turn_pool_disk_size_gb = 100
 gpu_cos_pool_disk_size_gb = 100
 tier1_pool_disk_size_gb = 100
 EOF
