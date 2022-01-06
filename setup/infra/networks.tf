@@ -22,28 +22,6 @@ resource "google_compute_network" "broker" {
   ]
 }
 
-resource "google_compute_firewall" "turn" {
-  name = "k8s-fw-gke-turn"
-  network = replace(
-    google_compute_network.broker.self_link,
-    "https://www.googleapis.com/compute/v1/",
-    "",
-  )
-
-  allow {
-    protocol = "tcp"
-    ports    = ["3478", "25000-25100"]
-  }
-
-  allow {
-    protocol = "udp"
-    ports    = ["3478", "25000-25100"]
-  }
-
-  target_tags   = ["gke-turn"]
-  source_ranges = ["0.0.0.0/0"]
-}
-
 resource "google_compute_firewall" "iap" {
   name = "allow-ingress-from-iap"
   network = replace(

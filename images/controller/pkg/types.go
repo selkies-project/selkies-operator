@@ -362,7 +362,7 @@ type ServiceClusterIPList struct {
 }
 
 type NetworkPolicyTemplateData struct {
-	TURNIPs          []string `json:"turnIPs"`
+	AdditionalCIDRs  []string `json:"additionalCIDRs"`
 	KubeDNSClusterIP string   `json:"kubeDNSClusterIP"`
 }
 

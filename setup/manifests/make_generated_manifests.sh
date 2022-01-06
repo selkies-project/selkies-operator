@@ -330,8 +330,6 @@ fi
 
 CONTROLLER_IMAGE=${CONTROLLER_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-controller)}
 WEB_IMAGE=${WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-web)}
-COTURN_IMAGE=${COTURN_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn)}
-COTURN_WEB_IMAGE=${COTURN_WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-coturn-web)}
 
 ###
 # Patch the manifests if using a custom domain
@@ -352,14 +350,12 @@ fi
   cd ${DEST_DIR}
   rm -f kustomization.yaml
   kustomize create
-  # TODO: need to remove this commonLabel as it causes issues with headless services (turn-discovery).
   # Simply removing it breaks the ability to apply this change as an update operation because the labeled fields are immutable.
   kustomize edit add label "app.kubernetes.io/name":"${INFRA_NAME}"
   kustomize edit add base "../base/custom-metrics/"
   kustomize edit add base "../base/ingress/"
   kustomize edit add base "../base/node/"
   kustomize edit add base "../base/pod-broker/"
-  kustomize edit add base "../base/turn/"
   kustomize edit add patch "patch-pod-broker-config.json"
   kustomize edit add patch "patch-pod-broker-config-hash.yaml"
   kustomize edit add patch "patch-pod-broker-service-account.yaml"
@@ -370,7 +366,5 @@ fi
   [[ "${INCLUDE_REDIRECT}" == "true" ]] && kustomize edit add base ../base/pod-broker/redirect/
   kustomize edit set image \
     gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest=${CONTROLLER_IMAGE} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-web:latest=${WEB_IMAGE} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-coturn:latest=${COTURN_IMAGE} \
-    gcr.io/cloud-solutions-images/kube-pod-broker-coturn-web:latest=${COTURN_WEB_IMAGE}
+    gcr.io/cloud-solutions-images/kube-pod-broker-web:latest=${WEB_IMAGE}
 )

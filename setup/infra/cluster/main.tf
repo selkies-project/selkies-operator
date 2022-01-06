@@ -52,23 +52,7 @@ module "broker" {
       auto_upgrade       = true
       service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
       preemptible        = var.default_pool_preemptive_nodes
-    },
-    {
-      # TURN node pool for apps with NAT traversal
-      name               = "turn"
-      machine_type       = var.turn_pool_machine_type
-      initial_node_count = var.turn_pool_initial_node_count
-      min_count          = var.turn_pool_min_node_count
-      max_count          = var.turn_pool_max_node_count
-      local_ssd_count    = 0
-      disk_size_gb       = var.turn_pool_disk_size_gb
-      disk_type          = var.turn_pool_disk_type
-      image_type         = "COS"
-      auto_repair        = true
-      auto_upgrade       = true
-      service_account    = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
-      preemptible        = var.turn_pool_preemptive_nodes
-    },
+    }
   ]
 
   node_pools_oauth_scopes = {
@@ -76,40 +60,25 @@ module "broker" {
     default-node-pool = [
       "https://www.googleapis.com/auth/cloud-platform",
     ]
-    turn = [
-      "https://www.googleapis.com/auth/cloud-platform",
-    ]
   }
 
   node_pools_labels = {
     all               = {}
     default-node-pool = {}
-    turn = {
-      "app.broker/gke-turn" = "true"
-    }
   }
 
   node_pools_metadata = {
     all               = {}
     default-node-pool = {}
-    turn              = {}
   }
 
   node_pools_taints = {
     all               = []
     default-node-pool = []
-    turn = [
-      {
-        key    = "app.broker/gke-turn"
-        value  = "true"
-        effect = "NO_SCHEDULE"
-      },
-    ]
   }
 
   node_pools_tags = {
     all               = []
     default-node-pool = []
-    turn              = ["gke-turn"]
   }
 }
