@@ -329,7 +329,7 @@ if [[ -n "${CUSTOM_WEB_IMAGE}" ]]; then
 fi
 
 CONTROLLER_IMAGE=${CONTROLLER_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-controller)}
-WEB_IMAGE=${WEB_IMAGE:-$(fetchLatestDigest gcr.io/${PROJECT_ID}/kube-pod-broker-web)}
+WEB_IMAGE=${WEB_IMAGE:-"ghcr.io/selkies-project/selkies-app-launcher-web/app-launcher-web:latest"}
 
 ###
 # Patch the manifests if using a custom domain
