@@ -34,9 +34,6 @@ images: [
     # controller
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG}',
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:latest',
-    # web
-    'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-web:${_IMAGE_TAG}',
-    'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-web:latest',
     # broker gce proxy
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG}',
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:latest',
@@ -101,34 +98,6 @@ steps:
         ]
   waitFor:
     - controller
-
-###
-# Pod broker web image
-###
-- name: 'gcr.io/cloud-builders/docker'
-  id: web-pull
-  entrypoint: 'bash'
-  args: ["-c", "if [[ '${_USE_CACHE}' == 'true' ]]; then (docker pull gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-web:latest || exit 0); fi"]
-  waitFor: ["-"]
-- name: 'gcr.io/cloud-builders/docker'
-  id: web
-  args: [
-            'build',
-            '-t', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-web:${_IMAGE_TAG}',
-            '--cache-from', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-web:latest',
-            'web'
-        ]
-  waitFor:
-    - web-pull
-- name: 'gcr.io/cloud-builders/docker'
-  id: web-tags
-  args: [
-            'tag',
-            'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-web:${_IMAGE_TAG}',
-            'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-web:latest',
-        ]
-  waitFor:
-    - web
 
 ###
 # Broker GCE proxy image
