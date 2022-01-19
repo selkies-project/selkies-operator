@@ -141,15 +141,15 @@ func main() {
 		}
 	}
 	informer := broker.NewAppUserConfigInformer(addFunc, deleteFunc, updateFunc)
-	go func() {
-		stopper := make(chan struct{})
-		defer close(stopper)
-		opts := &broker.PodBrokerInformerOpts{
-			ResyncDuration: 0,
-			ClientConfig:   config,
-		}
-		broker.RunPodBrokerInformer(informer, stopper, opts)
-	}()
+	informerStopper := make(chan struct{})
+	defer close(informerStopper)
+	informerOpts := &broker.PodBrokerInformerOpts{
+		ResyncDuration: 0,
+		ClientConfig:   config,
+	}
+	if err := broker.RunPodBrokerInformer(informer, informerStopper, informerOpts); err != nil {
+		log.Fatalf("failed to start BrokerAppUserConfig informer: %v", err)
+	}
 
 	// Subscribe to GCR pub/sub topic
 	var sub *pubsub.Subscription
