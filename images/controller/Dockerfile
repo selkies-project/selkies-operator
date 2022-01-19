@@ -24,6 +24,7 @@ RUN go build cmd/app_finder/app_finder.go
 RUN go build cmd/app_publisher/app_publisher.go
 RUN go build cmd/image_finder/image_finder.go
 RUN go build cmd/image_puller/image_puller.go
+RUN go build -o image_puller_worker cmd/image_puller_worker/*.go
 RUN go build cmd/pod_broker/pod_broker.go
 RUN go build cmd/reservation_broker/reservation_broker.go
 
@@ -41,6 +42,7 @@ COPY --from=build /go/src/selkies.io/controller/app_finder /usr/local/bin/app-fi
 COPY --from=build /go/src/selkies.io/controller/app_publisher /usr/local/bin/app-publisher
 COPY --from=build /go/src/selkies.io/controller/image_finder /usr/local/bin/image-finder
 COPY --from=build /go/src/selkies.io/controller/image_puller /usr/local/bin/image-puller
+COPY --from=build /go/src/selkies.io/controller/image_puller_worker /usr/local/bin/image-puller-worker
 COPY --from=build /go/src/selkies.io/controller/pod_broker /usr/local/bin/pod-broker
 COPY --from=build /go/src/selkies.io/controller/reservation_broker /usr/local/bin/reservation-broker
 
