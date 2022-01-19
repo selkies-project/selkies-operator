@@ -86,10 +86,10 @@ func RunPodBrokerInformer(pbi PodBrokerInformer, stopCh <-chan struct{}, opts *P
 	}
 	s := myinformer.Informer()
 	s.AddEventHandler(handlers)
-	s.Run(stopCh)
-
-	log.Printf("informer shutting down")
-
+	go s.Run(stopCh)
+	if !cache.WaitForCacheSync(stopCh, s.HasSynced) {
+		return fmt.Errorf("failed to sync informer")
+	}
 	return nil
 }
 

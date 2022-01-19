@@ -36,6 +36,7 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/Masterminds/sprig"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -269,15 +270,15 @@ func main() {
 		}
 	}
 	appConfigInformer := broker.NewAppConfigInformer(addAppConfigFunc, deleteAppConfigFunc, updateAppConfigFunc)
-	go func() {
-		stopper := make(chan struct{})
-		defer close(stopper)
-		opts := &broker.PodBrokerInformerOpts{
-			ResyncDuration: resyncDuration,
-			ClientConfig:   config,
-		}
-		broker.RunPodBrokerInformer(appConfigInformer, stopper, opts)
-	}()
+	appConfigStopper := make(chan struct{})
+	defer close(appConfigStopper)
+	informerOpts := &broker.PodBrokerInformerOpts{
+		ResyncDuration: resyncDuration,
+		ClientConfig:   config,
+	}
+	if err := broker.RunPodBrokerInformer(appConfigInformer, appConfigStopper, informerOpts); err != nil {
+		log.Fatalf("Error starting BrokerAppConfig informer: %v", err)
+	}
 
 	// Watch changes to BrokerAppUserConfigs with informer.
 	addUserConfigFunc := func(obj broker.AppUserConfigObject) {
@@ -294,15 +295,23 @@ func main() {
 		imageQueue.Push(makeImageName(newObj.Spec.ImageRepo, newObj.Spec.ImageTag))
 	}
 	userConfigInformer := broker.NewAppUserConfigInformer(addUserConfigFunc, deleteUserConfigFunc, updateUserConfigFunc)
-	go func() {
-		stopper := make(chan struct{})
-		defer close(stopper)
-		opts := &broker.PodBrokerInformerOpts{
-			ResyncDuration: resyncDuration,
-			ClientConfig:   config,
-		}
-		broker.RunPodBrokerInformer(userConfigInformer, stopper, opts)
-	}()
+	userConfigStopper := make(chan struct{})
+	defer close(userConfigStopper)
+	if err := broker.RunPodBrokerInformer(userConfigInformer, userConfigStopper, informerOpts); err != nil {
+		log.Fatalf("Error starting BrokerAppUserConfig informer: %v", err)
+	}
+
+	// Print initial list of images.
+	fmt.Printf("Initial images to watch:\n")
+	imageQueue.Lock()
+	for _, img := range imageQueue.ImageQueue {
+		fmt.Printf("  %s\n", img)
+	}
+	if v := os.Getenv("LIST_IMAGES_ONLY"); v == "true" {
+		log.Printf("Exiting")
+		os.Exit(0)
+	}
+	imageQueue.Unlock()
 
 	// Subscribe to GCR pub/sub topic
 	subName := fmt.Sprintf("pod-broker-image-puller-%s", nodeName)
