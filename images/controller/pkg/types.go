@@ -282,10 +282,11 @@ type ImageListManifestResponse struct {
 }
 
 type ReservationMetadataSpec struct {
-	IP           string `json:"ip"`
-	SessionKey   string `json:"session_key"`
-	User         string `json:"user"`
-	SessionStart string `json:"session_start"`
+	IP           string            `json:"ip"`
+	SessionKey   string            `json:"session_key"`
+	User         string            `json:"user"`
+	SessionStart string            `json:"session_start"`
+	UserParams   map[string]string `json:"user_params"`
 }
 
 /*
