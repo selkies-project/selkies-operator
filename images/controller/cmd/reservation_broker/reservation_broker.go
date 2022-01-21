@@ -49,11 +49,12 @@ type Server struct {
 }
 
 type BrokerPod struct {
-	Name         string   `json:"name"`
-	IP           string   `json:"ip"`
-	SessionKey   string   `json:"session_key"`
-	UserObjects  []string `json:"user_objects"`
-	SessionStart string   `json:"session_start"`
+	Name         string            `json:"name"`
+	IP           string            `json:"ip"`
+	SessionKey   string            `json:"session_key"`
+	UserObjects  []string          `json:"user_objects"`
+	SessionStart string            `json:"session_start"`
+	UserParams   map[string]string `json:"user_params"`
 }
 
 type AppContext struct {
@@ -348,10 +349,13 @@ func main() {
 							SessionKey:   pod.SessionKey,
 							User:         user,
 							SessionStart: pod.SessionStart,
+							UserParams:   pod.UserParams,
 						}
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusOK)
-						json.NewEncoder(w).Encode(metadata)
+						enc := json.NewEncoder(w)
+						enc.SetIndent("", "  ")
+						enc.Encode(metadata)
 						return
 					}
 				}
@@ -425,7 +429,9 @@ func writeResponse(w http.ResponseWriter, statusCode int, message string) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(status)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(status)
 }
 
 /*
@@ -509,10 +515,13 @@ func registerAppHandler(s *Server, app broker.AppConfigSpec, appCtx *AppContext)
 
 			username := broker.GetUsernameFromHeaderOrDefault(r, appCtx.UsernameHeader, user)
 
+			// Extract any user param values from the request.
+			userParams := getUserParams(r, appCtx)
+
 			// Handle each verb
 			switch r.Method {
 			case "POST":
-				status, msg := createApp(app, appCtx, user, username)
+				status, msg := createApp(app, appCtx, user, username, userParams)
 				writeResponse(w, status, msg)
 			case "DELETE":
 				status, msg := deleteApp(appCtx, user)
@@ -548,16 +557,29 @@ func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 			podIP := pod.Status.PodIPs[0].IP
 			if podUser, ok := pod.Metadata.Annotations["app.broker/user"]; ok {
 				sessionKey, ok := pod.Metadata.Annotations["app.broker/session-key"]
-				userObjects, ok := pod.Metadata.Annotations["app.broker/last-applied-object-types"]
 				if !ok {
 					log.Printf("Warning: missing app.broker/session-key on existing reservation: %s", podName)
 				}
+				userObjects, ok := pod.Metadata.Annotations["app.broker/last-applied-object-types"]
+				if !ok {
+					log.Printf("Warning: missing app.broker/last-applied-object-types on existing reservation: %s", podName)
+				}
+				userParams, ok := pod.Metadata.Annotations["app.broker/user-params"]
+				if !ok {
+					log.Printf("Warning: missing app.broker/user-params on existing reservation: %s", podName)
+				}
+				var userParamsDecoded map[string]string
+				if err := json.Unmarshal([]byte(userParams), &userParamsDecoded); err != nil {
+					log.Printf("Warning: failed to decode JSON user params from app.broker/user-params annotation on pod: %s", podName)
+				}
+
 				log.Printf("Found existing reservation: %s: %s", podName, podUser)
 				appCtx.ReservedPods[podUser] = BrokerPod{
 					Name:        podName,
 					IP:          podIP,
 					SessionKey:  sessionKey,
 					UserObjects: strings.Split(userObjects, ","),
+					UserParams:  userParamsDecoded,
 				}
 			}
 		}
@@ -615,7 +637,7 @@ func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 	}()
 }
 
-func updatePodForUser(app broker.AppConfigSpec, user, sessionKey, pod string, objectTypes []string) error {
+func updatePodForUser(app broker.AppConfigSpec, user, sessionKey, pod string, objectTypes []string, userParams map[string]string) error {
 	// Remove label from the pod that releases it from the K8S Deployment controller.
 	cmd := exec.Command("sh", "-c", fmt.Sprintf("kubectl label pod -n %s %s app.kubernetes.io/managed-by=reservation-broker --overwrite=true 1>&2", app.Name, pod))
 	stdoutStderr, err := cmd.CombinedOutput()
@@ -639,6 +661,14 @@ func updatePodForUser(app broker.AppConfigSpec, user, sessionKey, pod string, ob
 
 	// Add annotation with found object types
 	cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl annotate pod --overwrite=true -n %s %s 'app.broker/last-applied-object-types=%s' 1>&2", app.Name, pod, strings.Join(objectTypes, ",")))
+	stdoutStderr, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s\n%v", stdoutStderr, err)
+	}
+
+	// Add annotation for user params.
+	encodedUserParams, _ := json.Marshal(&userParams)
+	cmd = exec.Command("sh", "-c", fmt.Sprintf("kubectl annotate pod --overwrite=true -n %s %s 'app.broker/user-params=%s' 1>&2", app.Name, pod, string(encodedUserParams)))
 	stdoutStderr, err = cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s\n%v", stdoutStderr, err)
@@ -692,7 +722,7 @@ func getAppStatus(w http.ResponseWriter, app broker.AppConfigSpec, appCtx *AppCo
 /*
 Obtain a reservation for the user.
 */
-func createApp(app broker.AppConfigSpec, appCtx *AppContext, user, username string) (int, string) {
+func createApp(app broker.AppConfigSpec, appCtx *AppContext, user, username string, userParams map[string]string) (int, string) {
 	statusCode := http.StatusOK
 	msg := ""
 
@@ -744,8 +774,11 @@ func createApp(app broker.AppConfigSpec, appCtx *AppContext, user, username stri
 	}
 	pod.UserObjects = userObjects
 
+	// add user params to the pod
+	pod.UserParams = userParams
+
 	// Update the pod for the user
-	if err := updatePodForUser(app, user, pod.SessionKey, pod.Name, pod.UserObjects); err != nil {
+	if err := updatePodForUser(app, user, pod.SessionKey, pod.Name, pod.UserObjects, userParams); err != nil {
 		log.Printf("failed to update pod for user %s: %s: %v", user, pod.Name, err)
 		statusCode = http.StatusInternalServerError
 		msg = "error creating app"
@@ -916,4 +949,32 @@ func (appCtx *AppContext) WriteCacheFiles() {
 
 	reservedPodsCacheFile := path.Join(broker.BundleSourceBaseDir, appCtx.Name, "reservation_pods_reserved.txt")
 	ioutil.WriteFile(reservedPodsCacheFile, []byte(strings.Join(reservedPodNames, "\n")), 0644)
+}
+
+func getUserParams(r *http.Request, appCtx *AppContext) map[string]string {
+	resp := make(map[string]string, 0)
+
+	// Extract query parameters
+	// Note that only the first instance of a repeated query param is used.
+	queryParams := make(map[string]string, len(r.URL.Query()))
+	for k, v := range r.URL.Query() {
+		queryParams[k] = v[0]
+	}
+
+	// Validate input parameters
+	// Only write parameters that were found in the app config and are writable.
+	for _, appParam := range appCtx.PodData.AppSpec.UserParams {
+		// Return error if param is not found or not writable.
+		if v, ok := queryParams[appParam.Name]; ok {
+			for _, p := range appCtx.PodData.AppSpec.UserWritableParams {
+				if p == appParam.Name {
+					// Param is writable, add to return map
+					resp[appParam.Name] = v
+					break
+				}
+			}
+		}
+	}
+
+	return resp
 }
