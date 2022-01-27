@@ -23,6 +23,7 @@ var (
 	image     = flag.String("image", "", "image name and tag to pull")
 	statsPort = flag.Int("stats-port", 9100, "port to serve promethus stats on")
 	exitDelay = flag.Int("exit-delay", 0, "seconds to delay exit by, to add more time to fetch stats")
+	debug     = flag.Bool("debug", false, "enable debug output")
 )
 
 var (
@@ -60,7 +61,7 @@ func main() {
 	progressCh := make(chan int, 0)
 	pullStart := time.Now()
 	go func() {
-		if err := dockerPullWithProgress(*image, progressCh, timeout); err != nil {
+		if err := dockerPullWithProgress(*image, progressCh, timeout, *debug); err != nil {
 			log.Fatal(err)
 		}
 	}()

@@ -132,6 +132,15 @@ func main() {
 		topicName = "gcr"
 	}
 
+	// Values available to templates from environment variables prefixed with POD_BROKER_PARAM_Name=Value
+	// Map of Name=Value
+	sysParams := broker.GetEnvPrefixedVars("POD_BROKER_PARAM_")
+
+	workerImage := fmt.Sprintf("gcr.io/%s/kube-pod-broker-controller:latest", project)
+	if workerImageParam, ok := sysParams["ImagePullerWorkerImage"]; ok {
+		workerImage = workerImageParam
+	}
+
 	// Flags used for connecting out-of-cluster.
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
@@ -223,7 +232,7 @@ func main() {
 					log.Printf("could not find valid docker auth config for image: %s: %v", image, err)
 				} else {
 					log.Printf("creating image pull job for: %s", imageWithDigest)
-					if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath, dockerConfigJSON); err != nil {
+					if err := pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath, dockerConfigJSON, workerImage); err != nil {
 						log.Printf("%v", err)
 					}
 				}
@@ -425,7 +434,7 @@ func main() {
 }
 
 // Creates Job to pull image if one is not already running.
-func pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath, dockerConfigJSON string) error {
+func pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath, dockerConfigJSON, workerImage string) error {
 	// Check to see if job is active.
 	currJobs, err := broker.GetJobs(namespace, "app=image-pull")
 	if err != nil {
@@ -450,7 +459,7 @@ func pullImage(imageWithDigest, imageTag, namespace, nodeName, templatePath, doc
 	}
 
 	if !jobFound {
-		if err := makeImagePullJob(imageWithDigest, imageTag, nodeName, namespace, templatePath, dockerConfigJSON); err != nil {
+		if err := makeImagePullJob(imageWithDigest, imageTag, nodeName, namespace, templatePath, dockerConfigJSON, workerImage); err != nil {
 			return fmt.Errorf("failed to make job: %v", err)
 		}
 	}
@@ -464,7 +473,7 @@ func makeImageName(repo, tag string) string {
 // Check if job is currently running.
 // If running, return (non-fatal) error.
 // If not running, apply job to given namespace.
-func makeImagePullJob(image, tag, nodeName, namespace, templatePath, dockerConfigJSON string) error {
+func makeImagePullJob(image, tag, nodeName, namespace, templatePath, dockerConfigJSON, workerImage string) error {
 	imageRepo, err := broker.GetDockerRepoFromImage(image)
 	if err != nil {
 		return err
@@ -492,6 +501,7 @@ func makeImagePullJob(image, tag, nodeName, namespace, templatePath, dockerConfi
 		Image              string
 		Tag                string
 		DockerConfigJSON64 string
+		WorkerImage        string
 	}
 
 	data := templateData{
@@ -500,6 +510,7 @@ func makeImagePullJob(image, tag, nodeName, namespace, templatePath, dockerConfi
 		Image:              image,
 		Tag:                tag,
 		DockerConfigJSON64: dockerConfigJSON64,
+		WorkerImage:        workerImage,
 	}
 
 	destDir := path.Join("/run/image-puller", nameSuffix)

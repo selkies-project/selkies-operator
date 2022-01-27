@@ -39,19 +39,21 @@ type inspectSpec struct {
 
 var (
 	startRE       = regexp.MustCompile(`Pulling from (.*)`)
-	downloadingRE = regexp.MustCompile(`\s+([a-f0-9]{12}): Downloading.*?([0-9.]+)(.*?)/([0-9.]+)(.*?)[\n\r]+?`)
-	extractingRE  = regexp.MustCompile(`\s+([a-f0-9]{12}): Extracting.*?([0-9.]+)(.*?)/([0-9.]+)(.*?)[\n\r]+?`)
+	downloadingRE = regexp.MustCompile(`\s+([a-f0-9]{12}): Downloading.*?([0-9.]+)(.*?)\/?(([0-9.]+)(.*?))?[\n\r]+?`)
+	extractingRE  = regexp.MustCompile(`\s+([a-f0-9]{12}): Extracting.*?([0-9.]+)(.*?)\/?(([0-9.]+)(.*?))?[\n\r]+?`)
 	completeRE    = regexp.MustCompile(`Status: (Downloaded newer image|Image is up to date)`)
 )
 
-func dockerPullWithProgress(image string, progressCh chan<- int, timeout time.Duration) error {
+func dockerPullWithProgress(image string, progressCh chan<- int, timeout time.Duration, debug bool) error {
 	var match []string
+	var out string
 	var err error
 	var count int
 	var totalPercent int = 0
 	layerDownloadStatus := make(map[string]int, 0)
 	layerExtractStatus := make(map[string]int, 0)
 	layerWeights := make(map[string]float64, 0)
+	layerSizesBytes := make(map[string]int64, 0)
 
 	defer close(progressCh)
 
@@ -75,6 +77,7 @@ func dockerPullWithProgress(image string, progressCh chan<- int, timeout time.Du
 	for _, l := range layers {
 		shortHash := l.Digest[7:19]
 		layerWeights[shortHash] = float64(l.Size) / float64(totalSize)
+		layerSizesBytes[shortHash] = l.Size
 	}
 
 	e, _, err := expect.Spawn(fmt.Sprintf("docker pull %s", image), -1, expect.CheckDuration(50*time.Millisecond))
@@ -84,7 +87,7 @@ func dockerPullWithProgress(image string, progressCh chan<- int, timeout time.Du
 	defer e.Close()
 
 	for {
-		_, match, count, err = e.ExpectSwitchCase([]expect.Caser{
+		out, match, count, err = e.ExpectSwitchCase([]expect.Caser{
 			&expect.Case{R: startRE, T: expect.OK()},
 			&expect.Case{R: downloadingRE, T: expect.OK()},
 			&expect.Case{R: extractingRE, T: expect.OK()},
@@ -103,8 +106,18 @@ func dockerPullWithProgress(image string, progressCh chan<- int, timeout time.Du
 			shortHash := match[1]
 			curr := match[2]
 			currUnit := match[3]
-			total := match[4]
-			totalUnit := match[5]
+			total := match[5]
+			totalUnit := match[6]
+
+			if debug {
+				fmt.Printf("DEBUG:[downloading RE]:\n\n%s\n\n%v\\n", out, match[1:])
+			}
+
+			if len(total) == 0 {
+				// If docker output doesn't provide the total size, look it up in the layer info.
+				total = fmt.Sprintf("%d", layerSizesBytes[shortHash])
+				totalUnit = "B"
+			}
 
 			percent, err := computeLayerPercent(curr, currUnit, total, totalUnit)
 			if err != nil {
@@ -120,8 +133,18 @@ func dockerPullWithProgress(image string, progressCh chan<- int, timeout time.Du
 			shortHash := match[1]
 			curr := match[2]
 			currUnit := match[3]
-			total := match[4]
-			totalUnit := match[5]
+			total := match[5]
+			totalUnit := match[6]
+
+			if debug {
+				fmt.Printf("DEBUG:[extracting RE]:\n\n%s\n\n%v\\n", out, match[1:])
+			}
+
+			if len(total) == 0 {
+				// If docker output doesn't provide the total size, look it up in the layer info.
+				total = fmt.Sprintf("%d", layerSizesBytes[shortHash])
+				totalUnit = "B"
+			}
 
 			percent, err := computeLayerPercent(curr, currUnit, total, totalUnit)
 			if err != nil {
