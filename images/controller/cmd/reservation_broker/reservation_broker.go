@@ -629,7 +629,32 @@ func watchPods(app broker.AppConfigSpec, appCtx *AppContext) {
 			// Write current list of tracked pods for debugging.
 			appCtx.WriteCacheFiles()
 
+			// Get all reserved pods and verify their reservations are still valid.
+			deleteUsers := make([]string, 0)
+			selector = fmt.Sprintf("%s, app.kubernetes.io/managed-by notin (pod-broker)", app.Deployment.Selector)
+			podResp, err = listBrokerPods(app.Name, selector)
+			if err != nil {
+				log.Printf("failed to list reserved pods: %v", err)
+			} else {
+				for user, reservedPod := range appCtx.ReservedPods {
+					found := false
+					for _, pod := range podResp.Items {
+						if reservedPod.Name == pod.Metadata.Name {
+							found = true
+						}
+					}
+					if !found {
+						log.Printf("reserved pod '%s' for user '%s' disappeared, clearing reservation", reservedPod.Name, user)
+						deleteUsers = append(deleteUsers, user)
+					}
+				}
+			}
+
 			appCtx.Unlock()
+
+			for _, user := range deleteUsers {
+				deleteApp(appCtx, user)
+			}
 
 			time.Sleep(2 * time.Second)
 		}
