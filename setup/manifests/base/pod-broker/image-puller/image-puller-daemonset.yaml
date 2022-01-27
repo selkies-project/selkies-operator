@@ -66,6 +66,10 @@ spec:
           image: gcr.io/cloud-solutions-images/kube-pod-broker-controller:latest
           command: ["/usr/local/bin/image-puller"]
           workingDir: /run/image-puller
+          envFrom:
+            - configMapRef:
+                name: pod-broker-config
+                optional: false
           env:
             - name: NAMESPACE
               valueFrom:

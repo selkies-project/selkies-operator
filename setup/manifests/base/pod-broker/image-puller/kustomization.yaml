@@ -21,4 +21,5 @@ configMapGenerator:
 
 resources:
   - image-puller-daemonset.yaml
+  - image-puller-networkpolicy.yaml
   - subscription-reaper-cronjob.yaml

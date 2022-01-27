@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: image-puller
+spec:
+  podSelector:
+    matchLabels:
+      app: image-pull
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: pod-broker-image-puller
+      ports:
+        - protocol: TCP
+          port: 9100

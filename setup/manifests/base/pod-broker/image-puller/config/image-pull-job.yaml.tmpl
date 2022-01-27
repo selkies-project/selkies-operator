@@ -50,7 +50,7 @@ spec:
         # Pull image and then exit
         ###
         - name: image-puller
-          image: google/cloud-sdk:alpine
+          image: {{.WorkerImage}}
           command: ["/bin/bash"]
           args:
             - -ec
@@ -58,7 +58,13 @@ spec:
               echo "Pulling image: ${IMAGE}"
               mkdir -p ${HOME}/.docker
               echo "${DOCKER_CONFIG_JSON64}" | base64 -d > ${HOME}/.docker/config.json
-              docker pull ${IMAGE}
+
+              # Pull image with progress stats
+              image-puller-worker \
+                -image ${IMAGE} \
+                -stats-port 9100 \
+                -exit-delay 60
+
               if [[ -n "${TAG}" ]]; then
                 echo "Tagging image ${IMAGE} with ${TAG}"
                 STRIPTAG=${IMAGE//:*/}

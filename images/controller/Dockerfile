@@ -37,6 +37,9 @@ COPY --from=skaffold /usr/local/bin/kustomize /usr/local/bin/kustomize
 # Install kubectl
 COPY --from=skaffold /usr/local/bin/kubectl /usr/local/bin/kubectl
 
+# Install skopeo
+RUN apk add -u --no-cache skopeo
+
 # Copy build from previous layer
 COPY --from=build /go/src/selkies.io/controller/app_finder /usr/local/bin/app-finder
 COPY --from=build /go/src/selkies.io/controller/app_publisher /usr/local/bin/app-publisher
