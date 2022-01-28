@@ -413,6 +413,13 @@ func (s *Server) InitDispatch() {
 
 		s.ProxyCall(w, r, appName)
 	})
+
+	d.HandleFunc("/{appName}/config", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		appName := vars["appName"]
+
+		s.ProxyCall(w, r, fmt.Sprintf("%s/config", appName))
+	})
 }
 
 func (s *Server) ProxyCall(w http.ResponseWriter, r *http.Request, fName string) {
@@ -442,6 +449,30 @@ func registerAppHandler(s *Server, app broker.AppConfigSpec, appCtx *AppContext)
 	// Register app route handler function
 	appName := app.Name
 	cookieName := fmt.Sprintf("broker_%s", appName)
+
+	s.Urls[fmt.Sprintf("%s/config", app.Name)] = func(w http.ResponseWriter, r *http.Request) {
+
+		defaultAppParams := make(map[string]string, 0)
+		for _, param := range app.UserParams {
+			defaultAppParams[param.Name] = param.Default
+		}
+
+		config := broker.AppUserConfigSpec{
+			AppName:   appName,
+			User:      "",
+			ImageRepo: app.DefaultRepo,
+			ImageTag:  app.DefaultTag,
+			Tags:      []string{app.DefaultTag},
+			NodeTier:  app.DefaultTier,
+			Params:    defaultAppParams,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(config)
+	}
 
 	s.Urls[app.Name] = func(w http.ResponseWriter, r *http.Request) {
 		// Get user from cookie or header, or check to see if request is coming from a managed pod.
