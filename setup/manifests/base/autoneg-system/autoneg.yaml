@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
+  labels:
+    app: autoneg
   name: autoneg-leader-election-role
   namespace: autoneg-system
 rules:
@@ -49,8 +51,17 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
+  labels:
+    app: autoneg
   name: autoneg-manager-role
 rules:
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
   - apiGroups:
       - ""
     resources:
@@ -58,25 +69,23 @@ rules:
     verbs:
       - get
       - list
-      - watch
-      - create
-      - update
       - patch
-      - delete
+      - update
+      - watch
   - apiGroups:
       - ""
     resources:
       - services/status
-      - events
     verbs:
       - get
-      - update
-      - create
       - patch
+      - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app: autoneg
   name: autoneg-proxy-role
 rules:
   - apiGroups:
@@ -95,6 +104,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
+  labels:
+    app: autoneg
   name: autoneg-leader-election-rolebinding
   namespace: autoneg-system
 roleRef:
@@ -109,6 +120,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: autoneg
   name: autoneg-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -122,6 +135,8 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  labels:
+    app: autoneg
   name: autoneg-proxy-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -140,6 +155,7 @@ metadata:
     prometheus.io/scheme: https
     prometheus.io/scrape: "true"
   labels:
+    app: autoneg
     control-plane: controller-manager
   name: autoneg-controller-manager-metrics-service
   namespace: autoneg-system
@@ -149,12 +165,14 @@ spec:
       port: 8443
       targetPort: https
   selector:
+    app: autoneg
     control-plane: controller-manager
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app: autoneg
     control-plane: controller-manager
   name: autoneg-controller-manager
   namespace: autoneg-system
@@ -162,10 +180,12 @@ spec:
   replicas: 1
   selector:
     matchLabels:
+      app: autoneg
       control-plane: controller-manager
   template:
     metadata:
       labels:
+        app: autoneg
         control-plane: controller-manager
     spec:
       serviceAccount: autoneg-system
@@ -175,11 +195,14 @@ spec:
             - --upstream=http://127.0.0.1:8080/
             - --logtostderr=true
             - --v=10
-          image: gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0
+          image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
           name: kube-rbac-proxy
           ports:
             - containerPort: 8443
               name: https
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
         - args:
             - --metrics-addr=127.0.0.1:8080
             - --enable-leader-election
@@ -192,6 +215,11 @@ spec:
               cpu: 100m
               memory: 30Mi
             requests:
-              cpu: 20m
+              cpu: 100m
               memory: 20Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+      securityContext:
+        runAsNonRoot: true
       terminationGracePeriodSeconds: 10
