@@ -13,8 +13,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: PLACEHOLDER
-            source_directory: PLACEHOLDER
+          - name: broker-installer
+            source_directory: images/installer
+
+          - name: controller
+            source_directory: images/controller
+
+          - name: gce-proxy
+            source_directory: images/gce-proxy
 
     name: ${{ matrix.name }}${{ matrix.version_suffix }} image build & publish
     steps:
