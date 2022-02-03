@@ -185,7 +185,7 @@ spec:
             - --enable-leader-election
           command:
             - /manager
-          image: gcr.io/${PROJECT_ID}/kube-pod-broker-autoneg-controller:latest
+          image: ghcr.io/googlecloudplatform/gke-autoneg-controller/gke-autoneg-controller:v0.9.5
           name: manager
           resources:
             limits:
