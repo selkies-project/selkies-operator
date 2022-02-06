@@ -1,0 +1,7 @@
+name: Publish changed images
+
+on: workflow_dispatch
+
+jobs:
+  PLACEHOLDER:
+    runs-on: ubuntu-latest
