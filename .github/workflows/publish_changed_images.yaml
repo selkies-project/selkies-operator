@@ -1,7 +1,52 @@
 name: Publish changed images
 
-on: workflow_dispatch
+on:
+  push:
+    branches:
+      - dev
+      - master
+    paths:
+      - 'images/**'
+  workflow_dispatch:
 
 jobs:
-  PLACEHOLDER:
+  # Note: When modifying this job, copy modifications to all other workflows' image jobs.
+  changed_images:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: broker-installer
+            source_directory: images/installer
+            source_files_for_diff: images/installer
+
+          - name: controller
+            source_directory: images/controller
+            source_files_for_diff: images/controller
+
+          - name: gce-proxy
+            source_directory: images/gce-proxy
+            source_files_for_diff: images/gce-proxy
+
+    name: ${{ matrix.name }}${{ matrix.version_suffix }} image build & publish
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2 # This is for changed-files.
+
+      - id: check
+        name: Check for changes to ${{ matrix.name }} image source
+        uses: tj-actions/changed-files@v1.1.2
+        with:
+          files: ${{ matrix.source_files_for_diff }}
+
+      - name: Build & publish ${{ matrix.name }} image
+        if: steps.check.outputs.any_changed == 'true' || steps.check.outputs.any_deleted == 'true'
+        uses: ./.github/actions/build_and_publish_image
+        with:
+          build_args: ${{ matrix.build_args }}
+          github_personal_access_token: ${{ secrets.GITHUB_TOKEN }}
+          github_username: $GITHUB_ACTOR
+          image_name: ${{ matrix.name }}
+          image_source_directory: ${{ matrix.source_directory }}
+          image_version_1: $GITHUB_REF_NAME${{ matrix.version_suffix }}
