@@ -3,6 +3,7 @@ name: Publish all images
 on:
   push:
     branches:
+      - dev
       - master
     paths:
       - '.github/**'
