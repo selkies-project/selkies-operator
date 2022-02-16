@@ -438,6 +438,21 @@ func GetImagesOnNode() ([]DockerImage, error) {
 	return resp, nil
 }
 
+func CleanupDockerImagesOnNode() (string, error) {
+	out := ""
+	cmd := exec.Command("sh", "-c", "docker images --filter dangling=true -q | xargs -I {} docker rmi {}")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return out, fmt.Errorf("failed to clean node images, stdoutpipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return out, fmt.Errorf("failed to clean node images, command start: %v", err)
+	}
+	o, _ := ioutil.ReadAll(stdout)
+	out = string(o)
+	return out, nil
+}
+
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {

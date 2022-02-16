@@ -46,6 +46,9 @@ import (
 // job cleanup loop interval in seconds
 const jobCleanupInterval = 10
 
+// dangling image cleanup interval in hours
+const imageCleanupInterval = 3
+
 // new image check interval in seconds
 const newImagePullInterval = 300
 
@@ -154,6 +157,19 @@ func main() {
 		log.Printf("using out-of-cluster-config")
 		config = outOfClusterConfig
 	}
+
+	// Go routine to cleanup dangling images on node.
+	log.Printf("Cleaning dangling images")
+	if o, err := broker.CleanupDockerImagesOnNode(); err != nil {
+		log.Printf("ERROR: failed to clean dangling images: %v, %s", err, o)
+	}
+	go func() {
+		log.Printf("starting image cleanup worker")
+		if o, err := broker.CleanupDockerImagesOnNode(); err != nil {
+			log.Printf("ERROR: failed to clean dangling images: %v, %s", err, o)
+		}
+		time.Sleep(imageCleanupInterval * time.Hour)
+	}()
 
 	// Get docker config pull secrets
 	dockerConfigs := &broker.DockerConfigsSync{}
