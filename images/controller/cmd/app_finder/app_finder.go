@@ -260,6 +260,13 @@ func copyConfigMapDataIfChanged(cm broker.ConfigMapObject, tmpDirBase, destDir, 
 	if checksums[cacheKey], err = broker.ChecksumDeploy(tmpDir); err != nil {
 		return fmt.Errorf("failed to checksum build output directory: %v", err)
 	}
+	// Check if working manifests folder exist, if folder does not exist invalidate prevChecksum value
+	if prevChecksum != "" {
+		if _, err := os.Stat(destDir); os.IsNotExist(err) {
+			log.Printf("working manifests folder %s does not exist", destDir)
+			prevChecksum = ""
+		}
+	}
 	if prevChecksum != checksums[cacheKey] {
 		log.Printf("%s manifest checksum: %s", cacheKey, checksums[cacheKey])
 		if err := os.MkdirAll(path.Dir(destDir), os.ModePerm); err != nil {
