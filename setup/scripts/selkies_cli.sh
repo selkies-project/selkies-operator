@@ -81,8 +81,8 @@ case $ACTION in
             | jq -r '.apps[].name'
     ;;
 "start")
-    kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
-        curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XPOST localhost:8080/${APP}
+    RES=$(kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
+        curl -s -H "${AUTH_HEADER}: ${ACCOUNT}" -XPOST localhost:8080/${APP})
     STATUS=$(jq -r .status <<< $RES)
     if [[ "${STATUS}" =~ reservation ]]; then
         kubectl $CTX exec -n pod-broker-system -c pod-broker ${POD} -- \
