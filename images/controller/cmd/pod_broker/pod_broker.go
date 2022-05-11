@@ -204,7 +204,7 @@ func main() {
 				}
 
 				// Filter app by authorizedUsers if present.
-				if len(app.AuthorizedUsers) > 0 {
+				if app.AuthorizedUsers != nil {
 					found := false
 					for _, u := range app.AuthorizedUsers {
 						re, err := regexp.Compile(u)
@@ -303,7 +303,7 @@ func main() {
 		}
 
 		// Check per-app user authorization if present.
-		if len(app.AuthorizedUsers) > 0 {
+		if app.AuthorizedUsers != nil {
 			found := false
 			for _, u := range app.AuthorizedUsers {
 				re, err := regexp.Compile(u)

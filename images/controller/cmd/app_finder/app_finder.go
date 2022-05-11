@@ -152,6 +152,9 @@ func main() {
 				// Match on authz configmap name
 				if cm.Metadata.Name == authzCMName {
 					foundAuthzCM = true
+					if appConfig.Spec.AuthorizedUsers == nil {
+						appConfig.Spec.AuthorizedUsers = make([]string, 0)
+					}
 					// Extract authorization members and append them to the appConfig.Spec.AuthorizedUsers array.
 					for _, data := range cm.Data {
 						scanner := bufio.NewScanner(strings.NewReader(data))
