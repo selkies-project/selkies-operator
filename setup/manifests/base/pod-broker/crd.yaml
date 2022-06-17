@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Deprecated in v1.16 in favor of apiextensions.k8s.io/v1
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   # name must match the spec fields below, and be in the form: <plural>.<group>
@@ -28,6 +27,254 @@ spec:
       served: true
       # One and only one version must be marked as the storage version.
       storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - versions
+                - name
+                - displayName
+                - description
+                - bundle
+                - serviceName
+                - defaultRepo
+                - defaultTag
+              properties:
+                type:
+                  type: string
+                  enum: [statefulset, deployment]
+                version:
+                  type: string
+                name:
+                  type: string
+                displayName:
+                  type: string
+                description:
+                  type: string
+                metadata:
+                  type: object
+                icon:
+                  type: string
+                launchURL:
+                  type: string
+                disabled:
+                  type: boolean
+                authorizedUsers:
+                  type: array
+                  items:
+                    type: string
+                authorization:
+                  type: object
+                  required:
+                    - configMapRef
+                  properties:
+                    configMapRef:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+                bundle:
+                  type: object
+                  required:
+                    - configMapRef
+                  properties:
+                    configMapRef:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+                userBundles:
+                  type: array
+                  items:  
+                    type: object
+                    required:
+                      - configMapRef
+                    properties:
+                      configMapRef:
+                        type: object
+                        required:
+                          - name
+                        properties:
+                          name:
+                            type: string
+                deployment:
+                  type: object
+                  properties:
+                    replicas:
+                      type: integer
+                      minimum: 0
+                    selector:
+                      type: string
+                serviceName:
+                  type: string
+                defaultRepo:
+                  type: string
+                defaultTag:
+                  type: string
+                images:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      oldRepo:
+                        type: string
+                      newRepo:
+                        type: string
+                      newTag:
+                        type: string
+                      digest:
+                        type: string
+                disableOptions:
+                  type: boolean
+                userParams:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - displayName
+                      - type
+                      - default
+                    properties:
+                      name:
+                        type: string
+                      displayName:
+                        type: string
+                      type:
+                        type: string
+                        enum: ["bool", "string"]
+                      default:
+                        type: string
+                      ###
+                      # If type is string, an optional regexp pattern to validate against.
+                      # Used to prevent bad input from users setting parameters.
+                      ###
+                      regexp:
+                        type: string
+                ###
+                # Set this to false to enforce the authorization of the userWritableFields and userWritableParams
+                ###
+                enableUserConfigAuth:
+                  type: boolean
+                ###
+                # Authorization method of allowed user config fields (not params) that can be updated by users.
+                ###
+                userWritableFields:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - imageRepo
+                      - imageTag
+                      - nodeTier
+                ###
+                # Authorization method of allowed user config params that can be updated by users.
+                # example:
+                #   imageRepo
+                #   imageTag
+                #   enableAudio
+                ###
+                userWritableParams:
+                  type: array
+                  items:
+                    type: string
+                appParams:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - default
+                    properties:
+                      name:
+                        type: string
+                      displayName:
+                        type: string
+                      type:
+                        type: string
+                      default:
+                        type: string
+                appEnv:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - value
+                    properties:
+                      name:
+                        type: string
+                      value:
+                        type: string
+                shutdownHooks:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      container:
+                        type: string
+                      command:
+                        type: string
+                editors:
+                  type: array
+                  items:
+                    type: string
+                defaultTier:
+                  type: string
+                nodeTiers:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - nodeLabel
+                    properties:
+                      name:
+                        type: string
+                      nodeLabel:
+                        type: string
+                      resources:
+                        type: object
+                        properties:
+                          requests:
+                            type: object
+                            properties:
+                              cpu:
+                                type: object
+                                schema:
+                                  oneOf:
+                                    - type: string
+                                    - type: number
+                              memory:
+                                type: string
+                              ephemeral-storage:
+                                type: string
+                          limits:
+                            type: object
+                            properties:
+                              cpu:
+                                type: object
+                                schema:
+                                  oneOf:
+                                    - type: string
+                                    - type: number
+                              memory:
+                                type: string
+                              ephemeral-storage:
+                                type: string
   # either Namespaced or Cluster
   scope: Namespaced
   names:
@@ -41,255 +288,8 @@ spec:
     shortNames:
       - bac
   #preserveUnknownFields: false
-  validation:
-    openAPIV3Schema:
-      type: object
-      required:
-        - spec
-      properties:
-        spec:
-          type: object
-          required:
-            - version
-            - name
-            - displayName
-            - description
-            - bundle
-            - serviceName
-            - defaultRepo
-            - defaultTag
-          properties:
-            type:
-              type: string
-              enum: [statefulset, deployment]
-            version:
-              type: string
-            name:
-              type: string
-            displayName:
-              type: string
-            description:
-              type: string
-            metadata:
-              type: object
-            icon:
-              type: string
-            launchURL:
-              type: string
-            disabled:
-              type: boolean
-            authorizedUsers:
-              type: array
-              items:
-                type: string
-            authorization:
-              type: object
-              required:
-                - configMapRef
-              properties:
-                configMapRef:
-                  type: object
-                  required:
-                    - name
-                  properties:
-                    name:
-                      type: string
-            bundle:
-              type: object
-              required:
-                - configMapRef
-              properties:
-                configMapRef:
-                  type: object
-                  required:
-                    - name
-                  properties:
-                    name:
-                      type: string
-            userBundles:
-              type: array
-              items:  
-                type: object
-                required:
-                  - configMapRef
-                properties:
-                  configMapRef:
-                    type: object
-                    required:
-                      - name
-                    properties:
-                      name:
-                        type: string
-            deployment:
-              type: object
-              properties:
-                replicas:
-                  type: integer
-                  minimum: 0
-                selector:
-                  type: string
-            serviceName:
-              type: string
-            defaultRepo:
-              type: string
-            defaultTag:
-              type: string
-            images:
-              type: object
-              additionalProperties:
-                type: object
-                properties:
-                  name:
-                    type: string
-                  oldRepo:
-                    type: string
-                  newRepo:
-                    type: string
-                  newTag:
-                    type: string
-                  digest:
-                    type: string
-            disableOptions:
-              type: boolean
-            userParams:
-              type: array
-              items:
-                type: object
-                required:
-                  - name
-                  - displayName
-                  - type
-                  - default
-                properties:
-                  name:
-                    type: string
-                  displayName:
-                    type: string
-                  type:
-                    type: string
-                    enum: ["bool", "string"]
-                  default:
-                    type: string
-                  ###
-                  # If type is string, an optional regexp pattern to validate against.
-                  # Used to prevent bad input from users setting parameters.
-                  ###
-                  regexp:
-                    type: string
-            ###
-            # Set this to false to enforce the authorization of the userWritableFields and userWritableParams
-            ###
-            enableUserConfigAuth:
-              type: boolean
-            ###
-            # Authorization method of allowed user config fields (not params) that can be updated by users.
-            ###
-            userWritableFields:
-              type: array
-              items:
-                type: string
-                enum:
-                  - imageRepo
-                  - imageTag
-                  - nodeTier
-            ###
-            # Authorization method of allowed user config params that can be updated by users.
-            # example:
-            #   imageRepo
-            #   imageTag
-            #   enableAudio
-            ###
-            userWritableParams:
-              type: array
-              items:
-                type: string
-            appParams:
-              type: array
-              items:
-                type: object
-                required:
-                  - name
-                  - default
-                properties:
-                  name:
-                    type: string
-                  displayName:
-                    type: string
-                  type:
-                    type: string
-                  default:
-                    type: string
-            appEnv:
-              type: array
-              items:
-                type: object
-                required:
-                  - name
-                  - value
-                properties:
-                  name:
-                    type: string
-                  value:
-                    type: string
-            shutdownHooks:
-              type: array
-              items:
-                type: object
-                properties:
-                  selector:
-                    type: string
-                  container:
-                    type: string
-                  command:
-                    type: string
-            editors:
-              type: array
-              items:
-                type: string
-            defaultTier:
-              type: string
-            nodeTiers:
-              type: array
-              items:
-                type: object
-                required:
-                  - name
-                  - nodeLabel
-                properties:
-                  name:
-                    type: string
-                  nodeLabel:
-                    type: string
-                  resources:
-                    type: object
-                    properties:
-                      requests:
-                        type: object
-                        properties:
-                          cpu:
-                            schema:
-                              oneOf:
-                                - type: string
-                                - type: number
-                          memory:
-                            type: string
-                          ephemeral-storage:
-                            type: string
-                      limits:
-                        type: object
-                        properties:
-                          cpu:
-                            schema:
-                              oneOf:
-                                - type: string
-                                - type: number
-                          memory:
-                            type: string
-                          ephemeral-storage:
-                            type: string
 ---
-# Deprecated in v1.16 in favor of apiextensions.k8s.io/v1
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   # name must match the spec fields below, and be in the form: <plural>.<group>
@@ -304,6 +304,26 @@ spec:
       served: true
       # One and only one version must be marked as the storage version.
       storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                appName:
+                  type: string
+                user:
+                  type: string
+                imageRepo:
+                  type: string
+                imageTag:
+                  type: string
+                nodeTier:
+                  type: string
+                params:
+                  type: object
+
   # either Namespaced or Cluster
   scope: Namespaced
   names:
@@ -317,22 +337,3 @@ spec:
     shortNames:
       - bauc
   #preserveUnknownFields: false
-  validation:
-    openAPIV3Schema:
-      type: object
-      properties:
-        spec:
-          type: object
-          properties:
-            appName:
-              type: string
-            user:
-              type: string
-            imageRepo:
-              type: string
-            imageTag:
-              type: string
-            nodeTier:
-              type: string
-            params:
-              type: object
