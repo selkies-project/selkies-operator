@@ -23,12 +23,14 @@ resource "google_compute_global_address" "ingress" {
 # Access the oauth2 client id
 data "google_secret_manager_secret_version" "oauth2_client_id" {
   provider = google-beta
+  project = var.project_id
   secret   = "broker-oauth2-client-id"
 }
 
 # Access the oauth2 client secret
 data "google_secret_manager_secret_version" "oauth2_client_secret" {
   provider = google-beta
+  project = var.project_id
   secret   = "broker-oauth2-client-secret"
 }
 
@@ -130,7 +132,7 @@ resource "google_compute_target_https_proxy" "ingress" {
   project          = var.project_id
   name             = "istio-ingressgateway"
   url_map          = google_compute_url_map.ingress.self_link
-  ssl_certificates = concat(list(google_compute_managed_ssl_certificate.ingress.self_link), values(google_compute_managed_ssl_certificate.extras).*.self_link)
+  ssl_certificates = concat(tolist([google_compute_managed_ssl_certificate.ingress.self_link]), values(google_compute_managed_ssl_certificate.extras).*.self_link)
   ssl_policy       = var.custom_ssl_policy_enabled ? concat(google_compute_ssl_policy.ssl_policy.*.id, [""])[0] : null
 }
 

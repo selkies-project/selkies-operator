@@ -16,12 +16,12 @@
 
 terraform {
   backend "gcs" {}
-  required_version = ">= 0.12"
+  required_version = ">= 1.2.0"
   required_providers {
     external    = "~> 1.2.0"
-    google      = "~> 3.51, <4.0.0"
-    google-beta = "~> 3.51, <4.0.0, != 3.29.0"
-    kubernetes  = "~> 1.11.0"
+    google      = "~> 4.25.0, <4.25.6"
+    google-beta ="~> 4.25.0"
+    kubernetes  = "~> 2.11.0"
     template    = "~> 2.1"
     null        = "~> 2.1"
     random      = "~> 2.2"
