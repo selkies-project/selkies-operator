@@ -16,7 +16,7 @@
 
 module "broker" {
   source                    = "terraform-google-modules/kubernetes-engine/google//modules/beta-private-cluster-update-variant"
-  version                   = "21.1.0"
+  version                   = "21.2.0"
   project_id                = var.project_id
   release_channel           = var.release_channel
   name                      = "${var.name}-${var.region}"
@@ -27,8 +27,8 @@ module "broker" {
   ip_range_pods             = google_compute_subnetwork.broker.secondary_ip_range[0].range_name
   ip_range_services         = google_compute_subnetwork.broker.secondary_ip_range[1].range_name
   node_metadata             = "GKE_METADATA_SERVER"
-  create_service_account    = false
-  service_account           = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
+  create_service_account    = true
+  # service_account           = length(var.service_account) == 0 ? "broker@${var.project_id}.iam.gserviceaccount.com" : var.service_account
   remove_default_node_pool  = true
   network_policy            = var.network_policy
   master_ipv4_cidr_block    = var.ip_cidr_range.master != "" ? var.ip_cidr_range.master : local.default_ip_cidr_range.master

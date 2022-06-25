@@ -21,7 +21,7 @@
 
 timeout: 3600s
 substitutions:
-  _ACTION: destroy
+  _ACTION: apply
   _NAME: broker
   _OAUTH_APP_NAME: App Launcher
   _REGION:
