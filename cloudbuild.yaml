@@ -21,12 +21,12 @@
 
 timeout: 3600s
 substitutions:
-  _ACTION: apply
+  _ACTION: destroy
   _NAME: broker
   _OAUTH_APP_NAME: App Launcher
   _REGION:
   _USER:
-  _BUILD_IMAGES: "true"
+  _BUILD_IMAGES: "false"
   _ENABLE_COS_GPU: "true"
   _ENABLE_UBUNTU_GPU: "false"
   _WAIT_FOR_IAP: "true"

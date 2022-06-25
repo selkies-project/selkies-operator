@@ -52,7 +52,7 @@ terraform init -input=false \
 
 if [[ "${ACTION?}" == "destroy" ]]; then
     log_cyan "Running terraform destroy..."
-    terraform destroy -auto-approve -input=false
+    terraform destroy -auto-approve -input=false 
 elif [[ "${ACTION?}" == "plan" ]]; then
     log_cyan "Running terraform plan..."
     terraform plan -out terraform.tfplan -input=false
