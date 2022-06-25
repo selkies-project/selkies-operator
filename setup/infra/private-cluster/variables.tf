@@ -15,7 +15,9 @@
  */
 
 variable project_id {}
-variable region {}
+variable region {
+  default     = "us-west1"
+}
 
 variable release_channel {
   description = "Configuration options for the Release channels https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels"

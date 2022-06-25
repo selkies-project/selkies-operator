@@ -16,6 +16,7 @@
 
 data "google_compute_network" "broker" {
   name = var.name
+  project = var.project_id
 }
 
 resource "google_compute_subnetwork" "broker" {

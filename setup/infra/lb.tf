@@ -23,12 +23,14 @@ resource "google_compute_global_address" "ingress" {
 # Access the oauth2 client id
 data "google_secret_manager_secret_version" "oauth2_client_id" {
   provider = google-beta
+  project = var.project_id
   secret   = "broker-oauth2-client-id"
 }
 
 # Access the oauth2 client secret
 data "google_secret_manager_secret_version" "oauth2_client_secret" {
   provider = google-beta
+  project = var.project_id
   secret   = "broker-oauth2-client-secret"
 }
 
