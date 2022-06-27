@@ -26,7 +26,7 @@ substitutions:
   _OAUTH_APP_NAME: App Launcher
   _REGION:
   _USER:
-  _BUILD_IMAGES: "false"
+  _BUILD_IMAGES: "true"
   _ENABLE_COS_GPU: "true"
   _ENABLE_UBUNTU_GPU: "false"
   _WAIT_FOR_IAP: "true"
