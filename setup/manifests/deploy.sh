@@ -50,13 +50,16 @@ fi
 
 # Override ENDPOINT from Secret Manager
 CUSTOM_DOMAIN=""
-CUSTOM_DOMAIN_SECRET_VERSION=$(gcloud -q secrets versions list broker-custom-domain --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
-if [[ -n "${CUSTOM_DOMAIN_SECRET_VERSION}" ]]; then
-    CUSTOM_DOMAIN=$(gcloud secrets versions access ${CUSTOM_DOMAIN_SECRET_VERSION} --secret broker-custom-domain | xargs)
-fi
+for SECRET_NAME in broker-${CLUSTER_LOCATION}-custom-domain broker-custom-domain; do
+    CUSTOM_DOMAIN_SECRET_VERSION=$(gcloud -q secrets versions list ${SECRET_NAME} --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+    if [[ -n "${CUSTOM_DOMAIN_SECRET_VERSION}" ]]; then
+        CUSTOM_DOMAIN=$(gcloud secrets versions access ${CUSTOM_DOMAIN_SECRET_VERSION} --secret ${SECRET_NAME} | xargs)
+        log_green "INFO: Using custom domain from secret: ${SECRET_NAME}: ${CUSTOM_DOMAIN}"
+        break
+    fi
+done
 if [[ -n "${CUSTOM_DOMAIN}" ]]; then
     ENDPOINT="${CUSTOM_DOMAIN}"
-    log_green "INFO: Using custom domain for endpoint: '${ENDPOINT}'"
 fi
 export ENDPOINT
 
@@ -68,26 +71,6 @@ gcloud container clusters get-credentials ${CLUSTER_NAME} --region=${CLUSTER_LOC
 log_cyan "Installing CRDs"
 gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename /opt/istio-operator/deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml
 gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename base/pod-broker/crd.yaml
-
-# Install CNRM controller
-kubectl apply -f /opt/cnrm/install-bundle-workload-identity/crds.yaml
-mkdir -p base/cnrm-system/install-bundle
-cp /opt/cnrm/install-bundle-workload-identity/0-cnrm-system.yaml base/cnrm-system/install-bundle/
-sed -i 's/${PROJECT_ID?}/'${PROJECT_ID}'/g' \
-    base/cnrm-system/install-bundle/0-cnrm-system.yaml \
-    base/cnrm-system/patch-cnrm-system-namespace.yaml
-kubectl apply -k base/cnrm-system/
-
-# Wait for CNRM controller
-log_cyan "Waiting for pod 'cnrm-controller-manager-0'"
-until [[ -n $(kubectl get pod cnrm-controller-manager-0 -n cnrm-system -oname 2>/dev/null) ]]; do sleep 2; done
-kubectl wait pod cnrm-controller-manager-0 -n cnrm-system --for=condition=Ready --timeout=60s
-log_cyan "Pod 'cnrm-controller-manager-0' is ready"
-
-log_cyan "Waiting for Deployment 'cnrm-webhook-manager'"
-kubectl wait deploy cnrm-webhook-manager -n cnrm-system --for=condition=Available --timeout=600s
-kubectl wait pod -n cnrm-system -l cnrm.cloud.google.com/component=cnrm-webhook-manager --for=condition=Ready --timeout=600s
-log_cyan "Deployment 'cnrm-webhook-manager' is ready"
 
 # Install AutoNEG controller
 log_cyan "Installing AutoNEG controller..."
