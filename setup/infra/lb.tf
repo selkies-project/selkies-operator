@@ -72,6 +72,7 @@ resource "google_compute_firewall" "ingress-lb" {
 
   allow {
     protocol = "tcp"
+    ports    = ["8080", "15020"]
   }
 
   source_ranges = [
