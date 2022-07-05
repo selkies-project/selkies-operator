@@ -254,6 +254,7 @@ spec:
                             type: object
                             properties:
                               cpu:
+                                type: object
                                 schema:
                                   oneOf:
                                     - type: string
@@ -266,6 +267,7 @@ spec:
                             type: object
                             properties:
                               cpu:
+                                type: object
                                 schema:
                                   oneOf:
                                     - type: string
