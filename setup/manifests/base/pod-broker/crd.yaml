@@ -254,11 +254,7 @@ spec:
                             type: object
                             properties:
                               cpu:
-                                type: object
-                                schema:
-                                  oneOf:
-                                    - type: string
-                                    - type: number
+                                x-kubernetes-int-or-string: true
                               memory:
                                 type: string
                               ephemeral-storage:
@@ -267,11 +263,7 @@ spec:
                             type: object
                             properties:
                               cpu:
-                                type: object
-                                schema:
-                                  oneOf:
-                                    - type: string
-                                    - type: number
+                                x-kubernetes-int-or-string: true
                               memory:
                                 type: string
                               ephemeral-storage:
