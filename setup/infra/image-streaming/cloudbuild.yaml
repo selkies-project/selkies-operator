@@ -1,0 +1,63 @@
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+timeout: 10800s
+substitutions:
+  _ACTION: apply
+  _NAME: broker
+  _REGION: us-west1
+  _TIER3: "true"
+tags:
+  - selkies-node-pool-image-streaming
+  - selkies-image-streaming
+steps:
+  ###
+  # Create GCS bucket to store terraform state
+  ###
+  - name: "gcr.io/cloud-builders/gsutil"
+    id: "create-tf-state-bucket"
+    entrypoint: "/bin/bash"
+    args:
+      - "-xe"
+      - "-c"
+      - |
+        gsutil mb gs://${PROJECT_ID}-${_NAME}-tf-state || true
+    waitFor: ["-"]
+  ###
+  # Copy terraform binary
+  ###
+  - name: "hashicorp/terraform:1.2.0"
+    id: "terraform-download"
+    entrypoint: "/bin/sh"
+    args:
+      - "-exc"
+      - |
+        cp /bin/terraform /workspace/
+    waitFor: ["-"]
+
+  ###
+  # Apply terraform to create base infrastructure
+  ###
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: "terraform-apply"
+    entrypoint: "/workspace/deploy.sh"
+    env:
+      - PATH=/builder/google-cloud-sdk/bin/:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/workspace
+      - TF_VAR_project_id=${PROJECT_ID}
+      - TF_VAR_name=${_NAME}
+      - TF_VAR_region=${_REGION}
+      - TF_VAR_tier3_pool_enabled=${_TIER3}
+      - TERRAFORM_WORKSPACE_NAME=image-straming-${_REGION}
+      - ACTION=${_ACTION}
+    waitFor: ["terraform-download"]
