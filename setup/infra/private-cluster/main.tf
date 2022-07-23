@@ -36,6 +36,7 @@ module "broker" {
   enable_private_nodes      = true
   default_max_pods_per_node = var.max_pods_per_node
   gce_pd_csi_driver         = true
+  config_connector          = true
 
   depends_on = [
     google_compute_subnetwork.broker

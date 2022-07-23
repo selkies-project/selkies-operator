@@ -64,21 +64,17 @@ fi
 
 ###
 # Fetch logout URL from Secret Manager
+# Prefer regional named secret.
 ###
 LOGOUT_URL="https://${ENDPOINT}/_gcp_iap/clear_login_cookie"
-# First, try to get regional secret value.
-LOGOUT_URL_SECRET_VERSION=$(gcloud -q secrets versions list broker-logout-url-${REGION} --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
-if [[ -n "${LOGOUT_URL_SECRET_VERSION}" ]]; then
-  # Use regional value
-  LOGOUT_URL=$(gcloud secrets versions access ${LOGOUT_URL_SECRET_VERSION} --secret broker-logout-url-${REGION})
-else
-  # Try to get global value
-  LOGOUT_URL_SECRET_VERSION=$(gcloud -q secrets versions list broker-logout-url --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
+for SECRET_NAME in broker-${REGION}-logout-url broker-logout-url; do
+  LOGOUT_URL_SECRET_VERSION=$(gcloud -q secrets versions list ${SECRET_NAME} --sort-by=created --limit=1 --format='value(name)' 2>/dev/null || true)
   if [[ -n "${LOGOUT_URL_SECRET_VERSION}" ]]; then
-    # Use global value
-    LOGOUT_URL=$(gcloud secrets versions access ${LOGOUT_URL_SECRET_VERSION} --secret broker-logout-url)
+    LOGOUT_URL=$(gcloud secrets versions access ${LOGOUT_URL_SECRET_VERSION} --secret ${SECRET_NAME})
+    echo "INFO: Using logout URL from secret: ${SECRET_NAME}: ${LOGOUT_URL}"
+    break
   fi
-fi
+done
 
 ###
 # Fetch image puller enabled secret from Secret Manager
