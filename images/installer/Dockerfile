@@ -50,6 +50,9 @@ COPY --from=gke-deploy /gke-deploy /usr/local/bin/
 # Install kubectl
 COPY --from=kubectl /builder/google-cloud-sdk/bin/kubectl /usr/local/bin/kubectl
 
+# Install gke-gcloud-auth-plugin
+RUN gcloud components install gke-gcloud-auth-plugin --quiet
+
 # Download the istio operator release
 RUN mkdir -p /opt/istio-operator && cd /opt/istio-operator && \
     wget --timeout 2 --tries 5 -qO- https://github.com/istio/operator/archive/${ISTIO_OPERATOR_VERSION}.tar.gz | tar --strip-components=1 -zxf - 
