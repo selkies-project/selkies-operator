@@ -47,7 +47,7 @@ resource "google_container_node_pool" "tier3" {
     # Open ISSUE
     # https://github.com/hashicorp/terraform-provider-google/issues/10509
     gcfs_config {
-        enabled = true
+      enabled = true
     }
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform",

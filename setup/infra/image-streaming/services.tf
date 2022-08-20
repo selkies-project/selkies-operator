@@ -13,8 +13,8 @@
 # limitations under the License.
 resource "google_project_service" "containerfilesystem" {
   for_each = toset(var.gcp_service_list)
-  
-  project =  var.project_id
+
+  project = var.project_id
   service = each.key
 
   timeouts {
@@ -23,5 +23,5 @@ resource "google_project_service" "containerfilesystem" {
   }
 
   disable_dependent_services = true
-  disable_on_destroy = false
+  disable_on_destroy         = false
 }
