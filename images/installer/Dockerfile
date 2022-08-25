@@ -22,14 +22,14 @@ RUN apk add -u \
 
 ARG TERRAFORM_VERSION=1.2.3
 ARG KUSTOMIZE_VERSION=3.5.3
-ARG ISTIO_OPERATOR_VERSION=1.4.7
+# ARG ISTIO_OPERATOR_VERSION=1.4.7
 
+# istioctl and istio bundle to be installed if 1.14 not found.
+ENV LATEST_ISTIO=1.14.3
+ENV LATEST_ISTIO_MAJOR=1.14
 # istoctl capable of detecting version 1.4+
-ENV ISTIO_COMPAT=1.7.3
+ENV ISTIO_COMPAT=1.14.3
 
-# istioctl and istio bundle to be installed if 1.4 not found.
-ENV LATEST_ISTIO=1.7.3
-ENV LATEST_ISTIO_MAJOR=1.7
 
 # Install terraform
 RUN wget --timeout 2 --tries 5 https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
@@ -49,6 +49,8 @@ COPY --from=gke-deploy /gke-deploy /usr/local/bin/
 
 # Install kubectl
 COPY --from=kubectl /builder/google-cloud-sdk/bin/kubectl /usr/local/bin/kubectl
+# Install gke-gcloud-auth-plugin
+RUN gcloud components install gke-gcloud-auth-plugin --quiet
 
 # Install gke-gcloud-auth-plugin
 RUN gcloud components install gke-gcloud-auth-plugin --quiet
@@ -56,7 +58,6 @@ RUN gcloud components install gke-gcloud-auth-plugin --quiet
 # Download the istio operator release
 RUN mkdir -p /opt/istio-operator && cd /opt/istio-operator && \
     wget --timeout 2 --tries 5 -qO- https://github.com/istio/operator/archive/${ISTIO_OPERATOR_VERSION}.tar.gz | tar --strip-components=1 -zxf - 
-
 # Download compat istio release
 RUN mkdir -p /opt/istio-${ISTIO_COMPAT}/bin && cd /opt/istio-${ISTIO_COMPAT}/bin && \
     curl -L https://github.com/istio/istio/releases/download/${ISTIO_COMPAT}/istioctl-${ISTIO_COMPAT}-linux-amd64.tar.gz | tar zxvf - istioctl > istioctl && chmod +x istioctl

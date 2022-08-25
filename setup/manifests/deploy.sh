@@ -92,7 +92,7 @@ ISTIO_LATEST_INSTALLER="./install_istio_${LATEST_ISTIO_MAJOR}.sh"
 case "$ISTIO_VERSION" in
     1.4*) log_cyan "Installing istio 1.4" && ./install_istio_1.4.sh ;;
     1.7*) log_cyan "Installing istio 1.7" && ./install_istio_1.7.sh ;;
-    1.14.1*) log_cyan "Installing istio 1.14.1" && ./install_istio_1.14.1.sh ;;
+    1.14*) log_cyan "Installing istio 1.14" && ./install_istio_1.14.sh ;;
     * ) log_red "Unsupported istio version found: ${ISTIO_VERSION}, attempting latest installer." && ${ISTIO_LATEST_INSTALLER} ;;
 esac
 
