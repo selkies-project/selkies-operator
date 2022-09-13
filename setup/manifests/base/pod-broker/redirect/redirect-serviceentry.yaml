@@ -16,7 +16,7 @@
 # ServiceEntry for external broker redirect URL.
 # Required to do route to destinations outside of the cluster.
 ###
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
 metadata:
   name: pod-broker-redirect

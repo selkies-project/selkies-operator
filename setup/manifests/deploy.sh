@@ -55,21 +55,23 @@ for SECRET_NAME in broker-${CLUSTER_LOCATION}-custom-domain broker-custom-domain
     if [[ -n "${CUSTOM_DOMAIN_SECRET_VERSION}" ]]; then
         CUSTOM_DOMAIN=$(gcloud secrets versions access ${CUSTOM_DOMAIN_SECRET_VERSION} --secret ${SECRET_NAME} | xargs)
         log_green "INFO: Using custom domain from secret: ${SECRET_NAME}: ${CUSTOM_DOMAIN}"
+        echo "CUSTOM_DOMAIN=${CUSTOM_DOMAIN}"
         break
     fi
 done
-if [[ -n "${CUSTOM_DOMAIN}" ]]; then
+if [[ -n "${CUSTOM_DOMAIN}" ]] ; then
     ENDPOINT="${CUSTOM_DOMAIN}"
+    echo "here"
 fi
 export ENDPOINT
-
+log_cyan "CUSTOM_DOMAIN=${CUSTOM_DOMAIN},ENDPOINT=${ENDPOINT}"
 # Get cluster credentials
 log_cyan "Obtaining cluster credentials..."
 gcloud container clusters get-credentials ${CLUSTER_NAME} --region=${CLUSTER_LOCATION}
 
 # Install CRDs
 log_cyan "Installing CRDs"
-gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename /opt/istio-operator/deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml
+# gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename /opt/istio-operator/deploy/crds/istio_v1alpha2_istiocontrolplane_crd.yaml
 gke-deploy apply --project ${PROJECT_ID} --cluster ${CLUSTER_NAME} --location ${CLUSTER_LOCATION} --filename base/pod-broker/crd.yaml
 
 # Install AutoNEG controller
@@ -78,10 +80,10 @@ kubectl kustomize base/autoneg-system | sed 's/${PROJECT_ID}/'${PROJECT_ID}'/g' 
     kubectl apply -f -
 
 # Update istio ingressgateway service annotation with backend service name for autoneg.
-log_cyan "Updating ingress gateway autoneg annotation to match backend service: ${BACKEND_SERVICE}"
-sed -i \
-    -e "s|anthos.cft.dev/autoneg:.*|anthos.cft.dev/autoneg: '{\"name\":\"${BACKEND_SERVICE}\", \"max_rate_per_endpoint\":100}'|g" \
-        base/istio/istiocontrolplane.yaml base/istio/istiooperator-*.yaml
+# log_cyan "Updating ingress gateway autoneg annotation to match backend service: ${BACKEND_SERVICE}"
+# sed -i \
+#     -e "s|anthos.cft.dev/autoneg:.*|anthos.cft.dev/autoneg: '{\"name\":\"${BACKEND_SERVICE}\", \"max_rate_per_endpoint\":100}'|g" \
+#         base/istio/istiocontrolplane.yaml base/istio/istiooperator-*.yaml
 
 # Check installed istio version, default is latest.
 log_cyan "Checking existing istio installation"
@@ -90,6 +92,7 @@ ISTIO_LATEST_INSTALLER="./install_istio_${LATEST_ISTIO_MAJOR}.sh"
 case "$ISTIO_VERSION" in
     1.4*) log_cyan "Installing istio 1.4" && ./install_istio_1.4.sh ;;
     1.7*) log_cyan "Installing istio 1.7" && ./install_istio_1.7.sh ;;
+    1.14*) log_cyan "Installing istio 1.14" && ./install_istio_1.14.sh ;;
     * ) log_red "Unsupported istio version found: ${ISTIO_VERSION}, attempting latest installer." && ${ISTIO_LATEST_INSTALLER} ;;
 esac
 

@@ -258,7 +258,7 @@ echo "INFO: Created pod broker service account patch: ${DEST}"
 DEST="${DEST_DIR}/patch-pod-broker-gateway.yaml"
 
 cat > "${DEST}" << EOF
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: pod-broker-gateway
@@ -283,7 +283,7 @@ echo "INFO: Created pod broker gateway patch: ${DEST}"
 DEST="${DEST_DIR}/patch-pod-broker-virtual-service.yaml"
 
 cat > "${DEST}" << EOF
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: pod-broker
