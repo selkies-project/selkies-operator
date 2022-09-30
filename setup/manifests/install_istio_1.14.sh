@@ -27,6 +27,7 @@ function log_red() { echo -e "${RED}$@${NC}"; }
 [[ -z "${ISTIOCTL}" ]] && log_red "Missing ISTIOCTL env var." && exit 1
 
 log_cyan "Installing Istio control plane..."
+kubectl get namespace istio-system || kubectl create ns istio-system
 ${ISTIOCTL} manifest generate --set profile=default | kubectl apply -f -
 ## wait for EnvoyFilter crd to be ready and reapply 
 sleep 60
