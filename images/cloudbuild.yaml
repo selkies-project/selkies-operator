@@ -18,9 +18,11 @@ substitutions:
   _USE_CACHE: "false"
   _IMAGE_PREFIX: kube-pod-broker
   _IMAGE_TAG: latest
-
+  _TARGET_REPO: us-docker.pkg.dev/${PROJECT_ID}/selkies-images
+# 
 options:
   machineType: N1_HIGHCPU_8
+  dynamic_substitutions: true
 
 tags:
   - selkies-images
@@ -31,15 +33,23 @@ images: [
     # installer
     'gcr.io/${PROJECT_ID}/broker-installer:${_IMAGE_TAG}',
     'gcr.io/${PROJECT_ID}/broker-installer:latest',
+    '${_TARGET_REPO}/broker-installer:${_IMAGE_TAG}',
+    '${_TARGET_REPO}/broker-installer:latest',
     # controller
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG}',
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:latest',
+    '${_TARGET_REPO}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG}',
+    '${_TARGET_REPO}/${_IMAGE_PREFIX}-controller:latest',
     # broker gce proxy
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG}',
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:latest',
+    '${_TARGET_REPO}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG}',
+    '${_TARGET_REPO}/${_IMAGE_PREFIX}-gce-proxy:latest',
     # autoneg controller
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:${_IMAGE_TAG}',
     'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:latest',
+    '${_TARGET_REPO}/${_IMAGE_PREFIX}-autoneg-controller:${_IMAGE_TAG}',
+    '${_TARGET_REPO}/${_IMAGE_PREFIX}-autoneg-controller:latest'
 ]
 
 steps:
@@ -53,14 +63,22 @@ steps:
   waitFor: ["-"]
 - name: 'gcr.io/cloud-builders/docker'
   id: installer
-  args: [
-            'build',
-            '-t', 'gcr.io/${PROJECT_ID}/broker-installer:${_IMAGE_TAG}',
-            '--cache-from', 'gcr.io/${PROJECT_ID}/broker-installer:latest',
-            'installer'
-        ]
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      docker build -t gcr.io/${PROJECT_ID}/broker-installer:${_IMAGE_TAG} --cache-from gcr.io/${PROJECT_ID}/broker-installer:latest installer
+      docker tag gcr.io/${PROJECT_ID}/broker-installer:${_IMAGE_TAG}  ${_TARGET_REPO}/broker-installer:${_IMAGE_TAG}
+      docker tag gcr.io/${PROJECT_ID}/broker-installer:${_IMAGE_TAG}  ${_TARGET_REPO}/broker-installer:latest
+
+      apt install jq -y
+      export DOCKER_CLI_EXPERIMENTAL=enabled
+      chmod +x setup/scripts/check_docker_image.sh
+      ./setup/scripts/check_docker_image.sh -i gcr.io/${PROJECT_ID}/broker-installer:${_IMAGE_TAG} || true
   waitFor:
-    - installer-pull
+    -  installer-pull
+
+
 - name: 'gcr.io/cloud-builders/docker'
   id: installer-tags
   args: [
@@ -81,14 +99,21 @@ steps:
   waitFor: ["-"]
 - name: 'gcr.io/cloud-builders/docker'
   id: controller
-  args: [
-            'build',
-            '-t', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG}',
-            '--cache-from', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:latest',
-            'controller'
-        ]
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      docker build -t gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG} --cache-from gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:latest controller
+      docker tag gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG}  ${_TARGET_REPO}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG}
+      docker tag gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG}  ${_TARGET_REPO}/${_IMAGE_PREFIX}-controller:latest
+
+      apt install jq -y
+      export DOCKER_CLI_EXPERIMENTAL=enabled
+      chmod +x setup/scripts/check_docker_image.sh
+      ./setup/scripts/check_docker_image.sh -i gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-controller:${_IMAGE_TAG} || true
   waitFor:
-    - controller-pull
+    -  controller-pull
+
 - name: 'gcr.io/cloud-builders/docker'
   id: controller-tags
   args: [
@@ -106,17 +131,23 @@ steps:
   id: gce-proxy-pull
   entrypoint: 'bash'
   args: ["-c", "if [[ '${_USE_CACHE}' == 'true' ]]; then (docker pull gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:latest || exit 0); fi"]
-  waitFor: ["-"]
+  waitFor: ["-"]  
 - name: 'gcr.io/cloud-builders/docker'
   id: gce-proxy
-  args: [
-            'build',
-            '-t', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG}',
-            '--cache-from', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:latest',
-            'gce-proxy'
-        ]
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      docker build -t gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG} --cache-from gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:latest gce-proxy
+      docker tag gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG}  ${_TARGET_REPO}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG}
+      docker tag gcr.io/${PROJECT_ID}/broker-installer:${_IMAGE_TAG}  ${_TARGET_REPO}/${_IMAGE_PREFIX}-gce-proxy:laest
+      apt install jq -y
+      export DOCKER_CLI_EXPERIMENTAL=enabled
+       chmod +x setup/scripts/check_docker_image.sh
+      ./setup/scripts/check_docker_image.sh -i gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-gce-proxy:${_IMAGE_TAG} || true
   waitFor:
-    - gce-proxy-pull
+    -  gce-proxy-pull
+
 - name: 'gcr.io/cloud-builders/docker'
   id: gce-proxy-tags
   args: [
@@ -160,14 +191,19 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   id: autoneg-controller-docker
   dir: gke-autoneg-controller
-  args: [
-            'build',
-            '-t', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:${_IMAGE_TAG}',
-            '--cache-from', 'gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:latest',
-            '.'
-        ]
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      docker build -t gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:${_IMAGE_TAG} --cache-from gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:latest .
+      docker tag gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:${_IMAGE_TAG}  ${_TARGET_REPO}/${_IMAGE_PREFIX}-autoneg-controller:${_IMAGE_TAG}
+      docker tag gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:${_IMAGE_TAG}  ${_TARGET_REPO}/${_IMAGE_PREFIX}-autoneg-controller:laest
+      apt install jq -y
+      export DOCKER_CLI_EXPERIMENTAL=enabled
+      chmod +x setup/scripts/check_docker_image.sh
+      ./setup/scripts/check_docker_image.sh -i gcr.io/${PROJECT_ID}/${_IMAGE_PREFIX}-autoneg-controller:${_IMAGE_TAG} || true
   waitFor:
-    - autoneg-controller-build
+    -  autoneg-controller-build
 - name: 'gcr.io/cloud-builders/docker'
   id: autoneg-controller-tags
   args: [

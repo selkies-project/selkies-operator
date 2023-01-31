@@ -30,6 +30,7 @@ substitutions:
   _ENABLE_COS_GPU: "true"
   _ENABLE_UBUNTU_GPU: "false"
   _WAIT_FOR_IAP: "true"
+  _TIER3: "true"
 tags:
   - selkies-deploy
 steps:
@@ -243,3 +244,35 @@ steps:
         timeout 1200 bash ./setup/scripts/wait_for_iap.sh broker@${PROJECT_ID}.iam.gserviceaccount.com $${CLIENT_ID} $${ENDPOINT}
     waitFor:
       - fix-autoneg
+  
+  ###
+  # Create image streaming
+  ###
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: "deploy-img-streaming"
+    dir: "setup/infra/image-streaming"
+    args:
+      - "builds"
+      - "submit"
+      - "--substitutions=_NAME=${_NAME},_ACTION=${_ACTION},_REGION=${_REGION},_TIER3=${_TIER3}"
+    waitFor:
+      - "wait-for-iap-2"
+
+    ### 
+  # Enable image-streaming feature on existing cluster
+  # Note: Changing the Image streaming setting on a cluster causes GKE to recreate nodes in node pools that inherit the cluster-level setting. Although GKE respects maintenance windows when recreating nodes, 
+  # your workloads might still experience disruptions.
+  ###
+  - name: "gcr.io/cloud-builders/kubectl"
+    id: enable-image-streaming
+    entrypoint: "bash"
+    args:
+      - "-exec"
+      - |
+        gcloud container clusters update "$${CLOUDSDK_CONTAINER_CLUSTER}" --enable-image-streaming --project="$${PROJECT_ID}" --region="$${CLOUDSDK_COMPUTE_REGION}"
+    env:
+      - "PROJECT_ID=${PROJECT_ID}"
+      - "CLOUDSDK_CORE_PROJECT=${PROJECT_ID}"
+      - "CLOUDSDK_COMPUTE_REGION=${_REGION}"
+      - "CLOUDSDK_CONTAINER_CLUSTER=${_NAME}-${_REGION}"
+    waitFor: ["deploy-img-streaming"]
