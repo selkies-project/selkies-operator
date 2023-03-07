@@ -5,7 +5,7 @@ go 1.15
 require (
 	cloud.google.com/go v0.83.0
 	cloud.google.com/go/pubsub v1.3.1
-	github.com/Masterminds/goutils v1.1.0 // indirect
+	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/google/go-containerregistry v0.6.0
